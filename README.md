@@ -45,6 +45,10 @@ supabase/
    está armado en `src/services/auth.ts`.
 5. `npx expo start` y abrir en Expo Go o en un emulador.
 
+`npx expo start --web` (Iniciar app en la web)
+`npx expo start --tunnel` (Iniciar app en expo go)
+
+
 ## Roles
 
 `usuarios.rol` es `'usuario' | 'administrador'` (RF0): una sola tabla, no
