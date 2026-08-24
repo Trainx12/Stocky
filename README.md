@@ -48,6 +48,50 @@ supabase/
 `npx expo start --web` (Iniciar app en la web)
 `npx expo start --tunnel` (Iniciar app en expo go)
 
+## Probar el login de Google en desarrollo
+
+Supabase exige que la URL de redirect post-login esté cargada, exacta,
+en el dashboard (Authentication > URL Configuration > Redirect URLs).
+Ya están cargadas:
+
+- `http://localhost:*/**` — cubre `npx expo start --web` en cualquier
+  puerto, de cualquier compu. No hace falta tocar nada para probar el
+  login por web.
+- `stocky://auth/callback` — la usa el **development build** (ver abajo).
+  Fija para siempre, no depende de la red.
+
+**Expo Go es la única forma que sí requiere retocar esto**: cada
+`exp://<host>/--/auth/callback` que genera Expo Go depende de la IP/host
+de la sesión de `npx expo start` (o del subdominio si usás `--tunnel`), y
+Supabase exige match exacto (no acepta wildcard para `exp://`). Si
+necesitás probar el login puntualmente ahí: mirá qué `redirectTo` genera
+la app (podés loggearlo temporalmente en `src/services/auth.ts`) y
+agregalo tal cual a la lista de Redirect URLs. Además, redes con
+aislamiento de clientes (WiFi de facultades/empresas) pueden bloquear
+Expo Go y `--tunnel` por completo — en ese caso, usar el hotspot del
+celular como red intermedia suele resolverlo.
+
+### Development build (recomendado para probar login de Google)
+
+Para no tener que repetir el punto anterior en cada compu/red, el equipo
+usa un **development build** (una app instalada de verdad, no Expo Go)
+con [EAS Build](https://docs.expo.dev/build/introduction/):
+
+```bash
+npx eas-cli login              # una vez, con tu cuenta de Expo
+npx eas-cli build:configure    # una vez por proyecto (ya está hecho)
+npx eas-cli build --profile development --platform android
+```
+
+Instalá el APK que te da al final (QR o link) en tu celular, y corré:
+
+```bash
+npx expo start --dev-client
+```
+
+Solo hace falta una build nueva si se agrega una librería con código
+nativo (por ejemplo, cámara o audio en sprints 5–8); para cambios de
+JS/TS normales, el hot reload funciona igual que con Expo Go.
 
 ## Roles
 
