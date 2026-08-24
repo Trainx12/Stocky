@@ -7,6 +7,8 @@ interface AuthContextValue {
   session: Session | null;
   usuario: Usuario | null;
   loading: boolean;
+  /** true mientras se busca/refresca la fila de `usuario`, independiente del `loading` inicial de sesión. */
+  usuarioLoading: boolean;
   refreshUsuario: () => Promise<void>;
 }
 
@@ -22,17 +24,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
+  const [usuarioLoading, setUsuarioLoading] = useState(false);
 
   async function fetchUsuario(userId: string) {
+    setUsuarioLoading(true);
     const { data, error } = await supabase.from('usuarios').select('*').eq('id', userId).single();
 
     if (error) {
       // No hay fila todavía (p. ej. el trigger de alta recién está corriendo)
       // o el usuario fue deshabilitado; se resuelve en próximos sprints.
+      // Se loguea el motivo real: sin esto, un error de red o de RLS se
+      // ve idéntico a "usuario recién creado" y es imposible de debuggear.
+      console.warn('[Stocky] No se pudo cargar el perfil de usuario:', error.message);
       setUsuario(null);
+      setUsuarioLoading(false);
       return;
     }
     setUsuario(data);
+    setUsuarioLoading(false);
   }
 
   useEffect(() => {
@@ -59,11 +68,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       usuario,
       loading,
+      usuarioLoading,
       refreshUsuario: async () => {
         if (session?.user) await fetchUsuario(session.user.id);
       },
     }),
-    [session, usuario, loading]
+    [session, usuario, loading, usuarioLoading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

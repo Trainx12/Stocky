@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
@@ -12,16 +12,31 @@ import { colors, spacing, typography } from '../theme';
  * próximos a vencer, etc.) es RF5/RF7 y llega en sprint 2 y 3.
  */
 export function HomeScreen() {
-  const { usuario } = useAuth();
+  const { usuario, usuarioLoading, refreshUsuario } = useAuth();
 
   return (
     <ScreenContainer style={styles.container}>
       <View style={styles.center}>
-        <Text style={styles.titulo}>¡Hola{usuario?.nombre ? `, ${usuario.nombre}` : ''}!</Text>
-        <Text style={styles.subtitulo}>
-          Rol: {usuario?.rol ?? 'usuario'}
-          {'\n'}Todavía no tenés un hogar creado (llega en el próximo sprint).
-        </Text>
+        {usuarioLoading && !usuario ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : usuario ? (
+          <>
+            <Text style={styles.titulo}>¡Hola{usuario.nombre ? `, ${usuario.nombre}` : ''}!</Text>
+            <Text style={styles.subtitulo}>
+              Rol: {usuario.rol}
+              {'\n'}Todavía no tenés un hogar creado (llega en el próximo sprint).
+            </Text>
+          </>
+        ) : (
+          // No confundir con "rol: usuario": acá no sabemos el rol
+          // todavía, puede ser un error de red o de RLS, no un default.
+          <>
+            <Text style={styles.subtitulo}>
+              No se pudo cargar tu perfil. Revisá tu conexión e intentá de nuevo.
+            </Text>
+            <Button label="Reintentar" variant="outline" onPress={() => refreshUsuario()} />
+          </>
+        )}
       </View>
       <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} />
     </ScreenContainer>
