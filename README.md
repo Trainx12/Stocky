@@ -5,6 +5,9 @@
 App móvil de inventario de hogar (React Native + Expo + TypeScript, backend
 en Supabase). Trabajo integrador — Seminario Integrador 2026, UTN.
 
+> Si algo de login/Expo Go/Supabase falla y "ya pasó antes", revisá
+> primero [docs/incidentes-sprint1.md](docs/incidentes-sprint1.md).
+
 ## Stack
 
 - React Native + Expo (SDK 57) + TypeScript
@@ -46,7 +49,7 @@ supabase/
 5. `npx expo start` y abrir en Expo Go o en un emulador.
 
 `npx expo start --web` (Iniciar app en la web)
-`npx expo start --tunnel` (Iniciar app en expo go)
+`npx expo start` (Iniciar app en expo)
 
 ## Probar el login de Google en desarrollo
 
