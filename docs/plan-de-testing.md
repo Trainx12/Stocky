@@ -16,17 +16,22 @@ vez.
 
 - **Ruta crítica**: la secuencia mínima de pasos que, si falla, bloquea
   todo lo demás. Si un sprint tiene más de una ruta crítica, se numeran.
-- **Testing de Development (Julieta)**: lo que se prueba *mientras* se
-  desarrolla, antes de pasarlo a QA. Es responsabilidad de quien
-  programa la funcionalidad, no de Nicolás.
-- **Testing de QA (Nicolás)**: lo que se prueba *después*, con la
-  funcionalidad ya integrada, buscando romperla y verificando que no
-  rompió nada de sprints anteriores (regresión).
+- **Testing de quien desarrolla**: lo que se prueba *mientras* se
+  programa, antes de pasarlo a revisión. Los roles de desarrollo y QA
+  rotan entre el equipo — esto es responsabilidad de quien esté
+  programando esa funcionalidad puntual, sea quien sea ese sprint, no
+  de quien vaya a revisarla después.
+- **Testing de quien esté de turno como QA**: lo que se prueba
+  *después*, con la funcionalidad ya integrada, buscando romperla y
+  verificando que no rompió nada de sprints anteriores (regresión). Al
+  rotar los roles, quien revisa un sprint puede ser quien programó el
+  anterior — igual tiene que probarlo con la misma exigencia que si
+  fuera código de otra persona.
 - **Regresión obligatoria**: rutas críticas de sprints *anteriores* que
   QA tiene que volver a correr en este sprint, porque el código nuevo
   pudo haberlas afectado sin que nadie lo note (el ejemplo que diste vos:
-  el OCR rompe el ingreso manual, y development no se da cuenta porque
-  no está mirando esa pantalla).
+  el OCR rompe el ingreso manual, y quien lo programó no se da cuenta
+  porque no está mirando esa pantalla).
 
 ---
 
@@ -40,7 +45,7 @@ vez.
 5. Cerrar la app y reabrirla con sesión activa → entra directo a Home
    (no debería pedir loguearse de nuevo).
 
-**Testing de Development:**
+**Testing de quien desarrolla:**
 - Probar el flujo completo al menos una vez en Expo Go/dev client real,
   no solo en web.
 - Verificar en Supabase (Table Editor) que el login crea la fila en
@@ -72,7 +77,7 @@ puerta de entrada a todo lo demás.
 3. Editar nombre del hogar → se refleja para todos los miembros.
 4. Eliminar/salir del hogar → dejás de ver sus datos.
 
-**Testing de Development:**
+**Testing de quien desarrolla:**
 - Confirmar que las policies de RLS de `hogares` siguen andando después
   de cualquier cambio (correr `get_advisors` de seguridad si se tocó
   una migración).
@@ -107,7 +112,7 @@ puerta de entrada a todo lo demás.
 4. Buscar por nombre → filtra correctamente.
 5. Filtrar por categoría → solo muestra esa categoría.
 
-**Testing de Development:**
+**Testing de quien desarrolla:**
 - Probar con cantidades en 0, negativas (debería rechazarse o
   clampearse, no romper la UI) y números muy grandes.
 - Probar el buscador con texto vacío, con acentos, y con mayúsculas.
@@ -140,7 +145,7 @@ invitaciones).
 4. Producto sin fecha de vencimiento → no genera ninguna alerta (no
    debe romper ni mostrar "vencido" por error).
 
-**Testing de Development:**
+**Testing de quien desarrolla:**
 - Probar fechas límite: hoy, ayer (ya vencido), muy en el futuro, y
   fecha inválida/vacía.
 - Confirmar que **no** rompió el ABM de productos del Sprint 3 (agregar
@@ -190,12 +195,12 @@ como "testing":
    (mostrar texto crudo o permitir carga manual), nunca una pantalla en
    blanco o un crash.
 
-**Testing de Development:**
+**Testing de quien desarrolla:**
 - Probar con el set de tickets que juntó QA en el Sprint 5.
 - Simular que la Edge Function devuelve error (network, timeout) y
   confirmar que la UI no se cuelga.
 - **Esto es justo el escenario que mencionaste vos:** antes de dar por
-  cerrado este sprint, development tiene que volver a probar el alta
+  cerrado este sprint, quien lo desarrolla tiene que volver a probar el alta
   **manual** de productos (Sprint 3) para confirmar que agregar la
   pantalla de OCR no rompió el flujo manual (por ejemplo, si ambos
   flujos terminan llamando a la misma función de guardar producto y se
@@ -203,7 +208,8 @@ como "testing":
 
 **Testing de QA:**
 - Confirmar que el alta manual de productos (Sprint 3) sigue
-  funcionando igual — no asumir que development ya lo probó bien.
+  funcionando igual — no asumir que ya se probó bien solo porque lo
+  hizo la misma persona que después revisa.
 - Probar cancelar la confirmación a mitad de camino (no debería guardar
   nada parcial).
 - Fotos en mal estado, tickets no argentinos/formato raro, fotos que no
@@ -228,7 +234,7 @@ versión de ABM de productos por voz.
 3. Audio ambiguo o inentendible → mensaje claro, no guarda nada al
    azar.
 
-**Testing de Development:**
+**Testing de quien desarrolla:**
 - Repetir la misma verificación cruzada del Sprint 6: agregar el flujo
   de voz no debe romper ni el alta manual (Sprint 3) ni el alta por
   OCR (Sprint 6).
@@ -254,7 +260,7 @@ versión de ABM de productos por voz.
 4. Producto por debajo de `stock_minimo` → genera alerta visual
    distinta a la de vencimiento (no deberían confundirse en el theme).
 
-**Testing de Development:**
+**Testing de quien desarrolla:**
 - Confirmar que deshabilitar un usuario efectivamente le corta el
   acceso (probar con la sesión de ese usuario ya abierta: ¿se corta en
   el momento, o recién en el próximo login?, documentar cuál es el
