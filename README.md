@@ -7,6 +7,9 @@ en Supabase). Trabajo integrador — Seminario Integrador 2026, UTN.
 
 > Si algo de login/Expo Go/Supabase falla y "ya pasó antes", revisá
 > primero [docs/incidentes-sprint1.md](docs/incidentes-sprint1.md).
+>
+> Para saber qué probar en cada sprint (y qué le toca a development vs.
+> QA), ver [docs/plan-de-testing.md](docs/plan-de-testing.md).
 
 ## Stack
 
