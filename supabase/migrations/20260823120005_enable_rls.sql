@@ -57,6 +57,8 @@ create policy "usuarios_update_propio_o_admin"
 -- ---------------------------------------------------------------------------
 -- productos
 -- ---------------------------------------------------------------------------
+-- Regla simple: solo se ve/toca lo del propio hogar (o cualquier cosa, si
+-- sos admin). No hay excepción de "ver compañeros" acá como en usuarios.
 alter table public.productos enable row level security;
 
 create policy "productos_select_propio_hogar_o_admin"

@@ -20,8 +20,12 @@ create table if not exists public.productos (
 
 comment on table public.productos is 'Inventario de un hogar (RF7). fecha_vencimiento y alerta_vencimiento_habilitada cubren RF2/RF3.';
 
+-- Casi todas las queries filtran por hogar_id (RLS lo hace en cada
+-- consulta), así que conviene indexarlo desde ya.
 create index if not exists productos_hogar_id_idx on public.productos (hogar_id);
 
+-- Trigger genérico: pisa updated_at con la hora actual en cada UPDATE,
+-- para no tener que acordarse de setearlo a mano desde el cliente.
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql

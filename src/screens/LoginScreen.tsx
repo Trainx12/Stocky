@@ -15,6 +15,7 @@ import { colors, spacing, typography } from '../theme';
 export function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
+  // Dispara el login y muestra el spinner del botón mientras se resuelve.
   async function handleGoogleLogin() {
     setLoading(true);
     try {

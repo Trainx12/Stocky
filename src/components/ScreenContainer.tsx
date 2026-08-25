@@ -13,6 +13,8 @@ interface ScreenContainerProps {
 /** Envoltorio estándar de pantalla: safe area + fondo + padding consistente. */
 export function ScreenContainer({ children, style, noPadding }: ScreenContainerProps) {
   return (
+    // SafeAreaView evita que el contenido quede debajo del notch/barra de
+    // estado o los botones del sistema.
     <SafeAreaView style={styles.safeArea}>
       <View style={[styles.content, !noPadding && styles.padded, style]}>{children}</View>
     </SafeAreaView>

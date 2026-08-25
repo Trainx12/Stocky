@@ -18,8 +18,10 @@ export function HomeScreen() {
     <ScreenContainer style={styles.container}>
       <View style={styles.center}>
         {usuarioLoading && !usuario ? (
+          // Caso 1: todavía se está trayendo el perfil de la base.
           <ActivityIndicator color={colors.primary} />
         ) : usuario ? (
+          // Caso 2: ya tenemos el perfil, mostramos sus datos reales.
           <>
             <Text style={styles.titulo}>¡Hola{usuario.nombre ? `, ${usuario.nombre}` : ''}!</Text>
             <Text style={styles.subtitulo}>
@@ -28,8 +30,8 @@ export function HomeScreen() {
             </Text>
           </>
         ) : (
-          // No confundir con "rol: usuario": acá no sabemos el rol
-          // todavía, puede ser un error de red o de RLS, no un default.
+          // Caso 3: terminó de cargar pero no hay datos (error de red/RLS).
+          // No confundir con "rol: usuario": acá no sabemos el rol, no es un default.
           <>
             <Text style={styles.subtitulo}>
               No se pudo cargar tu perfil. Revisá tu conexión e intentá de nuevo.

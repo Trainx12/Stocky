@@ -17,6 +17,7 @@ import { supabase } from '../lib/supabase';
  * ver .env.example y supabase/functions/*.
  */
 
+// Un producto "candidato" detectado por OCR o por voz, todavía sin guardar.
 export interface ProductoReconocido {
   nombre: string;
   cantidad?: number;
@@ -40,6 +41,7 @@ export async function reconocerProductosDeTicket(
   return data as ProductoReconocido[];
 }
 
+// Resultado de leer una fecha de vencimiento en una foto del envase.
 export interface VencimientoReconocido {
   fecha_vencimiento: string | null; // ISO date, null si no se pudo detectar
   confianza?: number;
@@ -62,6 +64,7 @@ export async function reconocerVencimientoDeFoto(
   return data as VencimientoReconocido;
 }
 
+// Qué acción pidió el usuario por voz, y sobre qué producto.
 export interface ComandoDeVozInterpretado {
   accion: 'alta' | 'baja' | 'modificacion';
   producto: ProductoReconocido;

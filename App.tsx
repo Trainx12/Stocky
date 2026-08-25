@@ -16,6 +16,9 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
 
 export default function App() {
+  // Carga las fuentes que usa src/theme/typography.ts. Hasta que terminen
+  // de cargar, no se muestra ninguna pantalla (evita ver texto con la
+  // fuente del sistema por una fracción de segundo).
   const [poppinsLoaded] = usePoppinsFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -32,6 +35,10 @@ export default function App() {
     );
   }
 
+  // SafeAreaProvider: necesario para que ScreenContainer sepa dónde están
+  // los bordes seguros. AuthProvider: sesión/usuario disponibles para toda
+  // la app. RootNavigator: decide qué pantallas mostrar (ver sección 7 de
+  // docs/arquitectura-del-codigo.md).
   return (
     <SafeAreaProvider>
       <AuthProvider>

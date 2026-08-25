@@ -21,8 +21,11 @@ WebBrowser.maybeCompleteAuthSession();
  * este flujo ya queda listo para ese momento.
  */
 export async function signInWithGoogle() {
+  // A dónde tiene que volver el navegador cuando termine el login.
   const redirectTo = Linking.createURL('auth/callback');
 
+  // Paso 1: le pedimos a Supabase la URL de Google, sin que intente
+  // redirigir solo (skipBrowserRedirect) porque acá lo abrimos nosotros.
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -34,16 +37,18 @@ export async function signInWithGoogle() {
   if (error) throw error;
   if (!data?.url) throw new Error('Supabase no devolvió una URL de autenticación de Google.');
 
+  // Paso 2: abrimos esa URL en una pestaña de navegador dentro de la app,
+  // y esperamos a que redirija de vuelta a `redirectTo`.
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
   if (result.type !== 'success' || !result.url) {
     throw new Error('El login con Google fue cancelado o no se completó.');
   }
 
-  // Supabase devuelve los tokens en el fragment de la URL
-  // (`stocky://auth/callback#access_token=...&refresh_token=...`), no en
-  // el query string, así que `Linking.parse` (pensado para `?query`) no
-  // sirve acá: hay que parsear el fragment a mano.
+  // Paso 3: sacar los tokens de la URL de vuelta. Supabase los manda en
+  // el fragment (`stocky://auth/callback#access_token=...&refresh_token=...`),
+  // no en el query string, así que `Linking.parse` (pensado para `?query`)
+  // no sirve acá: hay que parsear el fragment a mano.
   const fragment = result.url.split('#')[1] ?? '';
   const fragmentParams = new URLSearchParams(fragment);
 
@@ -57,6 +62,9 @@ export async function signInWithGoogle() {
     throw new Error('La respuesta de Google no incluyó los tokens de sesión esperados.');
   }
 
+  // Paso 4: con los tokens en mano, activamos la sesión de verdad en el
+  // cliente de Supabase. A partir de acá, AuthContext se entera solo
+  // (escucha los cambios de sesión) y actualiza toda la app.
   const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -66,6 +74,7 @@ export async function signInWithGoogle() {
   return sessionData.session;
 }
 
+// Cierra la sesión activa (borra el token guardado y avisa a AuthContext).
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;

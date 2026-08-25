@@ -1,3 +1,5 @@
+// Polyfill de la API `URL`, que supabase-js necesita y React Native no
+// trae nativamente.
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
@@ -32,8 +34,8 @@ export const supabase = createClient<Database>(
   supabaseAnonKey || 'placeholder-anon-key',
   {
     auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
+      storage: AsyncStorage, // guarda la sesión en el dispositivo entre aperturas de la app
+      autoRefreshToken: true, // renueva el token solo antes de que expire
       persistSession: true,
       // En React Native no hay URL de navegador que parsear al volver de un
       // login OAuth; el flujo se resuelve manualmente en services/auth.ts.

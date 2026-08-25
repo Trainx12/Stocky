@@ -5,12 +5,14 @@
  */
 export type RolUsuario = 'usuario' | 'administrador';
 
+// Espejo de la tabla public.hogares.
 export interface Hogar {
   id: string;
   nombre: string;
   created_at: string;
 }
 
+// Espejo de la tabla public.usuarios.
 export interface Usuario {
   id: string; // Igual a auth.users.id (1 a 1 con la cuenta de Supabase Auth)
   hogar_id: string | null; // Un usuario pertenece a un único hogar (o ninguno todavía)
@@ -28,6 +30,7 @@ export interface Usuario {
  */
 export type UnidadProducto = 'unidad' | 'kg' | 'g' | 'l' | 'ml' | 'paquete';
 
+// Espejo de la tabla public.productos.
 export interface Producto {
   id: string;
   hogar_id: string; // Un producto siempre pertenece a un hogar (Hogar compone Producto)
@@ -50,6 +53,9 @@ export interface Producto {
 export interface Database {
   public: {
     Tables: {
+      // Row = lo que devuelve un SELECT. Insert/Update = lo que acepta
+      // .insert()/.update(): todos los campos opcionales salvo los que
+      // se marcan con Pick(), que son obligatorios para crear la fila.
       hogares: {
         Row: Hogar;
         Insert: Partial<Hogar> & Pick<Hogar, 'nombre'>;

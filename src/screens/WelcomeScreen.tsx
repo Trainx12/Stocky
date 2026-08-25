@@ -9,6 +9,8 @@ import type { AuthStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
+// Primera pantalla que ve alguien sin sesión: logo + botón para arrancar
+// el onboarding.
 export function WelcomeScreen({ navigation }: Props) {
   return (
     <ScreenContainer style={styles.container}>

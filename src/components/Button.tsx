@@ -21,9 +21,12 @@ interface ButtonProps {
  * pantalla reimplemente su propio degradé/estado de loading.
  */
 export function Button({ label, onPress, variant = 'primary', loading, disabled, style }: ButtonProps) {
+  // "outline" no lleva degradé, los otros dos sí (cada uno con su paleta).
   const isGradient = variant === 'primary' || variant === 'secondary';
   const colorsForGradient = variant === 'secondary' ? gradients.secondary : gradients.primary;
 
+  // Contenido interno, igual para las tres variantes: texto o spinner
+  // mientras `loading` esté activo.
   const content = (
     <View style={styles.content}>
       {loading ? (
@@ -41,6 +44,8 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
     </View>
   );
 
+  // Variantes con degradé: el <LinearGradient> pinta el fondo, el
+  // TouchableOpacity de afuera es el que recibe el toque.
   if (isGradient) {
     return (
       <TouchableOpacity
@@ -61,6 +66,7 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
     );
   }
 
+  // Variante "outline": fondo liso con borde, sin degradé.
   return (
     <TouchableOpacity
       activeOpacity={0.7}

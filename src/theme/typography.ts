@@ -13,6 +13,7 @@ export const fontFamily = {
   bodyBold: 'Poppins_700Bold',
 } as const;
 
+// Escala de tamaños de fuente en px, de más chico a más grande.
 export const fontSize = {
   xs: 12,
   sm: 14,
@@ -23,6 +24,8 @@ export const fontSize = {
   display: 34,
 } as const;
 
+// Estilos de texto ya combinados (fuente + tamaño + interlineado), listos
+// para pisar directo en un StyleSheet: `...typography.h1`.
 export const typography = {
   h1: { fontFamily: fontFamily.headingBold, fontSize: fontSize.display, lineHeight: 40 },
   h2: { fontFamily: fontFamily.headingBold, fontSize: fontSize.xxl, lineHeight: 34 },

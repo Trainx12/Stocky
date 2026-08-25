@@ -12,6 +12,7 @@ import { colors, spacing, typography } from '../theme';
 export function Logo({ size = 96 }: { size?: number }) {
   return (
     <View style={styles.wrapper}>
+      {/* Badge con emoji de casa: reemplazar por <Image> cuando esté el logo real */}
       <View style={[styles.badge, { width: size, height: size, borderRadius: size / 3 }]}>
         <Text style={{ fontSize: size * 0.5 }}>🏠</Text>
       </View>

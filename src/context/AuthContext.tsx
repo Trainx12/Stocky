@@ -45,12 +45,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Al arrancar la app: ¿ya había una sesión guardada en el dispositivo?
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       if (data.session?.user) fetchUsuario(data.session.user.id);
       setLoading(false);
     });
 
+    // De ahí en más: cada vez que cambia la sesión (login, logout, refresh
+    // de token), nos enteramos acá y actualizamos usuario/session solos.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
@@ -60,9 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Limpieza: dejar de escuchar cuando el AuthProvider se desmonta.
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Lo que le llega a cualquier pantalla que use useAuth().
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -79,6 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Hook para leer sesión/usuario/rol desde cualquier pantalla:
+// const { usuario } = useAuth();
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth debe usarse dentro de un <AuthProvider>');

@@ -33,6 +33,8 @@ export const palette = {
   black: '#1B1B1F',
 } as const;
 
+// Grises/blancos para fondos, bordes y texto — no forman parte de la
+// identidad de marca, se usan en casi todas las pantallas.
 export const neutral = {
   background: '#FAFAFA',
   surface: '#FFFFFF',
@@ -54,11 +56,15 @@ export const stockStatus = {
   expired: palette.danger,
 } as const;
 
+// Pares de colores para <LinearGradient>, usados en Button.tsx (variantes
+// "primary" y "secondary").
 export const gradients = {
   primary: [palette.primary, palette.primaryDark] as const,
   secondary: [palette.secondary, palette.secondaryDark] as const,
 };
 
+// Todo junto en un solo objeto, para poder importar `colors.primary`,
+// `colors.background`, `colors.stockStatus.ok`, etc. desde un solo lugar.
 export const colors = {
   ...palette,
   ...neutral,

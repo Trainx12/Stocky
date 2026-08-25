@@ -38,7 +38,7 @@ const slides: Slide[] = [
 ];
 
 export function OnboardingScreen({ navigation }: Props) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(0); // qué slide se está mostrando (0, 1 o 2)
   const isLast = index === slides.length - 1;
   const slide = slides[index];
 
@@ -49,6 +49,7 @@ export function OnboardingScreen({ navigation }: Props) {
         <Text style={styles.titulo}>{slide.titulo}</Text>
         <Text style={styles.descripcion}>{slide.descripcion}</Text>
 
+        {/* Puntitos indicadores de progreso (uno por slide, el actual más ancho) */}
         <View style={styles.dots}>
           {slides.map((_, i) => (
             <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
@@ -56,6 +57,7 @@ export function OnboardingScreen({ navigation }: Props) {
         </View>
       </View>
 
+      {/* En el último slide el botón pasa a Login; antes, solo avanza el índice */}
       <Button
         label={isLast ? 'Continuar' : 'Siguiente'}
         onPress={() => (isLast ? navigation.navigate('Login') : setIndex((i) => i + 1))}

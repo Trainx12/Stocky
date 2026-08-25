@@ -13,6 +13,7 @@ import type { AppStackParamList, AuthStackParamList } from '../types/navigation'
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
 
+// Pantallas que ve alguien sin sesión iniciada.
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -23,6 +24,7 @@ function AuthNavigator() {
   );
 }
 
+// Pantallas para alguien ya logueado.
 function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
@@ -39,6 +41,8 @@ function AppNavigator() {
 export function RootNavigator() {
   const { session, loading } = useAuth();
 
+  // Todavía no sabemos si hay sesión guardada o no: mostramos un spinner
+  // en vez de "parpadear" entre Welcome y Home mientras se resuelve.
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
@@ -47,5 +51,6 @@ export function RootNavigator() {
     );
   }
 
+  // Con o sin sesión, se muestra un stack completo distinto.
   return <NavigationContainer>{session ? <AppNavigator /> : <AuthNavigator />}</NavigationContainer>;
 }

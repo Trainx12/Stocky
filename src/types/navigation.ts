@@ -4,6 +4,7 @@
  * RootNavigator pueda renderizar uno u otro según haya sesión, sin mezclar
  * pantallas de un flujo con el otro en un único param list gigante.
  */
+// `undefined` = la pantalla no recibe parámetros de navegación.
 export type AuthStackParamList = {
   Welcome: undefined;
   Onboarding: undefined;
