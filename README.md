@@ -49,7 +49,8 @@ supabase/
 5. `npx expo start` y abrir en Expo Go o en un emulador.
 
 `npx expo start --web` (Iniciar app en la web)
-`npx expo start` (Iniciar app en expo)
+`npx expo start` (Base)
+`npx expo start --dev-client` (Iniciar en expo.dev)
 
 ## Probar el login de Google en desarrollo
 
