@@ -9,6 +9,20 @@ export type RolUsuario = 'usuario' | 'administrador';
 export interface Hogar {
   id: string;
   nombre: string;
+  // Código corto para que otro usuario se una a este hogar (RPC unirse_a_hogar).
+  codigo_invitacion: string;
+  created_at: string;
+}
+
+/**
+ * Espejo de la tabla public.hogar_miembros: relación N a N entre
+ * usuarios y hogares (un usuario puede pertenecer a más de un hogar).
+ * `usuarios.hogar_id` sigue existiendo aparte como "hogar activo" (el que
+ * se muestra en Home), no reemplaza a esta tabla.
+ */
+export interface HogarMiembro {
+  hogar_id: string;
+  usuario_id: string;
   created_at: string;
 }
 
@@ -46,9 +60,25 @@ export interface Producto {
 }
 
 /**
+ * Truco de tipos: supabase-js chequea `Row`/`Returns` contra
+ * `Record<string, unknown>` para saber si el schema es válido, y una
+ * `interface` con nombre (a diferencia de un tipo "objeto literal") no
+ * pasa ese chequeo estructural aunque tenga exactamente las mismas
+ * propiedades — es una particularidad conocida de TypeScript. Envolver
+ * acá con un mapped type "aplana" la interface a un objeto literal
+ * equivalente y arregla el problema sin duplicar cada campo a mano.
+ */
+type AsRecord<T> = { [K in keyof T]: T[K] };
+
+/**
  * Tipado mínimo del esquema para pasarle a `createClient<Database>(...)`
  * de supabase-js y obtener autocompletado/chequeo de tipos en las queries.
  * Se amplía a medida que se agreguen tablas en próximos sprints.
+ *
+ * `Views` y `Relationships` están vacíos/declarados a mano (no generados
+ * con la CLI de Supabase): supabase-js 2.112 exige esa forma exacta para
+ * poder tipar tanto `.rpc(...)` como los selects anidados del estilo
+ * `.select('hogares(*)')` que usa src/services/hogares.ts.
  */
 export interface Database {
   public: {
@@ -57,19 +87,56 @@ export interface Database {
       // .insert()/.update(): todos los campos opcionales salvo los que
       // se marcan con Pick(), que son obligatorios para crear la fila.
       hogares: {
-        Row: Hogar;
+        Row: AsRecord<Hogar>;
         Insert: Partial<Hogar> & Pick<Hogar, 'nombre'>;
         Update: Partial<Hogar>;
+        Relationships: [];
+      };
+      hogar_miembros: {
+        Row: AsRecord<HogarMiembro>;
+        Insert: Partial<HogarMiembro> & Pick<HogarMiembro, 'hogar_id' | 'usuario_id'>;
+        Update: Partial<HogarMiembro>;
+        // Declara el FK a `hogares` a mano, para que
+        // `.from('hogar_miembros').select('hogares(*)')` tipe bien.
+        Relationships: [
+          {
+            foreignKeyName: 'hogar_miembros_hogar_id_fkey';
+            columns: ['hogar_id'];
+            isOneToOne: false;
+            referencedRelation: 'hogares';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       usuarios: {
-        Row: Usuario;
+        Row: AsRecord<Usuario>;
         Insert: Partial<Usuario> & Pick<Usuario, 'id' | 'email'>;
         Update: Partial<Usuario>;
+        Relationships: [];
       };
       productos: {
-        Row: Producto;
+        Row: AsRecord<Producto>;
         Insert: Partial<Producto> & Pick<Producto, 'hogar_id' | 'nombre'>;
         Update: Partial<Producto>;
+        Relationships: [];
+      };
+    };
+    Views: {};
+    // RPCs de src/services/hogares.ts (definidas en
+    // supabase/migrations/20260826130000_hogares_multi_membresia.sql).
+    // Tipadas acá para que supabase.rpc(...) chequee nombre/args/retorno.
+    Functions: {
+      crear_hogar: {
+        Args: { p_nombre: string };
+        Returns: AsRecord<Hogar>;
+      };
+      unirse_a_hogar: {
+        Args: { p_codigo: string };
+        Returns: AsRecord<Hogar>;
+      };
+      salir_de_hogar: {
+        Args: { p_hogar_id: string };
+        Returns: void;
       };
     };
   };
