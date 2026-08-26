@@ -19,6 +19,7 @@ alter table public.hogares
 create or replace function public.generar_codigo_invitacion()
 returns text
 language plpgsql
+set search_path = public
 as $$
 declare
   chars text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -94,10 +95,14 @@ create policy "hogar_miembros_select_propio_o_hogar_compartido_o_admin"
     or public.es_administrador()
   );
 
-create policy "hogar_miembros_insert_propio"
-  on public.hogar_miembros for insert
-  to authenticated
-  with check (usuario_id = auth.uid());
+-- Sumarse a un hogar SOLO puede pasar por crear_hogar()/unirse_a_hogar()
+-- (que validan el código de invitación). Una policy de INSERT del tipo
+-- "with check (usuario_id = auth.uid())" dejaría que cualquier usuario
+-- inserte su propia membresía en CUALQUIER hogar_id sin conocer el código,
+-- salteándose por completo el control de acceso de RF6. Por eso acá se
+-- revoca el INSERT directo a nivel tabla: solo las RPCs (que son
+-- SECURITY DEFINER y bypasean la RLS) pueden crear filas en esta tabla.
+revoke insert on public.hogar_miembros from authenticated, anon;
 
 create policy "hogar_miembros_delete_propio_o_admin"
   on public.hogar_miembros for delete
