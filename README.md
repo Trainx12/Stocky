@@ -26,10 +26,13 @@ en Supabase). Trabajo integrador — Seminario Integrador 2026, UTN.
 ```
 src/
   screens/      Pantallas (una por archivo, agrupan su propia lógica de UI)
-  components/   Piezas de UI reutilizables (Button, ScreenContainer, Logo)
+  components/   Piezas de UI reutilizables (Button, ScreenContainer, Logo,
+                 Header, BottomNavBar, ManageHomesSheet, HogarFormModal,
+                 ManageHomesListModal, SectionCard)
   navigation/    RootNavigator: decide stack de auth vs. stack principal
   context/       AuthContext: sesión de Supabase + perfil/rol del usuario
-  services/      Llamadas a Supabase Auth y a las Edge Functions externas
+  services/      Llamadas a Supabase Auth, hogares (crear/unirse/salir) y
+                 a las Edge Functions externas
   lib/           Cliente de Supabase configurado (lib/supabase.ts)
   theme/         Colores, tipografía y spacing (única fuente de verdad de diseño)
   types/         Tipos espejo del esquema SQL + tipos de navegación
@@ -126,6 +129,27 @@ Los tests mockean Supabase/expo-web-browser/expo-linking — no hacen
 llamadas de red reales ni necesitan `.env` configurado. A medida que se
 agregue lógica de negocio nueva (ABM de hogar, cálculo de stock, etc.),
 conviene sumarle su test al lado, en el mismo commit.
+
+## Home y hogares (RF5/RF6)
+
+Al loguearse, la pantalla principal (`src/screens/HomeScreen.tsx`) muestra
+un header con saludo + logo, accesos rápidos, y una barra de navegación
+inferior fija (Inicio/Búsqueda/Notificaciones/Perfil). Un long-press sobre
+el ícono de Perfil abre el bottom sheet "Gestionar Mis Hogares"
+(`src/components/ManageHomesSheet.tsx`), con dos opciones:
+
+- **Crear Nuevo Hogar** → `HogarFormModal` (modo `crear`).
+- **Administrar Mis Hogares** → `ManageHomesListModal`: lista los hogares
+  del usuario con opción de salir de cada uno, y desde ahí también se
+  puede unir a otro por código de invitación.
+
+Un usuario puede pertenecer a **más de un hogar** a la vez (RF6): la
+relación real vive en la tabla `hogar_miembros` (N a N), mientras que
+`usuarios.hogar_id` sigue existiendo como "hogar activo" (el que se
+muestra en Home). Las tres operaciones (crear, unirse por código, salir)
+son funciones de Postgres (RPC) por ser atómicas — ver
+`supabase/migrations/20260826130000_hogares_multi_membresia.sql` y su
+wrapper en `src/services/hogares.ts`.
 
 ## Roles
 
