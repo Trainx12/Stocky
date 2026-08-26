@@ -41,6 +41,9 @@ supabase/.branches/
 # typescript
 *.tsbuildinfo
 
+# jest
+coverage/
+
 # generated native folders
 /ios
 /android

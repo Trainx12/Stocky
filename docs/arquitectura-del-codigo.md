@@ -264,7 +264,7 @@ comentario `TODO` apuntando a qué sprint le toca la lógica real.
 
 ---
 
-## 13. Config del proyecto: `app.json`, `eas.json`, `tsconfig.json`
+## 13. Config del proyecto: `app.json`, `eas.json`, `tsconfig.json`, `babel.config.js`
 
 - **`app.json`**: config de Expo. Lo más importante para el equipo:
   `"scheme": "stocky"` (el deep link que usa el login de Google fuera
@@ -276,7 +276,26 @@ comentario `TODO` apuntando a qué sprint le toca la lógica real.
   (`developmentClient: true`), para el dev client que reemplaza a Expo
   Go y no depende de la red (ver incidente 9).
 - **`tsconfig.json`**: config de TypeScript, extiende la base de Expo.
-  Excluye `supabase/functions` por el tema de Deno mencionado arriba.
+  Excluye `supabase/functions` por el tema de Deno mencionado arriba, y
+  fija `"types": ["jest"]` para que los archivos `*.test.ts` compilen
+  (sin eso, TypeScript no reconoce `describe`/`it`/`expect` aunque
+  `@types/jest` esté instalado).
+- **`babel.config.js`**: necesario para que Jest sepa transformar
+  JSX/TypeScript (`babel-preset-expo`). Se agregó recién al armar los
+  tests — antes no hacía falta un archivo propio porque Metro (el
+  bundler de Expo) usa un preset por default.
+
+---
+
+## 14. Tests: `*.test.ts` junto al código que prueban
+
+Los tests (Jest + preset `jest-expo`) viven al lado del archivo que
+prueban, no en una carpeta `__tests__/` aparte (`auth.test.ts` junto a
+`auth.ts`, etc.) — así queda obvio qué código tiene cobertura con solo
+mirar la carpeta. Ver [README](../README.md#tests) para correrlos y qué
+cubren hoy. Todos mockean sus dependencias externas
+(`jest.mock('../lib/supabase')`, etc.): son tests de la lógica propia,
+no de integración real contra Supabase.
 
 ---
 

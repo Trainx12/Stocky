@@ -104,6 +104,29 @@ Solo hace falta una build nueva si se agrega una librería con código
 nativo (por ejemplo, cámara o audio en sprints 5–8); para cambios de
 JS/TS normales, el hot reload funciona igual que con Expo Go.
 
+## Tests
+
+```bash
+npm test          # corre toda la suite una vez
+npm run test:watch  # la deja corriendo y re-testea al guardar
+```
+
+Usa [Jest](https://jestjs.io/) con el preset `jest-expo`. Hoy cubre la
+lógica pura que ya existe (no hay tests de pantallas/UI todavía):
+
+- `src/services/auth.test.ts` — el parseo de tokens de la vuelta del
+  login de Google (justo la parte que rompió más de una vez durante el
+  desarrollo, ver [docs/incidentes-sprint1.md](docs/incidentes-sprint1.md)).
+- `src/services/externalApis.test.ts` — que cada wrapper de OCR/voz llame
+  a la Edge Function correcta con el body correcto.
+- `src/theme/index.test.ts` — que la jerarquía de colores semánticos no
+  se rompa sin querer.
+
+Los tests mockean Supabase/expo-web-browser/expo-linking — no hacen
+llamadas de red reales ni necesitan `.env` configurado. A medida que se
+agregue lógica de negocio nueva (ABM de hogar, cálculo de stock, etc.),
+conviene sumarle su test al lado, en el mismo commit.
+
 ## Roles
 
 `usuarios.rol` es `'usuario' | 'administrador'` (RF0): una sola tabla, no

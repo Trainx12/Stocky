@@ -339,11 +339,10 @@ dispare):
 - Confirmar que la app "se siente bien" en un dispositivo real (fluidez,
   vibración, permisos del sistema operativo).
 
-**Para llegar a un "testeo en masa" de verdad** (correr todo esto con
-un solo comando, cada vez que se agrega algo) lo que falta es armar una
-suite de tests automatizados (Jest para lógica pura, y algo tipo
-Maestro/Detox para flujos de pantalla en el celular). No existe hoy en
-el proyecto. Si quieren, lo puedo armar en paralelo a partir del Sprint
-3 o 4 (cuando ya haya suficiente lógica de negocio como para que valga
-la pena), pero es una decisión de alcance del equipo, no algo que haría
-sin que me lo pidan.
+**Actualización:** ya está armado Jest (`npm test`, ver
+[README](../README.md#tests)), con tests de la lógica pura que existía
+hasta ahora (login de Google, wrappers de OCR/voz, theme). Eso sí puedo
+correrlo yo con un solo comando cada vez que se agrega o toca algo. Lo
+que todavía falta para un "testeo en masa" completo de pantallas reales
+en el celular es algo tipo Maestro/Detox (e2e) — eso sigue pendiente,
+recomendado recién más adelante (Sprint 6-7) según lo charlado.
