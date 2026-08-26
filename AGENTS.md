@@ -29,9 +29,13 @@ ver docs/plan-de-testing.md).
 6. Después de mergear, borrar la rama (`git push origin --delete
    feature/<nombre>`) para no acumular ramas viejas.
 
-**Excepción:** cambios chicos que no son una funcionalidad (typos,
-ajustes de documentación, config) pueden ir directo a `main` sin rama,
-a criterio de quien los hace.
+**Ya no hay excepción para cambios chicos.** `main` tiene protección de
+rama activada en GitHub (Require a pull request before merging): **todo
+push directo a `main` es rechazado por el servidor**, sea un typo, un
+ajuste de doc, o una funcionalidad entera — no depende del criterio de
+quien commitea. Incluso para un cambio de una línea: rama corta
+(`docs/<algo>` o `chore/<algo>` si no es una feature) → push → PR →
+aprobación (1 requerida) → merge → borrar la rama.
 
 Esta regla es para cualquier Claude que trabaje en este repo: si te
 piden implementar una funcionalidad nueva y estás parado en `main`,
