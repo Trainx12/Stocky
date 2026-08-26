@@ -38,9 +38,23 @@ export async function salirDeHogar(hogarId: string): Promise<void> {
 // Lista todos los hogares a los que pertenece el usuario logueado (no
 // solo el "activo"), para la pantalla/sheet de "Administrar Mis Hogares".
 export async function listarMisHogares(): Promise<Hogar[]> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+
+  const userId = userData.user?.id;
+  if (!userId) return [];
+
+  // OJO: no alcanza con dejar que la RLS "filtre sola". La policy de
+  // hogar_miembros también deja ver todo a un admin (es_administrador()),
+  // así que sin este .eq() explícito, una cuenta admin vería acá los
+  // hogares de CUALQUIER usuario mezclados con los propios — encontrado
+  // en QA (ver PR #1): la pantalla dice "Tus hogares activos", tiene que
+  // filtrar por el usuario actual sin importar qué tan permisiva sea la
+  // RLS para ese rol.
   const { data, error } = await supabase
     .from('hogar_miembros')
     .select('hogares(*)')
+    .eq('usuario_id', userId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
