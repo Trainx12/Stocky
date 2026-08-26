@@ -6,7 +6,8 @@ App móvil de inventario de hogar (React Native + Expo + TypeScript, backend
 en Supabase). Trabajo integrador — Seminario Integrador 2026, UTN.
 
 > Si algo de login/Expo Go/Supabase falla y "ya pasó antes", revisá
-> primero [docs/incidentes-sprint1.md](docs/incidentes-sprint1.md).
+> primero [docs/incidentes-sprint1.md](docs/incidentes-sprint1.md) y
+> [docs/incidentes-sprint2.md](docs/incidentes-sprint2.md).
 >
 > Para saber qué probar en cada sprint (según quién esté de turno como
 > dev o como QA — los roles rotan), ver
