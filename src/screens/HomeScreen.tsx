@@ -20,11 +20,11 @@ import { colors, spacing, typography } from '../theme';
  * entrar a la app: header con saludo + logo, contenido con accesos rápidos
  * a lo que ya existe (hogar, productos) y nav bar inferior fija.
  *
- * "Tus hogares activos" y "Actividad reciente" muestran estados vacíos por
- * ahora: el modelo de datos de `hogares` ya existe (ver src/types/database.ts)
- * pero todavía no hay pantallas para crear/listar hogares ni un log de
- * actividad (RF de sprints siguientes). Se deja la estructura visual lista
- * para no tener que rehacer el layout cuando esas features lleguen.
+ * "Tus hogares activos" ya lista los hogares reales del usuario (RF5/RF6,
+ * ver src/services/hogares.ts). "Actividad reciente" sigue mostrando un
+ * estado vacío a propósito: todavía no existe ningún log de actividad que
+ * mostrar ahí (RF de un sprint siguiente) — se deja la estructura visual
+ * lista para no tener que rehacer el layout cuando esa parte llegue.
  */
 export function HomeScreen() {
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();

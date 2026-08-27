@@ -125,6 +125,10 @@ lógica pura que ya existe (no hay tests de pantallas/UI todavía):
   a la Edge Function correcta con el body correcto.
 - `src/theme/index.test.ts` — que la jerarquía de colores semánticos no
   se rompa sin querer.
+- `src/services/hogares.test.ts` — crear/unirse/salir de un hogar llaman
+  a la RPC correcta, y `listarMisHogares` filtra explícito por el usuario
+  logueado (regresión del bug de QA en
+  [docs/incidentes-sprint2.md](docs/incidentes-sprint2.md)).
 
 Los tests mockean Supabase/expo-web-browser/expo-linking — no hacen
 llamadas de red reales ni necesitan `.env` configurado. A medida que se
