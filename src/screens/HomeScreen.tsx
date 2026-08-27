@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   hogarAcciones: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: spacing.md,
   },
   hogarAccionButton: {
     padding: spacing.xs,

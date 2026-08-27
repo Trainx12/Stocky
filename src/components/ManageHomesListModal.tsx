@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   rowActions: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: spacing.md,
   },
   accionButton: {
     padding: spacing.xs,
