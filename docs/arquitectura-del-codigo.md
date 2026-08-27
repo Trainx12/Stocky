@@ -126,6 +126,18 @@ para el historial de bugs que aparecieron acá):
 `signOut()` es mucho más simple: solo le pide a Supabase que cierre la
 sesión.
 
+### `hogares.ts` — ABM de hogar y multi-membresía (RF5, RF6)
+
+`crearHogar`, `unirseAHogar` y `salirDeHogar` llaman a RPCs de Postgres
+porque cada una toca más de una tabla a la vez (`hogares` +
+`hogar_miembros`, o `usuarios` + `hogar_miembros`) y necesita ser atómica.
+`editarHogar` es la excepción a propósito: renombrar un hogar es un
+`update` de una sola fila de una sola tabla, así que usa `.update()`
+directo contra `hogares` en vez de sumar una RPC — la policy
+`hogares_update_propio_o_miembro_o_admin` (ver la migración de
+multi-membresía) ya exige ser miembro del hogar o admin, así que no hace
+falta duplicar esa validación en una función nueva.
+
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
 Define la **forma** de las funciones (`reconocerProductosDeTicket`,

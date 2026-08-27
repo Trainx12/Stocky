@@ -35,6 +35,26 @@ export async function salirDeHogar(hogarId: string): Promise<void> {
   if (error) throw error;
 }
 
+// Cambia el nombre de un hogar existente. A diferencia de crear/unirse/salir,
+// esto es un update de una sola tabla y una sola fila: no necesita una RPC
+// para ser atómico, alcanza con el .update() directo — la policy
+// "hogares_update_propio_o_miembro_o_admin" (ver la migración de
+// multi-membresía) ya exige ser miembro del hogar o admin para poder tocarlo.
+export async function editarHogar(hogarId: string, nombre: string): Promise<Hogar> {
+  const nombreLimpio = nombre.trim();
+  if (!nombreLimpio) throw new Error('El nombre del hogar no puede estar vacío');
+
+  const { data, error } = await supabase
+    .from('hogares')
+    .update({ nombre: nombreLimpio })
+    .eq('id', hogarId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 // Lista todos los hogares a los que pertenece el usuario logueado (no
 // solo el "activo"), para la pantalla/sheet de "Administrar Mis Hogares".
 export async function listarMisHogares(): Promise<Hogar[]> {

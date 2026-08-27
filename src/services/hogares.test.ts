@@ -16,6 +16,12 @@
 // prefijo (si no, Jest tira ReferenceError al no poder garantizar el
 // orden de inicialización).
 const mockOrder = jest.fn();
+// listarMisHogares y editarHogar comparten from(...).select(...), pero cada
+// una sigue una cadena de métodos distinta (.eq().order() vs .eq().select().single()),
+// por eso select() puede devolver cualquiera de las dos ramas según el mock del momento.
+const mockSingle = jest.fn();
+const mockUpdateEq = jest.fn(() => ({ select: jest.fn(() => ({ single: mockSingle })) }));
+const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
 const mockEq = jest.fn(() => ({ order: mockOrder }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
 
@@ -23,12 +29,12 @@ jest.mock('../lib/supabase', () => ({
   supabase: {
     rpc: jest.fn(),
     auth: { getUser: jest.fn() },
-    from: jest.fn(() => ({ select: mockSelect })),
+    from: jest.fn(() => ({ select: mockSelect, update: mockUpdate })),
   },
 }));
 
 import { supabase } from '../lib/supabase';
-import { crearHogar, listarMisHogares, salirDeHogar, unirseAHogar } from './hogares';
+import { crearHogar, editarHogar, listarMisHogares, salirDeHogar, unirseAHogar } from './hogares';
 
 const rpc = supabase.rpc as jest.Mock;
 const getUser = supabase.auth.getUser as jest.Mock;
@@ -41,6 +47,9 @@ beforeEach(() => {
   mockSelect.mockClear();
   mockEq.mockClear();
   mockOrder.mockReset();
+  mockUpdate.mockClear();
+  mockUpdateEq.mockClear();
+  mockSingle.mockReset();
 });
 
 describe('crearHogar', () => {
@@ -92,6 +101,31 @@ describe('salirDeHogar', () => {
     rpc.mockResolvedValue({ data: null, error: new Error('fallo inesperado') });
 
     await expect(salirDeHogar('hogar-1')).rejects.toThrow('fallo inesperado');
+  });
+});
+
+describe('editarHogar', () => {
+  it('actualiza el nombre (recortando espacios) y devuelve el hogar actualizado', async () => {
+    const hogar = { id: 'hogar-1', nombre: 'Casa Nueva', codigo_invitacion: 'ABC123', created_at: '2026-01-01' };
+    mockSingle.mockResolvedValue({ data: hogar, error: null });
+
+    const resultado = await editarHogar('hogar-1', '  Casa Nueva  ');
+
+    expect(from).toHaveBeenCalledWith('hogares');
+    expect(mockUpdate).toHaveBeenCalledWith({ nombre: 'Casa Nueva' });
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'hogar-1');
+    expect(resultado).toEqual(hogar);
+  });
+
+  it('rechaza un nombre vacío (o solo espacios) sin llamar a Supabase', async () => {
+    await expect(editarHogar('hogar-1', '   ')).rejects.toThrow('El nombre del hogar no puede estar vacío');
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('propaga el error si la RLS rechaza el update (no es miembro del hogar)', async () => {
+    mockSingle.mockResolvedValue({ data: null, error: new Error('new row violates row-level security policy') });
+
+    await expect(editarHogar('hogar-ajeno', 'Otro nombre')).rejects.toThrow('new row violates row-level security policy');
   });
 });
 

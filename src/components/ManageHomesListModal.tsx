@@ -24,6 +24,10 @@ export function ManageHomesListModal({ visible, onClose, onChanged }: ManageHome
   const [hogares, setHogares] = useState<Hogar[]>([]);
   const [loading, setLoading] = useState(false);
   const [joinModalVisible, setJoinModalVisible] = useState(false);
+  // Hogar que se está editando (null = modal de editar cerrado). Guardar el
+  // hogar completo, no solo su id, es lo que le permite a HogarFormModal
+  // precargar el nombre actual en el input.
+  const [hogarEditando, setHogarEditando] = useState<Hogar | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -80,14 +84,24 @@ export function ManageHomesListModal({ visible, onClose, onChanged }: ManageHome
                     <Text style={styles.rowNombre}>{hogar.nombre}</Text>
                     <Text style={styles.rowCodigo}>Código: {hogar.codigo_invitacion}</Text>
                   </View>
-                  <Pressable
-                    onPress={() => handleSalir(hogar)}
-                    style={styles.salirButton}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Salir de ${hogar.nombre}`}
-                  >
-                    <Ionicons name="exit-outline" size={20} color={colors.danger} />
-                  </Pressable>
+                  <View style={styles.rowActions}>
+                    <Pressable
+                      onPress={() => setHogarEditando(hogar)}
+                      style={styles.accionButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Editar ${hogar.nombre}`}
+                    >
+                      <Ionicons name="pencil-outline" size={20} color={colors.textSecondary} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleSalir(hogar)}
+                      style={styles.accionButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Salir de ${hogar.nombre}`}
+                    >
+                      <Ionicons name="exit-outline" size={20} color={colors.danger} />
+                    </Pressable>
+                  </View>
                 </View>
               ))}
             </View>
@@ -103,6 +117,18 @@ export function ManageHomesListModal({ visible, onClose, onChanged }: ManageHome
         onClose={() => setJoinModalVisible(false)}
         onSuccess={async () => {
           setJoinModalVisible(false);
+          await cargar();
+          onChanged();
+        }}
+      />
+
+      <HogarFormModal
+        visible={hogarEditando !== null}
+        mode="editar"
+        hogar={hogarEditando}
+        onClose={() => setHogarEditando(null)}
+        onSuccess={async () => {
+          setHogarEditando(null);
           await cargar();
           onChanged();
         }}
@@ -169,7 +195,11 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
-  salirButton: {
+  rowActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  accionButton: {
     padding: spacing.xs,
   },
 });
