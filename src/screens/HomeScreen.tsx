@@ -11,7 +11,7 @@ import { ManageHomesListModal } from '../components/ManageHomesListModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
-import { listarMisHogares } from '../services/hogares';
+import { listarMisHogares, salirDeHogar } from '../services/hogares';
 import type { Hogar } from '../types/database';
 import { colors, spacing, typography } from '../theme';
 
@@ -43,6 +43,11 @@ export function HomeScreen() {
   // crear/unirse/salir para que la sección quede siempre al día.
   const [misHogares, setMisHogares] = useState<Hogar[]>([]);
   const [hogaresLoading, setHogaresLoading] = useState(true);
+  // Hogar que se está editando desde "Tus hogares activos" (null = cerrado).
+  // Reusa el mismo HogarFormModal en modo "editar" que ManageHomesListModal,
+  // así el botón de lápiz queda accesible sin pasar por el long-press del
+  // ícono de Perfil.
+  const [hogarEditando, setHogarEditando] = useState<Hogar | null>(null);
 
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
@@ -61,6 +66,26 @@ export function HomeScreen() {
 
   function handleCrearHogar() {
     setCrearVisible(true);
+  }
+
+  // Mismo patrón de confirmación que ManageHomesListModal (Administrar Mis
+  // Hogares): salir es destructivo, no se dispara sin confirmar antes.
+  function handleSalirDeHogar(hogar: Hogar) {
+    Alert.alert('Salir del hogar', `¿Seguro que querés salir de "${hogar.nombre}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Salir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await salirDeHogar(hogar.id);
+            await Promise.all([cargarMisHogares(), refreshUsuario()]);
+          } catch (err) {
+            Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo salir del hogar.');
+          }
+        },
+      },
+    ]);
   }
 
   function handleAdministrarHogares() {
@@ -117,9 +142,29 @@ export function HomeScreen() {
                 // el "hogar activo" de usuario.hogar_id.
                 <View style={styles.hogaresList}>
                   {misHogares.map((hogar) => (
-                    <Text key={hogar.id} style={styles.hogarNombre}>
-                      🏠 {hogar.nombre}
-                    </Text>
+                    <View key={hogar.id} style={styles.hogarRow}>
+                      <Text style={styles.hogarNombre} numberOfLines={1}>
+                        🏠 {hogar.nombre}
+                      </Text>
+                      <View style={styles.hogarAcciones}>
+                        <Pressable
+                          onPress={() => setHogarEditando(hogar)}
+                          style={styles.hogarAccionButton}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Editar ${hogar.nombre}`}
+                        >
+                          <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleSalirDeHogar(hogar)}
+                          style={styles.hogarAccionButton}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Salir de ${hogar.nombre}`}
+                        >
+                          <Ionicons name="exit-outline" size={18} color={colors.danger} />
+                        </Pressable>
+                      </View>
+                    </View>
                   ))}
                 </View>
               )}
@@ -184,6 +229,17 @@ export function HomeScreen() {
         onChanged={() => {
           cargarMisHogares();
           refreshUsuario();
+        }}
+      />
+
+      <HogarFormModal
+        visible={hogarEditando !== null}
+        mode="editar"
+        hogar={hogarEditando}
+        onClose={() => setHogarEditando(null)}
+        onSuccess={async () => {
+          setHogarEditando(null);
+          await Promise.all([cargarMisHogares(), refreshUsuario()]);
         }}
       />
     </ScreenContainer>
@@ -256,9 +312,23 @@ const styles = StyleSheet.create({
   hogaresList: {
     gap: spacing.xs,
   },
+  hogarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   hogarNombre: {
     ...typography.bodyMedium,
     color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  hogarAcciones: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  hogarAccionButton: {
+    padding: spacing.xs,
   },
   emptyState: {
     alignItems: 'center',
