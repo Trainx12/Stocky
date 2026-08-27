@@ -2,9 +2,10 @@
 
 Registro de los problemas encontrados durante la revisión de QA del
 [PR #1](https://github.com/Trainx12/Stocky/pull/1) — "Dashboard de Home
-y soporte de multi-hogar" (Julieta), antes de mergear a `main`. Mismo
-espíritu que [docs/incidentes-sprint1.md](incidentes-sprint1.md): que si
-un error parecido vuelve a aparecer, no haya que redescubrirlo de cero.
+y soporte de multi-hogar" (Julieta), antes de mergear a `main`, más uno
+posterior al probar la app en el celular. Mismo espíritu que
+[docs/incidentes-sprint1.md](incidentes-sprint1.md): que si un error
+parecido vuelve a aparecer, no haya que redescubrirlo de cero.
 
 Los dos se detectaron durante el flujo de rama + PR + QA que se
 documentó en `AGENTS.md` a partir de este sprint — es justamente el tipo
@@ -104,12 +105,52 @@ con una cuenta admin real. Ninguna herramienta automática los iba a
 agarrar solos; hicieron falta ambos pasos de revisión humana que ya
 están en [docs/plan-de-testing.md](plan-de-testing.md).
 
+---
+
+## 3. `npx expo start` para celular falla si ya hay otro Metro corriendo en el 8081
+
+**Síntoma:** al correr `npx expo start` (o `--dev-client`) para levantar la
+app en el celular mientras ya había otro `npx expo start --web` corriendo
+(por ejemplo, el servidor de la pantalla web abierto antes), el comando
+nuevo terminaba enseguida con:
+```
+› Port 8081 is being used by another process
+Input is required, but 'npx expo' is in non-interactive mode.
+Required input:
+> Use port 8082 instead?
+› Skipping dev server
+```
+Sin QR, sin servidor levantado — el proceso se cierra solo.
+
+**Causa raíz:** los dos comandos (`--web` y el normal para celular) usan
+el mismo puerto por default (8081) para Metro Bundler. Cuando ya hay una
+instancia corriendo ahí, Expo CLI le pregunta al usuario si quiere usar
+otro puerto — pero si el comando se ejecuta en un contexto no
+interactivo (una terminal que no puede recibir esa confirmación), no hay
+quién responda esa pregunta y el CLI directamente aborta en vez de
+levantar el servidor.
+
+**Solución:** indicar un puerto distinto a mano con `--port`, en vez de
+depender de que el CLI pregunte y lo asigne solo:
+```bash
+npx expo start --port 8082
+```
+(o `npx expo start --dev-client --port 8082` si se usa el development
+build). En una terminal interactiva normal, también alcanza con
+responder "Sí" a la pregunta del puerto — el problema es específico de
+contextos donde esa pregunta no se puede contestar.
+
+---
+
 ## Estado actual (para referencia rápida)
 
 - `hogar_miembros` no acepta INSERT directo desde el cliente para
   ningún rol — únicamente vía `crear_hogar()` / `unirse_a_hogar()`.
 - `listarMisHogares()` siempre filtra por el usuario logueado,
   independientemente de su rol.
-- Ambos fixes quedaron en el mismo PR (#1) que la funcionalidad
+- Ambos fixes (1 y 2) quedaron en el mismo PR (#1) que la funcionalidad
   original, documentados en los comentarios del PR y ya mergeados a
   `main`.
+- Si vas a correr la app en web y en celular al mismo tiempo (dos
+  `expo start` en paralelo), acordate de pasarle `--port` a uno de los
+  dos para que no choquen en el 8081.
