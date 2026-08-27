@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { HogarFormModal } from './HogarFormModal';
 import { listarMisHogares, salirDeHogar } from '../services/hogares';
+import { avisar, confirmar } from '../lib/alert';
 import type { Hogar } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -34,7 +35,7 @@ export function ManageHomesListModal({ visible, onClose, onChanged }: ManageHome
     try {
       setHogares(await listarMisHogares());
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'No se pudieron cargar tus hogares.');
+      avisar('Error', err instanceof Error ? err.message : 'No se pudieron cargar tus hogares.');
     } finally {
       setLoading(false);
     }
@@ -46,23 +47,20 @@ export function ManageHomesListModal({ visible, onClose, onChanged }: ManageHome
     if (visible) cargar();
   }, [visible, cargar]);
 
-  function handleSalir(hogar: Hogar) {
-    Alert.alert('Salir del hogar', `¿Seguro que querés salir de "${hogar.nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Salir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await salirDeHogar(hogar.id);
-            await cargar();
-            onChanged();
-          } catch (err) {
-            Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo salir del hogar.');
-          }
-        },
-      },
-    ]);
+  // Usa confirmar()/avisar() (src/lib/alert.ts) en vez de Alert.alert
+  // directo: en react-native-web, Alert.alert con botones es un no-op, así
+  // que este botón no hacía nada en la versión web (ver docs/incidentes-sprint3.md).
+  async function handleSalir(hogar: Hogar) {
+    const confirmado = await confirmar('Salir del hogar', `¿Seguro que querés salir de "${hogar.nombre}"?`, 'Salir');
+    if (!confirmado) return;
+
+    try {
+      await salirDeHogar(hogar.id);
+      await cargar();
+      onChanged();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo salir del hogar.');
+    }
   }
 
   return (

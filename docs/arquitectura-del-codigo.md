@@ -98,6 +98,18 @@ Un solo archivo, un solo `export const supabase`. Puntos clave:
 
 ---
 
+## 4bis. `src/lib/alert.ts` — diálogos cross-platform
+
+`Alert.alert()` de React Native es un no-op en `react-native-web` (ver
+[docs/incidentes-sprint3.md](incidentes-sprint3.md) #1): no muestra nada
+ni dispara ningún botón ahí. Este archivo expone `avisar()` (mensaje de un
+botón) y `confirmar()` (sí/no, devuelve `Promise<boolean>`), que en nativo
+usan `Alert.alert` real y en web usan `window.alert`/`window.confirm`.
+**Ninguna pantalla o componente debería importar `Alert` de `react-native`
+directo** — siempre pasar por estos dos helpers.
+
+---
+
 ## 5. `src/services/` — llamadas a Supabase que no son simples queries
 
 ### `auth.ts` — login con Google (RF1)

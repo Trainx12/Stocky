@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { signInWithGoogle } from '../services/auth';
+import { avisar } from '../lib/alert';
 import { colors, spacing, typography } from '../theme';
 
 /**
@@ -23,7 +24,7 @@ export function LoginScreen() {
       // Si el login fue exitoso, AuthContext detecta la sesión nueva y
       // RootNavigator cambia automáticamente al stack principal.
     } catch (err) {
-      Alert.alert('No se pudo iniciar sesión', err instanceof Error ? err.message : 'Intentá de nuevo.');
+      avisar('No se pudo iniciar sesión', err instanceof Error ? err.message : 'Intentá de nuevo.');
     } finally {
       setLoading(false);
     }

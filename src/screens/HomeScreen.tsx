@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
@@ -12,6 +12,7 @@ import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
 import { listarMisHogares, salirDeHogar } from '../services/hogares';
+import { avisar, confirmar } from '../lib/alert';
 import type { Hogar } from '../types/database';
 import { colors, spacing, typography } from '../theme';
 
@@ -70,22 +71,20 @@ export function HomeScreen() {
 
   // Mismo patrón de confirmación que ManageHomesListModal (Administrar Mis
   // Hogares): salir es destructivo, no se dispara sin confirmar antes.
-  function handleSalirDeHogar(hogar: Hogar) {
-    Alert.alert('Salir del hogar', `¿Seguro que querés salir de "${hogar.nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Salir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await salirDeHogar(hogar.id);
-            await Promise.all([cargarMisHogares(), refreshUsuario()]);
-          } catch (err) {
-            Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo salir del hogar.');
-          }
-        },
-      },
-    ]);
+  // Usa confirmar()/avisar() (src/lib/alert.ts) en vez de Alert.alert
+  // directo: en react-native-web, Alert.alert con botones es un no-op (no
+  // muestra nada ni dispara el onPress), así que el botón de salir no hacía
+  // nada en la versión web (ver docs/incidentes-sprint3.md).
+  async function handleSalirDeHogar(hogar: Hogar) {
+    const confirmado = await confirmar('Salir del hogar', `¿Seguro que querés salir de "${hogar.nombre}"?`, 'Salir');
+    if (!confirmado) return;
+
+    try {
+      await salirDeHogar(hogar.id);
+      await Promise.all([cargarMisHogares(), refreshUsuario()]);
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo salir del hogar.');
+    }
   }
 
   function handleAdministrarHogares() {
@@ -107,7 +106,7 @@ export function HomeScreen() {
   // long-press, definido en BottomNavBar).
   function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
     if (tab === 'search' || tab === 'notifications') {
-      Alert.alert('Próximamente', 'Esta sección todavía no está disponible.');
+      avisar('Próximamente', 'Esta sección todavía no está disponible.');
     }
   }
 
@@ -180,14 +179,14 @@ export function HomeScreen() {
                   icon="add-circle-outline"
                   label="Agregar producto"
                   onPress={() =>
-                    Alert.alert('Agregar producto', 'Esta sección todavía no está lista, llega en un próximo sprint.')
+                    avisar('Agregar producto', 'Esta sección todavía no está lista, llega en un próximo sprint.')
                   }
                 />
                 <QuickAccessButton
                   icon="basket-outline"
                   label="Ver despensa"
                   onPress={() =>
-                    Alert.alert('Ver despensa', 'Esta sección todavía no está lista, llega en un próximo sprint.')
+                    avisar('Ver despensa', 'Esta sección todavía no está lista, llega en un próximo sprint.')
                   }
                 />
               </View>
