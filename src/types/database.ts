@@ -15,6 +15,15 @@ export interface Hogar {
 }
 
 /**
+ * Jerarquía dentro de un hogar (ver migración
+ * 20260827140000_hogares_jerarquia.sql): quien lo creó es "dueno", quien
+ * se suma después por código de invitación es "invitado". El dueño no
+ * puede ser expulsado por nadie (ver RPC expulsar_miembro) — solo puede
+ * dejar el hogar voluntariamente (salir_de_hogar).
+ */
+export type RolHogar = 'dueno' | 'invitado';
+
+/**
  * Espejo de la tabla public.hogar_miembros: relación N a N entre
  * usuarios y hogares (un usuario puede pertenecer a más de un hogar).
  * `usuarios.hogar_id` sigue existiendo aparte como "hogar activo" (el que
@@ -23,6 +32,7 @@ export interface Hogar {
 export interface HogarMiembro {
   hogar_id: string;
   usuario_id: string;
+  rol: RolHogar;
   created_at: string;
 }
 
@@ -96,14 +106,22 @@ export interface Database {
         Row: AsRecord<HogarMiembro>;
         Insert: Partial<HogarMiembro> & Pick<HogarMiembro, 'hogar_id' | 'usuario_id'>;
         Update: Partial<HogarMiembro>;
-        // Declara el FK a `hogares` a mano, para que
-        // `.from('hogar_miembros').select('hogares(*)')` tipe bien.
+        // Declara los FKs a `hogares` y `usuarios` a mano, para que
+        // `.select('hogares(*)')` y `.select('usuarios(nombre, email)')`
+        // (este último usado por listarMiembrosDeHogar) tipen bien.
         Relationships: [
           {
             foreignKeyName: 'hogar_miembros_hogar_id_fkey';
             columns: ['hogar_id'];
             isOneToOne: false;
             referencedRelation: 'hogares';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'hogar_miembros_usuario_id_fkey';
+            columns: ['usuario_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
             referencedColumns: ['id'];
           },
         ];
@@ -136,6 +154,10 @@ export interface Database {
       };
       salir_de_hogar: {
         Args: { p_hogar_id: string };
+        Returns: void;
+      };
+      expulsar_miembro: {
+        Args: { p_hogar_id: string; p_usuario_id: string };
         Returns: void;
       };
     };

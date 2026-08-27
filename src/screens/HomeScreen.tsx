@@ -7,12 +7,13 @@ import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { ManageHomesSheet } from '../components/ManageHomesSheet';
 import { HogarFormModal } from '../components/HogarFormModal';
+import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
 import { listarMisHogares, salirDeHogar } from '../services/hogares';
+import type { HogarConRol } from '../services/hogares';
 import { avisar, confirmar } from '../lib/alert';
-import type { Hogar } from '../types/database';
 import { colors, spacing, typography } from '../theme';
 
 /**
@@ -41,11 +42,13 @@ export function HomeScreen() {
   // Hogares de los que el usuario ya es miembro (puede ser más de uno).
   // Se muestran en "Tus hogares activos"; se recarga después de
   // crear/unirse/salir para que la sección quede siempre al día.
-  const [misHogares, setMisHogares] = useState<Hogar[]>([]);
+  const [misHogares, setMisHogares] = useState<HogarConRol[]>([]);
   const [hogaresLoading, setHogaresLoading] = useState(true);
   // Hogar que se está editando desde "Tus hogares activos" (null = cerrado).
   // Reusa el mismo HogarFormModal en modo "editar" que "Crear"/"Unirme".
-  const [hogarEditando, setHogarEditando] = useState<Hogar | null>(null);
+  const [hogarEditando, setHogarEditando] = useState<HogarConRol | null>(null);
+  // Hogar cuyo modal de "Miembros" está abierto (null = cerrado).
+  const [hogarMiembrosVisible, setHogarMiembrosVisible] = useState<HogarConRol | null>(null);
 
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
@@ -71,7 +74,7 @@ export function HomeScreen() {
   // directo: en react-native-web, Alert.alert con botones es un no-op (no
   // muestra nada ni dispara el onPress), así que el botón de salir no hacía
   // nada en la versión web (ver docs/incidentes-sprint3.md).
-  async function handleSalirDeHogar(hogar: Hogar) {
+  async function handleSalirDeHogar(hogar: HogarConRol) {
     const confirmado = await confirmar('Salir del hogar', `¿Seguro que querés salir de "${hogar.nombre}"?`, 'Salir');
     if (!confirmado) return;
 
@@ -144,9 +147,19 @@ export function HomeScreen() {
                         <Text style={styles.hogarNombre} numberOfLines={1}>
                           🏠 {hogar.nombre}
                         </Text>
-                        <Text style={styles.hogarCodigo}>Código: {hogar.codigo_invitacion}</Text>
+                        <Text style={styles.hogarCodigo}>
+                          Código: {hogar.codigo_invitacion} · {hogar.miRol === 'dueno' ? 'Dueño' : 'Invitado'}
+                        </Text>
                       </View>
                       <View style={styles.hogarAcciones}>
+                        <Pressable
+                          onPress={() => setHogarMiembrosVisible(hogar)}
+                          style={styles.hogarAccionButton}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Miembros de ${hogar.nombre}`}
+                        >
+                          <Ionicons name="people-outline" size={18} color={colors.textSecondary} />
+                        </Pressable>
                         <Pressable
                           onPress={() => setHogarEditando(hogar)}
                           style={styles.hogarAccionButton}
@@ -240,6 +253,16 @@ export function HomeScreen() {
           await Promise.all([cargarMisHogares(), refreshUsuario()]);
         }}
       />
+
+      {usuario && (
+        <HogarMiembrosModal
+          visible={hogarMiembrosVisible !== null}
+          hogarId={hogarMiembrosVisible?.id ?? null}
+          hogarNombre={hogarMiembrosVisible?.nombre ?? ''}
+          usuarioActualId={usuario.id}
+          onClose={() => setHogarMiembrosVisible(null)}
+        />
+      )}
     </ScreenContainer>
   );
 }

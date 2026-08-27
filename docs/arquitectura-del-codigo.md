@@ -150,6 +150,22 @@ directo contra `hogares` en vez de sumar una RPC — la policy
 multi-membresía) ya exige ser miembro del hogar o admin, así que no hace
 falta duplicar esa validación en una función nueva.
 
+**Jerarquía dueño/invitado** (ver
+[supabase/migrations/20260827140000_hogares_jerarquia.sql](../supabase/migrations/20260827140000_hogares_jerarquia.sql)):
+`hogar_miembros.rol` es `'dueno'` (quien creó el hogar, vía `crear_hogar`)
+o `'invitado'` (quien se sumó por código, vía `unirse_a_hogar`).
+`listarMisHogares()` devuelve ahora `HogarConRol[]` (el rol del usuario
+logueado EN CADA hogar — puede ser dueño de uno e invitado de otro).
+`listarMiembrosDeHogar(hogarId)` trae todos los miembros de un hogar
+puntual con su rol y nombre/email (join a `usuarios`), para la pantalla
+"Miembros del hogar". `expulsarMiembro(hogarId, usuarioId)` es la única
+forma de sacar a OTRO usuario de un hogar (a diferencia de
+`salirDeHogar`, que es uno mismo yéndose voluntariamente): la RPC
+`expulsar_miembro` en Postgres exige que quien llama sea el dueño y
+rechaza explícitamente expulsarse a uno mismo o al dueño — dos guardas
+independientes, a propósito redundantes, para que el dueño de un hogar
+nunca pueda ser expulsado por nadie.
+
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
 Define la **forma** de las funciones (`reconocerProductosDeTicket`,

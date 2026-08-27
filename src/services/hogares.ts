@@ -1,5 +1,21 @@
 import { supabase } from '../lib/supabase';
-import type { Hogar } from '../types/database';
+import type { Hogar, RolHogar } from '../types/database';
+
+// Un Hogar tal como lo ve el usuario logueado, con el rol que tiene EN ESE
+// hogar (puede ser "dueno" en uno e "invitado" en otro). Ver migración
+// 20260827140000_hogares_jerarquia.sql.
+export interface HogarConRol extends Hogar {
+  miRol: RolHogar;
+}
+
+// Un miembro de un hogar, para la pantalla "Miembros del hogar" (ver
+// listarMiembrosDeHogar). nombre puede ser null (todavía no lo completó).
+export interface MiembroHogar {
+  usuarioId: string;
+  rol: RolHogar;
+  nombre: string | null;
+  email: string;
+}
 
 /**
  * RF6 — un usuario puede pertenecer a más de un hogar: crear uno propio y
@@ -56,8 +72,8 @@ export async function editarHogar(hogarId: string, nombre: string): Promise<Hoga
 }
 
 // Lista todos los hogares a los que pertenece el usuario logueado (no
-// solo el "activo"), para la pantalla/sheet de "Administrar Mis Hogares".
-export async function listarMisHogares(): Promise<Hogar[]> {
+// solo el "activo"), con el rol que tiene en cada uno.
+export async function listarMisHogares(): Promise<HogarConRol[]> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) throw userError;
 
@@ -73,13 +89,45 @@ export async function listarMisHogares(): Promise<Hogar[]> {
   // RLS para ese rol.
   const { data, error } = await supabase
     .from('hogar_miembros')
-    .select('hogares(*)')
+    .select('rol, hogares(*)')
     .eq('usuario_id', userId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
-  // El select anidado devuelve cada fila como { hogares: {...} }; se
-  // aplana acá para que el resto de la app trabaje con Hogar[] directo.
-  return (data ?? []).map((fila) => fila.hogares).filter((h): h is Hogar => h !== null);
+  // El select anidado devuelve cada fila como { rol, hogares: {...} }; se
+  // aplana acá para que el resto de la app trabaje con HogarConRol[] directo.
+  return (data ?? [])
+    .filter((fila): fila is typeof fila & { hogares: Hogar } => fila.hogares !== null)
+    .map((fila) => ({ ...fila.hogares, miRol: fila.rol }));
+}
+
+// Lista los miembros de un hogar puntual (nombre/email + rol), para la
+// pantalla "Miembros del hogar" donde el dueño puede expulsar invitados.
+export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHogar[]> {
+  const { data, error } = await supabase
+    .from('hogar_miembros')
+    .select('usuario_id, rol, usuarios(nombre, email)')
+    .eq('hogar_id', hogarId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .filter((fila): fila is typeof fila & { usuarios: { nombre: string | null; email: string } } => fila.usuarios !== null)
+    .map((fila) => ({
+      usuarioId: fila.usuario_id,
+      rol: fila.rol,
+      nombre: fila.usuarios.nombre,
+      email: fila.usuarios.email,
+    }));
+}
+
+// Expulsa a OTRO usuario de un hogar (a diferencia de salirDeHogar, que es
+// uno mismo yéndose). Solo puede llamarla el dueño del hogar, y nunca
+// contra sí mismo ni contra el propio dueño — ambas cosas las valida la
+// RPC del lado de Postgres (expulsar_miembro), no acá.
+export async function expulsarMiembro(hogarId: string, usuarioId: string): Promise<void> {
+  const { error } = await supabase.rpc('expulsar_miembro', { p_hogar_id: hogarId, p_usuario_id: usuarioId });
+  if (error) throw error;
 }
