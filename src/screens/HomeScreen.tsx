@@ -7,7 +7,6 @@ import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { ManageHomesSheet } from '../components/ManageHomesSheet';
 import { HogarFormModal } from '../components/HogarFormModal';
-import { ManageHomesListModal } from '../components/ManageHomesListModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
@@ -33,11 +32,11 @@ export function HomeScreen() {
   // Controla si el bottom sheet "Gestionar Mis Hogares" está abierto.
   // Se dispara con un long-press sobre el ícono de Perfil de la nav bar.
   const [sheetVisible, setSheetVisible] = useState(false);
-  // Modal de "Crear Nuevo Hogar" (input de nombre) y de "Administrar Mis
-  // Hogares" (lista con opción de salir + unirse a otro), disparados desde
-  // las dos opciones del sheet de arriba.
+  // Modales de "Crear Nuevo Hogar" y "Unirme a un Hogar" (mismo
+  // HogarFormModal, distinto mode), disparados desde las dos opciones del
+  // sheet de arriba.
   const [crearVisible, setCrearVisible] = useState(false);
-  const [administrarVisible, setAdministrarVisible] = useState(false);
+  const [unirseVisible, setUnirseVisible] = useState(false);
 
   // Hogares de los que el usuario ya es miembro (puede ser más de uno).
   // Se muestran en "Tus hogares activos"; se recarga después de
@@ -45,9 +44,7 @@ export function HomeScreen() {
   const [misHogares, setMisHogares] = useState<Hogar[]>([]);
   const [hogaresLoading, setHogaresLoading] = useState(true);
   // Hogar que se está editando desde "Tus hogares activos" (null = cerrado).
-  // Reusa el mismo HogarFormModal en modo "editar" que ManageHomesListModal,
-  // así el botón de lápiz queda accesible sin pasar por el long-press del
-  // ícono de Perfil.
+  // Reusa el mismo HogarFormModal en modo "editar" que "Crear"/"Unirme".
   const [hogarEditando, setHogarEditando] = useState<Hogar | null>(null);
 
   const cargarMisHogares = useCallback(async () => {
@@ -69,8 +66,7 @@ export function HomeScreen() {
     setCrearVisible(true);
   }
 
-  // Mismo patrón de confirmación que ManageHomesListModal (Administrar Mis
-  // Hogares): salir es destructivo, no se dispara sin confirmar antes.
+  // Salir es destructivo, no se dispara sin confirmar antes.
   // Usa confirmar()/avisar() (src/lib/alert.ts) en vez de Alert.alert
   // directo: en react-native-web, Alert.alert con botones es un no-op (no
   // muestra nada ni dispara el onPress), así que el botón de salir no hacía
@@ -87,16 +83,18 @@ export function HomeScreen() {
     }
   }
 
-  function handleAdministrarHogares() {
-    setAdministrarVisible(true);
+  function handleUnirseAHogar() {
+    setUnirseVisible(true);
   }
 
   // Después de crear o unirse a un hogar: refresca tanto la lista de
   // hogares de esta pantalla como `usuario` del AuthContext (por si
   // `hogar_id` pasó de null a un valor, que es lo que usa el resto de la
-  // app como "hogar activo").
+  // app como "hogar activo"). Cierra los dos modales sin problema, porque
+  // solo uno de los dos puede estar abierto a la vez.
   async function handleHogarCreadoOUnido() {
     setCrearVisible(false);
+    setUnirseVisible(false);
     await Promise.all([cargarMisHogares(), refreshUsuario()]);
   }
 
@@ -142,9 +140,12 @@ export function HomeScreen() {
                 <View style={styles.hogaresList}>
                   {misHogares.map((hogar) => (
                     <View key={hogar.id} style={styles.hogarRow}>
-                      <Text style={styles.hogarNombre} numberOfLines={1}>
-                        🏠 {hogar.nombre}
-                      </Text>
+                      <View style={styles.hogarInfo}>
+                        <Text style={styles.hogarNombre} numberOfLines={1}>
+                          🏠 {hogar.nombre}
+                        </Text>
+                        <Text style={styles.hogarCodigo}>Código: {hogar.codigo_invitacion}</Text>
+                      </View>
                       <View style={styles.hogarAcciones}>
                         <Pressable
                           onPress={() => setHogarEditando(hogar)}
@@ -212,7 +213,7 @@ export function HomeScreen() {
         visible={sheetVisible}
         onClose={() => setSheetVisible(false)}
         onCrearHogar={handleCrearHogar}
-        onAdministrarHogares={handleAdministrarHogares}
+        onUnirseAHogar={handleUnirseAHogar}
       />
 
       <HogarFormModal
@@ -222,13 +223,11 @@ export function HomeScreen() {
         onSuccess={handleHogarCreadoOUnido}
       />
 
-      <ManageHomesListModal
-        visible={administrarVisible}
-        onClose={() => setAdministrarVisible(false)}
-        onChanged={() => {
-          cargarMisHogares();
-          refreshUsuario();
-        }}
+      <HogarFormModal
+        visible={unirseVisible}
+        mode="unirse"
+        onClose={() => setUnirseVisible(false)}
+        onSuccess={handleHogarCreadoOUnido}
       />
 
       <HogarFormModal
@@ -317,10 +316,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
+  hogarInfo: {
+    flexShrink: 1,
+    gap: 2,
+  },
   hogarNombre: {
     ...typography.bodyMedium,
     color: colors.textPrimary,
-    flexShrink: 1,
+  },
+  hogarCodigo: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   hogarAcciones: {
     flexDirection: 'row',
