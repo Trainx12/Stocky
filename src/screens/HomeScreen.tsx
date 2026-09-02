@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
 import { listarMisHogares, salirDeHogar } from '../services/hogares';
 import type { HogarConRol } from '../services/hogares';
+import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, spacing, typography } from '../theme';
 
@@ -64,6 +65,33 @@ export function HomeScreen() {
   useEffect(() => {
     cargarMisHogares();
   }, [cargarMisHogares]);
+
+  // Si el dueño de un hogar me expulsa MIENTRAS tengo la app abierta, mi
+  // fila en hogar_miembros se borra del lado del servidor -- sin esta
+  // suscripción realtime, mi pantalla seguía mostrando ese hogar hasta que
+  // yo recargara a mano. Quien expulsa ya ve el cambio al instante porque
+  // es su propia acción (ManageHomesListModal recarga después del RPC);
+  // esto cubre al OTRO usuario, el expulsado.
+  useEffect(() => {
+    if (!usuario?.id) return;
+
+    const canal = supabase
+      .channel(`hogar_miembros_usuario_${usuario.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
+        () => {
+          avisar('Te sacaron de un hogar', 'Ya no formás parte de ese hogar.');
+          cargarMisHogares();
+          refreshUsuario();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [usuario?.id, cargarMisHogares, refreshUsuario]);
 
   function handleCrearHogar() {
     setCrearVisible(true);
@@ -160,14 +188,19 @@ export function HomeScreen() {
                         >
                           <Ionicons name="people-outline" size={18} color={colors.textSecondary} />
                         </Pressable>
-                        <Pressable
-                          onPress={() => setHogarEditando(hogar)}
-                          style={styles.hogarAccionButton}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Editar ${hogar.nombre}`}
-                        >
-                          <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
-                        </Pressable>
+                        {/* Editar el nombre está restringido al dueño por
+                            default; un invitado solo lo ve si el dueño le
+                            habilitó el permiso (ver "Miembros del hogar"). */}
+                        {hogar.puedoEditar && (
+                          <Pressable
+                            onPress={() => setHogarEditando(hogar)}
+                            style={styles.hogarAccionButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Editar ${hogar.nombre}`}
+                          >
+                            <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
+                          </Pressable>
+                        )}
                         <Pressable
                           onPress={() => handleSalirDeHogar(hogar)}
                           style={styles.hogarAccionButton}

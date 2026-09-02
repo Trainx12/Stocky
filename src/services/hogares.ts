@@ -6,6 +6,10 @@ import type { Hogar, RolHogar } from '../types/database';
 // 20260827140000_hogares_jerarquia.sql.
 export interface HogarConRol extends Hogar {
   miRol: RolHogar;
+  // Si YO (el usuario logueado) puedo editar el nombre de ESTE hogar: soy
+  // dueño, o soy invitado con el permiso habilitado (ver migración
+  // 20260828120000_permisos_editar_hogar.sql).
+  puedoEditar: boolean;
 }
 
 // Un miembro de un hogar, para la pantalla "Miembros del hogar" (ver
@@ -13,6 +17,10 @@ export interface HogarConRol extends Hogar {
 export interface MiembroHogar {
   usuarioId: string;
   rol: RolHogar;
+  // Si este invitado puede editar el nombre del hogar. Siempre false para
+  // el dueño en los datos crudos (no se usa: el dueño ya puede editar
+  // siempre, sin importar este campo).
+  puedeEditar: boolean;
   nombre: string | null;
   email: string;
 }
@@ -54,8 +62,12 @@ export async function salirDeHogar(hogarId: string): Promise<void> {
 // Cambia el nombre de un hogar existente. A diferencia de crear/unirse/salir,
 // esto es un update de una sola tabla y una sola fila: no necesita una RPC
 // para ser atómico, alcanza con el .update() directo — la policy
-// "hogares_update_propio_o_miembro_o_admin" (ver la migración de
-// multi-membresía) ya exige ser miembro del hogar o admin para poder tocarlo.
+// "hogares_update_dueno_o_permitido_o_admin" (ver migración
+// 20260828120000_permisos_editar_hogar.sql) ya exige ser dueño, o invitado
+// con el permiso habilitado, o admin. Si un invitado sin permiso intenta
+// editar igual, Postgres rechaza el update y el error llega acá como
+// excepción (mensaje genérico de RLS, no uno lindo — no hay forma de
+// distinguirlo de "el hogar no existe" del lado del cliente).
 export async function editarHogar(hogarId: string, nombre: string): Promise<Hogar> {
   const nombreLimpio = nombre.trim();
   if (!nombreLimpio) throw new Error('El nombre del hogar no puede estar vacío');
@@ -89,25 +101,27 @@ export async function listarMisHogares(): Promise<HogarConRol[]> {
   // RLS para ese rol.
   const { data, error } = await supabase
     .from('hogar_miembros')
-    .select('rol, hogares(*)')
+    .select('rol, puede_editar, hogares(*)')
     .eq('usuario_id', userId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
-  // El select anidado devuelve cada fila como { rol, hogares: {...} }; se
-  // aplana acá para que el resto de la app trabaje con HogarConRol[] directo.
+  // El select anidado devuelve cada fila como { rol, puede_editar, hogares:
+  // {...} }; se aplana acá para que el resto de la app trabaje con
+  // HogarConRol[] directo.
   return (data ?? [])
     .filter((fila): fila is typeof fila & { hogares: Hogar } => fila.hogares !== null)
-    .map((fila) => ({ ...fila.hogares, miRol: fila.rol }));
+    .map((fila) => ({ ...fila.hogares, miRol: fila.rol, puedoEditar: fila.rol === 'dueno' || fila.puede_editar }));
 }
 
-// Lista los miembros de un hogar puntual (nombre/email + rol), para la
-// pantalla "Miembros del hogar" donde el dueño puede expulsar invitados.
+// Lista los miembros de un hogar puntual (nombre/email + rol + permiso de
+// edición), para la pantalla "Miembros del hogar" donde el dueño puede
+// expulsar invitados y habilitarles (o no) la edición del nombre.
 export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHogar[]> {
   const { data, error } = await supabase
     .from('hogar_miembros')
-    .select('usuario_id, rol, usuarios(nombre, email)')
+    .select('usuario_id, rol, puede_editar, usuarios(nombre, email)')
     .eq('hogar_id', hogarId)
     .order('created_at', { ascending: true });
 
@@ -118,6 +132,7 @@ export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHog
     .map((fila) => ({
       usuarioId: fila.usuario_id,
       rol: fila.rol,
+      puedeEditar: fila.puede_editar,
       nombre: fila.usuarios.nombre,
       email: fila.usuarios.email,
     }));
@@ -129,5 +144,18 @@ export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHog
 // RPC del lado de Postgres (expulsar_miembro), no acá.
 export async function expulsarMiembro(hogarId: string, usuarioId: string): Promise<void> {
   const { error } = await supabase.rpc('expulsar_miembro', { p_hogar_id: hogarId, p_usuario_id: usuarioId });
+  if (error) throw error;
+}
+
+// Habilita/deshabilita que un invitado puntual pueda editar el nombre del
+// hogar. Solo puede llamarla el dueño (lo valida la RPC del lado de
+// Postgres, no acá); llamarla sobre la fila del propio dueño no hace nada
+// (la RPC filtra `rol <> 'dueno'`).
+export async function permitirEditarHogar(hogarId: string, usuarioId: string, permitir: boolean): Promise<void> {
+  const { error } = await supabase.rpc('permitir_editar_hogar', {
+    p_hogar_id: hogarId,
+    p_usuario_id: usuarioId,
+    p_permitir: permitir,
+  });
   if (error) throw error;
 }

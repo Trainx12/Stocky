@@ -61,17 +61,89 @@ sumarlo ahí (no reintroducir `Alert.alert` suelto).
 
 ---
 
+## 2. Cualquier miembro podía renombrar el hogar (no solo el dueño)
+
+**Síntoma:** reportado por el equipo probando la app: cualquier invitado
+podía cambiarle el nombre a un hogar del que no era dueño, y ese cambio se
+guardaba sin problema. También se reportó, junto con esto, que "un
+usuario puede eliminar al dueño" y que "el dueño elimina un usuario, y el
+usuario puede editar el nombre aunque ya esté eliminado".
+
+**Investigación de la segunda parte del reporte:** antes de tocar código,
+se auditó el estado real de la base (`pg_get_functiondef` de
+`expulsar_miembro`/`es_dueno_de`, y `pg_policies` de `hogar_miembros`) y
+coincidía exactamente con lo diseñado en
+[20260827140000_hogares_jerarquia.sql](../supabase/migrations/20260827140000_hogares_jerarquia.sql):
+la policy de DELETE de `hogar_miembros` solo permite `usuario_id =
+auth.uid()` (borrar la propia fila) o admin, y `expulsar_miembro()`
+rechaza tanto a quien no es dueño como al intento de expulsar al propio
+dueño. **No se encontró forma de reproducir "un invitado elimina al
+dueño" contra el backend desplegado.** Es posible que lo que se haya
+observado sea al dueño usando "Salir del hogar" (que sí es voluntario y
+sin restricción) y no una expulsión hecha por un invitado — pero no se
+confirmó, así que si vuelve a aparecer conviene reportar los pasos
+exactos para reproducirlo.
+
+**Causa raíz (de la parte sí confirmada, editar el nombre):** la policy
+de UPDATE de `hogares` era `es_dueno_de(id) o es_miembro_de(id) o
+es_administrador()` — cualquier miembro, sin distinguir jerarquía, podía
+pasar el chequeo. Como consecuencia directa, esto también explica el
+"usuario expulsado que todavía puede editar": mientras la única condición
+era "ser miembro", cualquier invitado (expulsado o no) que lograra pasar
+esa condición podía editar; una vez expulsado ya no es miembro y la
+policy ya lo bloqueaba, pero el punto más amplio (cualquier invitado
+podía editar mientras seguía siendo miembro) sí era real y es lo que se
+corrigió.
+
+**Solución:** ver
+[20260828120000_permisos_editar_hogar.sql](../supabase/migrations/20260828120000_permisos_editar_hogar.sql).
+Nueva columna `hogar_miembros.puede_editar` (default `false`); la policy
+de UPDATE de `hogares` pasa a exigir `es_dueno_de(id) OR (es miembro Y
+puede_editar = true) OR admin`. Nueva RPC `permitir_editar_hogar()` (solo
+el dueño puede llamarla) para habilitar/deshabilitar ese permiso por
+invitado puntual, expuesta en la UI como un switch dentro de "Miembros
+del hogar".
+
+---
+
+## 3. El usuario expulsado no se enteraba hasta recargar la app a mano
+
+**Síntoma:** al expulsar a alguien, quien expulsa ve el cambio al
+instante (su propia pantalla se recarga después de llamar a la RPC), pero
+el expulsado seguía viendo el hogar en su lista hasta cerrar y volver a
+abrir la app — nada le avisaba en el momento.
+
+**Causa raíz:** no había ningún mecanismo para que el cliente del usuario
+expulsado se enterara de un cambio hecho por OTRO cliente (el del dueño).
+Sin Realtime, cada pantalla solo se actualiza cuando ELLA MISMA dispara
+una acción; no hay forma de que un cambio ajeno le llegue sola.
+
+**Solución:** se habilitó Supabase Realtime en `hogar_miembros` (`alter
+publication supabase_realtime add table public.hogar_miembros`) y
+`HomeScreen` se suscribe a los `DELETE` de su propia fila
+(`filter: usuario_id=eq.<mi id>`): al detectar que lo expulsaron de un
+hogar, avisa y refresca `misHogares`/`usuario` sin que el usuario tenga
+que hacer nada.
+
+---
+
 ## Estado actual (para referencia rápida)
 
 - `src/lib/alert.ts` es el único lugar del código que debería importar
   `Alert` de `react-native` para mostrar diálogos al usuario.
-- Verificado por Claude: tests unitarios de `avisar`/`confirmar`
-  (`src/lib/alert.test.ts`, cubren la rama web con `window.alert`/
-  `window.confirm` mockeados y la rama nativa con `Alert.alert`
-  mockeado), `tsc --noEmit` limpio, y que la app sigue bundleando y
-  renderizando sin errores en `expo start --web`.
-- **Pendiente de un humano:** probar el click real en el navegador (el
-  botón "Salir" pide confirmación con `window.confirm` y de verdad saca
-  al usuario del hogar) y en un dispositivo/dev client real — esto
-  requiere loguearse con una cuenta de Google real, que Claude no puede
-  hacer por sí solo.
+- Editar el nombre de un hogar requiere ser dueño, o invitado con
+  `puede_editar = true` (habilitado por el dueño desde "Miembros del
+  hogar"). Default: solo el dueño puede editar.
+- `HomeScreen` está suscripto a Realtime para enterarse al instante si lo
+  expulsan de un hogar mientras tiene la app abierta.
+- Verificado por Claude: `tsc --noEmit` limpio, `npm test` sin errores,
+  `get_advisors` de seguridad sin hallazgos nuevos, la app sigue
+  bundleando y renderizando sin errores en `expo start --web`, y se
+  auditó el estado real de la base (funciones/policies) contra lo que
+  documenta el código.
+- **Pendiente de un humano:** probar con dos cuentas reales el flujo
+  completo (dueño habilita edición a un invitado, el invitado edita,
+  el dueño lo deshabilita/expulsa, el invitado se entera al instante) —
+  esto requiere login real, que Claude no puede hacer por sí solo. Si
+  alguien logra reproducir "un invitado elimina al dueño", documentarlo
+  acá con los pasos exactos.

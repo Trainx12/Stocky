@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { expulsarMiembro, listarMiembrosDeHogar } from '../services/hogares';
+import { expulsarMiembro, listarMiembrosDeHogar, permitirEditarHogar } from '../services/hogares';
 import type { MiembroHogar } from '../services/hogares';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -62,6 +62,22 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
     }
   }
 
+  // Actualista optimista (cambia el switch al toque) + revierte si la RPC
+  // falla, para que el toggle se sienta inmediato sin esperar el roundtrip.
+  async function handlePermitirEditar(miembro: MiembroHogar, permitir: boolean) {
+    if (!hogarId) return;
+    setMiembros((actuales) => actuales.map((m) => (m.usuarioId === miembro.usuarioId ? { ...m, puedeEditar: permitir } : m)));
+
+    try {
+      await permitirEditarHogar(hogarId, miembro.usuarioId, permitir);
+    } catch (err) {
+      setMiembros((actuales) =>
+        actuales.map((m) => (m.usuarioId === miembro.usuarioId ? { ...m, puedeEditar: !permitir } : m)),
+      );
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo cambiar el permiso de edición.');
+    }
+  }
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -76,27 +92,45 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
           ) : (
             <View style={styles.list}>
               {miembros.map((miembro) => (
-                <View key={miembro.usuarioId} style={styles.row}>
-                  <View style={styles.rowTextos}>
-                    <Text style={styles.rowNombre} numberOfLines={1}>
-                      {miembro.nombre ?? miembro.email}
-                    </Text>
-                    <View style={[styles.badge, miembro.rol === 'dueno' ? styles.badgeDueno : styles.badgeInvitado]}>
-                      <Text style={[styles.badgeTexto, miembro.rol === 'dueno' ? styles.badgeTextoDueno : styles.badgeTextoInvitado]}>
-                        {miembro.rol === 'dueno' ? 'Dueño' : 'Invitado'}
+                <View key={miembro.usuarioId} style={styles.rowContainer}>
+                  <View style={styles.row}>
+                    <View style={styles.rowTextos}>
+                      <Text style={styles.rowNombre} numberOfLines={1}>
+                        {miembro.nombre ?? miembro.email}
                       </Text>
+                      <View style={[styles.badge, miembro.rol === 'dueno' ? styles.badgeDueno : styles.badgeInvitado]}>
+                        <Text style={[styles.badgeTexto, miembro.rol === 'dueno' ? styles.badgeTextoDueno : styles.badgeTextoInvitado]}>
+                          {miembro.rol === 'dueno' ? 'Dueño' : 'Invitado'}
+                        </Text>
+                      </View>
                     </View>
+
+                    {soyDueno && miembro.rol === 'invitado' && (
+                      <Pressable
+                        onPress={() => handleExpulsar(miembro)}
+                        style={styles.expulsarButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Expulsar a ${miembro.nombre ?? miembro.email}`}
+                      >
+                        <Ionicons name="person-remove-outline" size={20} color={colors.danger} />
+                      </Pressable>
+                    )}
                   </View>
 
+                  {/* El dueño puede habilitar/deshabilitar que ESTE invitado
+                      puntual edite el nombre del hogar. Default false (ver
+                      migración 20260828120000_permisos_editar_hogar.sql):
+                      un invitado no puede editar salvo que el dueño lo
+                      habilite acá explícitamente. */}
                   {soyDueno && miembro.rol === 'invitado' && (
-                    <Pressable
-                      onPress={() => handleExpulsar(miembro)}
-                      style={styles.expulsarButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Expulsar a ${miembro.nombre ?? miembro.email}`}
-                    >
-                      <Ionicons name="person-remove-outline" size={20} color={colors.danger} />
-                    </Pressable>
+                    <View style={styles.permisoRow}>
+                      <Text style={styles.permisoTexto}>Puede editar el nombre del hogar</Text>
+                      <Switch
+                        value={miembro.puedeEditar}
+                        onValueChange={(valor) => handlePermitirEditar(miembro, valor)}
+                        trackColor={{ true: colors.primary, false: colors.border }}
+                      />
+                    </View>
                   )}
                 </View>
               ))}
@@ -146,14 +180,29 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.xs,
   },
+  rowContainer: {
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.xs,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  },
+  permisoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingLeft: spacing.sm,
+  },
+  permisoTexto: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flexShrink: 1,
   },
   rowTextos: {
     flexShrink: 1,

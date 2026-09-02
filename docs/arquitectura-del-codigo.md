@@ -146,9 +146,10 @@ porque cada una toca más de una tabla a la vez (`hogares` +
 `editarHogar` es la excepción a propósito: renombrar un hogar es un
 `update` de una sola fila de una sola tabla, así que usa `.update()`
 directo contra `hogares` en vez de sumar una RPC — la policy
-`hogares_update_propio_o_miembro_o_admin` (ver la migración de
-multi-membresía) ya exige ser miembro del hogar o admin, así que no hace
-falta duplicar esa validación en una función nueva.
+`hogares_update_dueno_o_permitido_o_admin` (ver
+[20260828120000_permisos_editar_hogar.sql](../supabase/migrations/20260828120000_permisos_editar_hogar.sql))
+ya exige ser dueño, o invitado con el permiso habilitado, o admin, así
+que no hace falta duplicar esa validación en el cliente.
 
 **Jerarquía dueño/invitado** (ver
 [supabase/migrations/20260827140000_hogares_jerarquia.sql](../supabase/migrations/20260827140000_hogares_jerarquia.sql)):
@@ -165,6 +166,25 @@ forma de sacar a OTRO usuario de un hogar (a diferencia de
 rechaza explícitamente expulsarse a uno mismo o al dueño — dos guardas
 independientes, a propósito redundantes, para que el dueño de un hogar
 nunca pueda ser expulsado por nadie.
+
+**Editar el nombre del hogar es solo del dueño por default** (ver
+[20260828120000_permisos_editar_hogar.sql](../supabase/migrations/20260828120000_permisos_editar_hogar.sql)):
+antes cualquier miembro podía renombrar el hogar; ahora `hogar_miembros`
+tiene una columna `puede_editar` (default `false`) que el dueño puede
+habilitar por invitado puntual con `permitirEditarHogar(hogarId,
+usuarioId, permitir)`. `listarMisHogares()` calcula `puedoEditar` (dueño
+`OR` `puede_editar`) para que `HomeScreen` sepa si mostrar el lápiz de
+editar; `listarMiembrosDeHogar()` expone `puedeEditar` por miembro para el
+switch de `HogarMiembrosModal`.
+
+**Actualización inmediata al expulsar** (mismo archivo de migración,
+habilita Realtime en `hogar_miembros`): quien expulsa ya ve el cambio al
+instante porque es su propia acción (recarga el modal después del RPC),
+pero el usuario expulsado no se enteraba hasta recargar la app a mano.
+`HomeScreen` se suscribe con `supabase.channel(...).on('postgres_changes',
+{ event: 'DELETE', table: 'hogar_miembros', filter: 'usuario_id=eq.<mi
+id>' }, ...)`: si mi propia fila se borra (me expulsaron de algún hogar),
+refresca `misHogares`/`usuario` al toque y avisa.
 
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 

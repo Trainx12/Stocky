@@ -33,6 +33,11 @@ export interface HogarMiembro {
   hogar_id: string;
   usuario_id: string;
   rol: RolHogar;
+  // Si este invitado puede editar el nombre del hogar (ver migración
+  // 20260828120000_permisos_editar_hogar.sql). Default false: el dueño
+  // tiene que habilitarlo explícitamente. No aplica al dueño, que siempre
+  // puede editar sin importar este valor.
+  puede_editar: boolean;
   created_at: string;
 }
 
@@ -158,6 +163,10 @@ export interface Database {
       };
       expulsar_miembro: {
         Args: { p_hogar_id: string; p_usuario_id: string };
+        Returns: void;
+      };
+      permitir_editar_hogar: {
+        Args: { p_hogar_id: string; p_usuario_id: string; p_permitir: boolean };
         Returns: void;
       };
     };
