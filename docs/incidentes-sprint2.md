@@ -142,6 +142,56 @@ contextos donde esa pregunta no se puede contestar.
 
 ---
 
+## 4. El servidor web se cae sin aviso y queda como si "la app estuviera rota"
+
+**Síntoma:** después de tenerlo andando un buen rato, `http://localhost:8081`
+dejó de responder — la sensación desde afuera es "se cayó la versión web",
+como si algo del código la hubiera roto.
+
+**Causa raíz:** no fue un bug de código. El proceso de Metro
+(`npx expo start --web`) simplemente había dejado de estar corriendo —
+confirmado con `netstat -ano` (nada escuchando en el puerto 8081) — sin
+que quedara registrado ningún error asociado. No se identificó por qué se
+cerró (pudo ser el propio entorno donde corre el servidor, no algo
+reproducible desde el código de la app).
+
+**Solución:** antes de asumir que hay un bug, confirmar si el servidor
+sigue vivo:
+```bash
+netstat -ano | grep ":8081"
+```
+Si no hay nada escuchando, simplemente se vuelve a levantar
+(`npx expo start --web`) — no hace falta tocar código. `tsc`, los tests y
+el bundler seguían todos en verde antes y después, así que quedó
+descartado como problema de la app.
+
+---
+
+## 5. El QR de `npx expo start` no se puede escanear cuando lo corre Claude
+
+**Síntoma:** al pedirle a Claude que levante `npx expo start` para
+conseguir el QR y escanearlo con el celular, el comando arranca bien
+(Metro queda escuchando y accesible en la red local), pero **el QR nunca
+aparece** en la salida que Claude puede leer.
+
+**Causa raíz:** el QR de Expo CLI se dibuja con caracteres de control de
+terminal (arte ASCII) que solo se renderizan en una terminal interactiva
+real (TTY). El entorno donde Claude corre comandos en segundo plano no
+tiene una TTY real, así que esa parte de la salida directamente no se
+genera (no es que se pierda al leerla: el proceso nunca la escribe).
+
+**Solución:** en vez de depender del QR, conectarse a mano desde Expo Go
+con la URL exacta, armada con la IP local de la PC (`ipconfig` → IPv4) y
+el puerto del servidor:
+```
+exp://<IP-local-de-la-PC>:<puerto>
+```
+Por ejemplo `exp://192.168.18.11:8082`. Si se necesita ver el QR real
+(por comodidad, no porque la URL manual no alcance), hay que correr
+`npx expo start` desde una terminal propia, no pedírselo a Claude.
+
+---
+
 ## Estado actual (para referencia rápida)
 
 - `hogar_miembros` no acepta INSERT directo desde el cliente para
@@ -154,3 +204,8 @@ contextos donde esa pregunta no se puede contestar.
 - Si vas a correr la app en web y en celular al mismo tiempo (dos
   `expo start` en paralelo), acordate de pasarle `--port` a uno de los
   dos para que no choquen en el 8081.
+- Si "se cae" el servidor web sin ningún cambio de código de por medio,
+  revisar primero si el proceso sigue corriendo (`netstat`) antes de
+  buscar un bug — lo más probable es que solo haya que reiniciarlo.
+- Para conectar el celular vía Expo Go sin pasar por el QR (por ejemplo,
+  si te lo levanta Claude), usar la URL manual `exp://<IP local>:<puerto>`.
