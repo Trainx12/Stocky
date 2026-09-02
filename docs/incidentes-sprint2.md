@@ -2,9 +2,10 @@
 
 Registro de los problemas encontrados durante la revisión de QA del
 [PR #1](https://github.com/Trainx12/Stocky/pull/1) — "Dashboard de Home
-y soporte de multi-hogar" (Julieta), antes de mergear a `main`. Mismo
-espíritu que [docs/incidentes-sprint1.md](incidentes-sprint1.md): que si
-un error parecido vuelve a aparecer, no haya que redescubrirlo de cero.
+y soporte de multi-hogar" (Julieta), antes de mergear a `main`, más uno
+posterior al probar la app en el celular. Mismo espíritu que
+[docs/incidentes-sprint1.md](incidentes-sprint1.md): que si un error
+parecido vuelve a aparecer, no haya que redescubrirlo de cero.
 
 Los dos se detectaron durante el flujo de rama + PR + QA que se
 documentó en `AGENTS.md` a partir de este sprint — es justamente el tipo
@@ -104,12 +105,107 @@ con una cuenta admin real. Ninguna herramienta automática los iba a
 agarrar solos; hicieron falta ambos pasos de revisión humana que ya
 están en [docs/plan-de-testing.md](plan-de-testing.md).
 
+---
+
+## 3. `npx expo start` para celular falla si ya hay otro Metro corriendo en el 8081
+
+**Síntoma:** al correr `npx expo start` (o `--dev-client`) para levantar la
+app en el celular mientras ya había otro `npx expo start --web` corriendo
+(por ejemplo, el servidor de la pantalla web abierto antes), el comando
+nuevo terminaba enseguida con:
+```
+› Port 8081 is being used by another process
+Input is required, but 'npx expo' is in non-interactive mode.
+Required input:
+> Use port 8082 instead?
+› Skipping dev server
+```
+Sin QR, sin servidor levantado — el proceso se cierra solo.
+
+**Causa raíz:** los dos comandos (`--web` y el normal para celular) usan
+el mismo puerto por default (8081) para Metro Bundler. Cuando ya hay una
+instancia corriendo ahí, Expo CLI le pregunta al usuario si quiere usar
+otro puerto — pero si el comando se ejecuta en un contexto no
+interactivo (una terminal que no puede recibir esa confirmación), no hay
+quién responda esa pregunta y el CLI directamente aborta en vez de
+levantar el servidor.
+
+**Solución:** indicar un puerto distinto a mano con `--port`, en vez de
+depender de que el CLI pregunte y lo asigne solo:
+```bash
+npx expo start --port 8082
+```
+(o `npx expo start --dev-client --port 8082` si se usa el development
+build). En una terminal interactiva normal, también alcanza con
+responder "Sí" a la pregunta del puerto — el problema es específico de
+contextos donde esa pregunta no se puede contestar.
+
+---
+
+## 4. El servidor web se cae sin aviso y queda como si "la app estuviera rota"
+
+**Síntoma:** después de tenerlo andando un buen rato, `http://localhost:8081`
+dejó de responder — la sensación desde afuera es "se cayó la versión web",
+como si algo del código la hubiera roto.
+
+**Causa raíz:** no fue un bug de código. El proceso de Metro
+(`npx expo start --web`) simplemente había dejado de estar corriendo —
+confirmado con `netstat -ano` (nada escuchando en el puerto 8081) — sin
+que quedara registrado ningún error asociado. No se identificó por qué se
+cerró (pudo ser el propio entorno donde corre el servidor, no algo
+reproducible desde el código de la app).
+
+**Solución:** antes de asumir que hay un bug, confirmar si el servidor
+sigue vivo:
+```bash
+netstat -ano | grep ":8081"
+```
+Si no hay nada escuchando, simplemente se vuelve a levantar
+(`npx expo start --web`) — no hace falta tocar código. `tsc`, los tests y
+el bundler seguían todos en verde antes y después, así que quedó
+descartado como problema de la app.
+
+---
+
+## 5. El QR de `npx expo start` no se puede escanear cuando lo corre Claude
+
+**Síntoma:** al pedirle a Claude que levante `npx expo start` para
+conseguir el QR y escanearlo con el celular, el comando arranca bien
+(Metro queda escuchando y accesible en la red local), pero **el QR nunca
+aparece** en la salida que Claude puede leer.
+
+**Causa raíz:** el QR de Expo CLI se dibuja con caracteres de control de
+terminal (arte ASCII) que solo se renderizan en una terminal interactiva
+real (TTY). El entorno donde Claude corre comandos en segundo plano no
+tiene una TTY real, así que esa parte de la salida directamente no se
+genera (no es que se pierda al leerla: el proceso nunca la escribe).
+
+**Solución:** en vez de depender del QR, conectarse a mano desde Expo Go
+con la URL exacta, armada con la IP local de la PC (`ipconfig` → IPv4) y
+el puerto del servidor:
+```
+exp://<IP-local-de-la-PC>:<puerto>
+```
+Por ejemplo `exp://192.168.18.11:8082`. Si se necesita ver el QR real
+(por comodidad, no porque la URL manual no alcance), hay que correr
+`npx expo start` desde una terminal propia, no pedírselo a Claude.
+
+---
+
 ## Estado actual (para referencia rápida)
 
 - `hogar_miembros` no acepta INSERT directo desde el cliente para
   ningún rol — únicamente vía `crear_hogar()` / `unirse_a_hogar()`.
 - `listarMisHogares()` siempre filtra por el usuario logueado,
   independientemente de su rol.
-- Ambos fixes quedaron en el mismo PR (#1) que la funcionalidad
+- Ambos fixes (1 y 2) quedaron en el mismo PR (#1) que la funcionalidad
   original, documentados en los comentarios del PR y ya mergeados a
   `main`.
+- Si vas a correr la app en web y en celular al mismo tiempo (dos
+  `expo start` en paralelo), acordate de pasarle `--port` a uno de los
+  dos para que no choquen en el 8081.
+- Si "se cae" el servidor web sin ningún cambio de código de por medio,
+  revisar primero si el proceso sigue corriendo (`netstat`) antes de
+  buscar un bug — lo más probable es que solo haya que reiniciarlo.
+- Para conectar el celular vía Expo Go sin pasar por el QR (por ejemplo,
+  si te lo levanta Claude), usar la URL manual `exp://<IP local>:<puerto>`.

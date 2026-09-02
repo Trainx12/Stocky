@@ -7,7 +7,7 @@ interface ManageHomesSheetProps {
   visible: boolean;
   onClose: () => void;
   onCrearHogar: () => void;
-  onAdministrarHogares: () => void;
+  onUnirseAHogar: () => void;
 }
 
 /**
@@ -16,8 +16,13 @@ interface ManageHomesSheetProps {
  * nativo de RN (transparent + animationType="slide") en vez de sumar una
  * librería de bottom sheets: solo necesitamos un panel simple con dos
  * opciones, no gestos de arrastre ni snap points.
+ *
+ * Editar/salir de un hogar ya no pasan por acá: están directo en
+ * "Tus hogares activos" de HomeScreen, así que la única acción que faltaba
+ * acá era "Unirme a un Hogar" (antes escondida dentro de "Administrar Mis
+ * Hogares", que se sacó).
  */
-export function ManageHomesSheet({ visible, onClose, onCrearHogar, onAdministrarHogares }: ManageHomesSheetProps) {
+export function ManageHomesSheet({ visible, onClose, onCrearHogar, onUnirseAHogar }: ManageHomesSheetProps) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       {/* Backdrop: ocupa toda la pantalla, cerrar el sheet al tocar afuera del panel */}
@@ -39,11 +44,11 @@ export function ManageHomesSheet({ visible, onClose, onCrearHogar, onAdministrar
             }}
           />
           <SheetOption
-            icon="home-outline"
-            label="Administrar Mis Hogares"
+            icon="enter-outline"
+            label="Unirme a un Hogar"
             onPress={() => {
               onClose();
-              onAdministrarHogares();
+              onUnirseAHogar();
             }}
           />
         </Pressable>

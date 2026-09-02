@@ -16,6 +16,12 @@
 // prefijo (si no, Jest tira ReferenceError al no poder garantizar el
 // orden de inicialización).
 const mockOrder = jest.fn();
+// listarMisHogares y editarHogar comparten from(...).select(...), pero cada
+// una sigue una cadena de métodos distinta (.eq().order() vs .eq().select().single()),
+// por eso select() puede devolver cualquiera de las dos ramas según el mock del momento.
+const mockSingle = jest.fn();
+const mockUpdateEq = jest.fn(() => ({ select: jest.fn(() => ({ single: mockSingle })) }));
+const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
 const mockEq = jest.fn(() => ({ order: mockOrder }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
 
@@ -23,12 +29,21 @@ jest.mock('../lib/supabase', () => ({
   supabase: {
     rpc: jest.fn(),
     auth: { getUser: jest.fn() },
-    from: jest.fn(() => ({ select: mockSelect })),
+    from: jest.fn(() => ({ select: mockSelect, update: mockUpdate })),
   },
 }));
 
 import { supabase } from '../lib/supabase';
-import { crearHogar, listarMisHogares, salirDeHogar, unirseAHogar } from './hogares';
+import {
+  crearHogar,
+  editarHogar,
+  expulsarMiembro,
+  listarMiembrosDeHogar,
+  listarMisHogares,
+  permitirEditarHogar,
+  salirDeHogar,
+  unirseAHogar,
+} from './hogares';
 
 const rpc = supabase.rpc as jest.Mock;
 const getUser = supabase.auth.getUser as jest.Mock;
@@ -41,6 +56,9 @@ beforeEach(() => {
   mockSelect.mockClear();
   mockEq.mockClear();
   mockOrder.mockReset();
+  mockUpdate.mockClear();
+  mockUpdateEq.mockClear();
+  mockSingle.mockReset();
 });
 
 describe('crearHogar', () => {
@@ -95,6 +113,31 @@ describe('salirDeHogar', () => {
   });
 });
 
+describe('editarHogar', () => {
+  it('actualiza el nombre (recortando espacios) y devuelve el hogar actualizado', async () => {
+    const hogar = { id: 'hogar-1', nombre: 'Casa Nueva', codigo_invitacion: 'ABC123', created_at: '2026-01-01' };
+    mockSingle.mockResolvedValue({ data: hogar, error: null });
+
+    const resultado = await editarHogar('hogar-1', '  Casa Nueva  ');
+
+    expect(from).toHaveBeenCalledWith('hogares');
+    expect(mockUpdate).toHaveBeenCalledWith({ nombre: 'Casa Nueva' });
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'hogar-1');
+    expect(resultado).toEqual(hogar);
+  });
+
+  it('rechaza un nombre vacío (o solo espacios) sin llamar a Supabase', async () => {
+    await expect(editarHogar('hogar-1', '   ')).rejects.toThrow('El nombre del hogar no puede estar vacío');
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('propaga el error si la RLS rechaza el update (no es miembro del hogar)', async () => {
+    mockSingle.mockResolvedValue({ data: null, error: new Error('new row violates row-level security policy') });
+
+    await expect(editarHogar('hogar-ajeno', 'Otro nombre')).rejects.toThrow('new row violates row-level security policy');
+  });
+});
+
 describe('listarMisHogares', () => {
   it('filtra explícitamente por el usuario logueado (regresión: no debe apoyarse solo en RLS)', async () => {
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
@@ -106,25 +149,50 @@ describe('listarMisHogares', () => {
     expect(mockEq).toHaveBeenCalledWith('usuario_id', 'user-123');
   });
 
-  it('aplana el resultado anidado { hogares: {...} } a Hogar[]', async () => {
+  it('aplana el resultado anidado { rol, puede_editar, hogares: {...} } a HogarConRol[]', async () => {
     const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
     const hogarB = { id: '2', nombre: 'Casa B', codigo_invitacion: 'BBB222', created_at: '2026-01-02' };
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
-    mockOrder.mockResolvedValue({ data: [{ hogares: hogarA }, { hogares: hogarB }], error: null });
+    mockOrder.mockResolvedValue({
+      data: [
+        { rol: 'dueno', puede_editar: false, hogares: hogarA },
+        { rol: 'invitado', puede_editar: false, hogares: hogarB },
+      ],
+      error: null,
+    });
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([hogarA, hogarB]);
+    expect(resultado).toEqual([
+      { ...hogarA, miRol: 'dueno', puedoEditar: true },
+      { ...hogarB, miRol: 'invitado', puedoEditar: false },
+    ]);
+  });
+
+  it('un invitado con puede_editar=true también puede editar (puedoEditar: true)', async () => {
+    const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockOrder.mockResolvedValue({ data: [{ rol: 'invitado', puede_editar: true, hogares: hogarA }], error: null });
+
+    const resultado = await listarMisHogares();
+
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'invitado', puedoEditar: true }]);
   });
 
   it('descarta filas con hogares en null en vez de romper', async () => {
     const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
-    mockOrder.mockResolvedValue({ data: [{ hogares: hogarA }, { hogares: null }], error: null });
+    mockOrder.mockResolvedValue({
+      data: [
+        { rol: 'dueno', puede_editar: false, hogares: hogarA },
+        { rol: 'invitado', puede_editar: false, hogares: null },
+      ],
+      error: null,
+    });
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([hogarA]);
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true }]);
   });
 
   it('devuelve un array vacío si no hay usuario logueado, sin consultar la tabla', async () => {
@@ -141,5 +209,84 @@ describe('listarMisHogares', () => {
     mockOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
 
     await expect(listarMisHogares()).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('listarMiembrosDeHogar', () => {
+  it('filtra por hogar_id y aplana { usuario_id, rol, puede_editar, usuarios: {...} }', async () => {
+    mockOrder.mockResolvedValue({
+      data: [
+        { usuario_id: 'u-1', rol: 'dueno', puede_editar: false, usuarios: { nombre: 'Julieta', email: 'julieta@test.com' } },
+        { usuario_id: 'u-2', rol: 'invitado', puede_editar: true, usuarios: { nombre: null, email: 'nuevo@test.com' } },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarMiembrosDeHogar('hogar-1');
+
+    expect(from).toHaveBeenCalledWith('hogar_miembros');
+    expect(mockEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
+    expect(resultado).toEqual([
+      { usuarioId: 'u-1', rol: 'dueno', puedeEditar: false, nombre: 'Julieta', email: 'julieta@test.com' },
+      { usuarioId: 'u-2', rol: 'invitado', puedeEditar: true, nombre: null, email: 'nuevo@test.com' },
+    ]);
+  });
+
+  it('descarta filas con usuarios en null en vez de romper', async () => {
+    mockOrder.mockResolvedValue({
+      data: [
+        { usuario_id: 'u-1', rol: 'dueno', puede_editar: false, usuarios: { nombre: 'Julieta', email: 'julieta@test.com' } },
+        { usuario_id: 'u-2', rol: 'invitado', puede_editar: false, usuarios: null },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarMiembrosDeHogar('hogar-1');
+
+    expect(resultado).toEqual([{ usuarioId: 'u-1', rol: 'dueno', puedeEditar: false, nombre: 'Julieta', email: 'julieta@test.com' }]);
+  });
+
+  it('propaga el error si falla la consulta', async () => {
+    mockOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(listarMiembrosDeHogar('hogar-1')).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('permitirEditarHogar', () => {
+  it('llama a la RPC permitir_editar_hogar con hogar, usuario y el valor a setear', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await permitirEditarHogar('hogar-1', 'u-2', true);
+
+    expect(rpc).toHaveBeenCalledWith('permitir_editar_hogar', {
+      p_hogar_id: 'hogar-1',
+      p_usuario_id: 'u-2',
+      p_permitir: true,
+    });
+  });
+
+  it('propaga el error si la RPC rechaza (ej: quien llama no es el dueño)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('Solo el dueño del hogar puede cambiar permisos de edición') });
+
+    await expect(permitirEditarHogar('hogar-1', 'u-2', true)).rejects.toThrow(
+      'Solo el dueño del hogar puede cambiar permisos de edición',
+    );
+  });
+});
+
+describe('expulsarMiembro', () => {
+  it('llama a la RPC expulsar_miembro con el hogar y el usuario a expulsar', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await expulsarMiembro('hogar-1', 'u-2');
+
+    expect(rpc).toHaveBeenCalledWith('expulsar_miembro', { p_hogar_id: 'hogar-1', p_usuario_id: 'u-2' });
+  });
+
+  it('propaga el error si la RPC rechaza (ej: quien llama no es el dueño, o el target es el dueño)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('Solo el dueño del hogar puede expulsar miembros') });
+
+    await expect(expulsarMiembro('hogar-1', 'u-2')).rejects.toThrow('Solo el dueño del hogar puede expulsar miembros');
   });
 });
