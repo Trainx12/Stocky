@@ -12,8 +12,10 @@ export interface HogarConRol extends Hogar {
   puedoEditar: boolean;
 }
 
-// Un miembro de un hogar, para la pantalla "Miembros del hogar" (ver
-// listarMiembrosDeHogar). nombre puede ser null (todavía no lo completó).
+// Un miembro YA ACEPTADO de un hogar (estado 'aprobado'), para la pantalla
+// "Miembros del hogar" (ver listarMiembrosDeHogar). nombre puede ser null
+// (todavía no lo completó). No incluye a quienes tienen una solicitud
+// pendiente -- eso es SolicitudPendiente, más abajo.
 export interface MiembroHogar {
   usuarioId: string;
   rol: RolHogar;
@@ -23,6 +25,24 @@ export interface MiembroHogar {
   puedeEditar: boolean;
   nombre: string | null;
   email: string;
+}
+
+// Alguien que se sumó a un hogar por código pero todavía espera que el
+// dueño lo acepte o lo rechace (ver migración
+// 20260903120000_solicitudes_hogar.sql). Para la sección "Solicitudes
+// pendientes" de "Miembros del hogar".
+export interface SolicitudPendiente {
+  usuarioId: string;
+  nombre: string | null;
+  email: string;
+}
+
+// Una solicitud que YO mandé (uniéndome por código) y que todavía no
+// respondió el dueño del hogar destino. Para mostrarle al invitado "tu
+// solicitud a X está pendiente" mientras espera.
+export interface MiSolicitudPendiente {
+  hogarId: string;
+  nombreHogar: string;
 }
 
 /**
@@ -43,8 +63,12 @@ export async function crearHogar(nombre: string): Promise<Hogar> {
   return data;
 }
 
-// Une al usuario logueado a un hogar ya existente, a partir del código
-// corto de invitación (no del uuid).
+// Manda una solicitud para unirse a un hogar existente, a partir del código
+// corto de invitación (no del uuid). Ya NO suma como miembro directo (ver
+// migración 20260903120000_solicitudes_hogar.sql): queda en estado
+// 'pendiente' hasta que el dueño la acepte o la rechace (responderSolicitud).
+// El hogar devuelto es el destino de la solicitud, no un hogar del que el
+// usuario ya sea miembro.
 export async function unirseAHogar(codigo: string): Promise<Hogar> {
   const { data, error } = await supabase.rpc('unirse_a_hogar', { p_codigo: codigo });
   if (error) throw error;
@@ -101,34 +125,49 @@ export async function listarMisHogares(): Promise<HogarConRol[]> {
   // RLS para ese rol.
   const { data, error } = await supabase
     .from('hogar_miembros')
-    .select('rol, puede_editar, hogares(*)')
+    .select('rol, puede_editar, estado, hogares(*)')
     .eq('usuario_id', userId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
-  // El select anidado devuelve cada fila como { rol, puede_editar, hogares:
-  // {...} }; se aplana acá para que el resto de la app trabaje con
-  // HogarConRol[] directo.
+  // El select anidado devuelve cada fila como { rol, puede_editar, estado,
+  // hogares: {...} }; se aplana acá para que el resto de la app trabaje con
+  // HogarConRol[] directo. Se descartan las filas 'pendiente' (solicitud
+  // todavía no aceptada por el dueño, ver migración
+  // 20260903120000_solicitudes_hogar.sql): no son un hogar del que el
+  // usuario ya sea miembro, así que no pertenecen a "Tus hogares activos".
   return (data ?? [])
-    .filter((fila): fila is typeof fila & { hogares: Hogar } => fila.hogares !== null)
+    .filter((fila): fila is typeof fila & { hogares: Hogar } => fila.hogares !== null && fila.estado === 'aprobado')
     .map((fila) => ({ ...fila.hogares, miRol: fila.rol, puedoEditar: fila.rol === 'dueno' || fila.puede_editar }));
 }
 
-// Lista los miembros de un hogar puntual (nombre/email + rol + permiso de
-// edición), para la pantalla "Miembros del hogar" donde el dueño puede
-// expulsar invitados y habilitarles (o no) la edición del nombre.
-export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHogar[]> {
+// Trae las filas crudas de hogar_miembros de un hogar puntual (con
+// nombre/email del usuario), sin filtrar por estado -- lo usan tanto
+// listarMiembrosDeHogar (estado 'aprobado') como listarSolicitudesPendientes
+// (estado 'pendiente'), para no duplicar la misma consulta dos veces.
+async function obtenerFilasDeHogar(hogarId: string) {
   const { data, error } = await supabase
     .from('hogar_miembros')
-    .select('usuario_id, rol, puede_editar, usuarios(nombre, email)')
+    .select('usuario_id, rol, puede_editar, estado, usuarios(nombre, email)')
     .eq('hogar_id', hogarId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
-  return (data ?? [])
-    .filter((fila): fila is typeof fila & { usuarios: { nombre: string | null; email: string } } => fila.usuarios !== null)
+  return (data ?? []).filter(
+    (fila): fila is typeof fila & { usuarios: { nombre: string | null; email: string } } => fila.usuarios !== null,
+  );
+}
+
+// Lista los miembros YA ACEPTADOS de un hogar puntual (nombre/email + rol +
+// permiso de edición), para la pantalla "Miembros del hogar" donde el dueño
+// puede expulsar invitados y habilitarles (o no) la edición del nombre.
+export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHogar[]> {
+  const filas = await obtenerFilasDeHogar(hogarId);
+
+  return filas
+    .filter((fila) => fila.estado === 'aprobado')
     .map((fila) => ({
       usuarioId: fila.usuario_id,
       rol: fila.rol,
@@ -136,6 +175,48 @@ export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHog
       nombre: fila.usuarios.nombre,
       email: fila.usuarios.email,
     }));
+}
+
+// Lista a quienes se sumaron a un hogar por código pero todavía esperan
+// que el dueño los acepte o los rechace (ver migración
+// 20260903120000_solicitudes_hogar.sql). Misma consulta que
+// listarMiembrosDeHogar, filtrando el estado contrario.
+export async function listarSolicitudesPendientes(hogarId: string): Promise<SolicitudPendiente[]> {
+  const filas = await obtenerFilasDeHogar(hogarId);
+
+  return filas
+    .filter((fila) => fila.estado === 'pendiente')
+    .map((fila) => ({
+      usuarioId: fila.usuario_id,
+      nombre: fila.usuarios.nombre,
+      email: fila.usuarios.email,
+    }));
+}
+
+// Acepta o rechaza una solicitud pendiente de un invitado puntual. Solo
+// puede llamarla el dueño del hogar (lo valida la RPC del lado de
+// Postgres). Aceptar suma al usuario como miembro de verdad (estado
+// 'aprobado'); rechazar borra la solicitud, sin dejar rastro -- el usuario
+// puede volver a intentar unirse más adelante.
+export async function responderSolicitud(hogarId: string, usuarioId: string, aprobar: boolean): Promise<void> {
+  const { error } = await supabase.rpc('responder_solicitud', {
+    p_hogar_id: hogarId,
+    p_usuario_id: usuarioId,
+    p_aprobar: aprobar,
+  });
+  if (error) throw error;
+}
+
+// Lista las solicitudes que YO mandé (uniéndome por código) y que todavía
+// no respondió el dueño del hogar destino. Va por RPC (SECURITY DEFINER) y
+// no por un select directo: mientras la solicitud esté pendiente,
+// es_miembro_de() da false para mí en ese hogar, así que la policy de
+// SELECT de "hogares" no me dejaría ver su nombre por mi cuenta todavía.
+export async function listarMisSolicitudesPendientes(): Promise<MiSolicitudPendiente[]> {
+  const { data, error } = await supabase.rpc('listar_mis_solicitudes_pendientes');
+  if (error) throw error;
+
+  return (data ?? []).map((fila) => ({ hogarId: fila.hogar_id, nombreHogar: fila.nombre }));
 }
 
 // Expulsa a OTRO usuario de un hogar (a diferencia de salirDeHogar, que es

@@ -11,8 +11,9 @@ import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
-import { listarMisHogares, salirDeHogar } from '../services/hogares';
-import type { HogarConRol } from '../services/hogares';
+import { listarMisHogares, listarMisSolicitudesPendientes, salirDeHogar } from '../services/hogares';
+import type { HogarConRol, MiSolicitudPendiente } from '../services/hogares';
+import type { Hogar } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, spacing, typography } from '../theme';
@@ -51,6 +52,13 @@ export function HomeScreen() {
   // Hogar cuyo modal de "Miembros" está abierto (null = cerrado).
   const [hogarMiembrosVisible, setHogarMiembrosVisible] = useState<HogarConRol | null>(null);
 
+  // Solicitudes que YO mandé (unirse por código) y todavía esperan que el
+  // dueño del hogar destino las acepte o las rechace. Se muestran aparte de
+  // "Tus hogares activos" (que solo tiene hogares donde ya soy miembro de
+  // verdad) para que, si cierro y reabro la app antes de que respondan, no
+  // se pierda que estoy esperando una respuesta.
+  const [misSolicitudes, setMisSolicitudes] = useState<MiSolicitudPendiente[]>([]);
+
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
     try {
@@ -62,16 +70,30 @@ export function HomeScreen() {
     }
   }, []);
 
+  const cargarMisSolicitudes = useCallback(async () => {
+    try {
+      setMisSolicitudes(await listarMisSolicitudesPendientes());
+    } catch (err) {
+      console.warn('[Stocky] No se pudieron cargar las solicitudes pendientes:', err);
+    }
+  }, []);
+
   useEffect(() => {
     cargarMisHogares();
-  }, [cargarMisHogares]);
+    cargarMisSolicitudes();
+  }, [cargarMisHogares, cargarMisSolicitudes]);
 
-  // Si el dueño de un hogar me expulsa MIENTRAS tengo la app abierta, mi
-  // fila en hogar_miembros se borra del lado del servidor -- sin esta
-  // suscripción realtime, mi pantalla seguía mostrando ese hogar hasta que
-  // yo recargara a mano. Quien expulsa ya ve el cambio al instante porque
-  // es su propia acción (ManageHomesListModal recarga después del RPC);
-  // esto cubre al OTRO usuario, el expulsado.
+  // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
+  // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
+  // recargar a mano (quien las dispara ya ve el cambio porque es su propia
+  // acción -- esto cubre al otro lado, a mí):
+  //   - Acepta mi solicitud (UPDATE: estado pasa de 'pendiente' a 'aprobado').
+  //   - Rechaza mi solicitud (DELETE con estado ANTERIOR 'pendiente').
+  //   - Me expulsa de un hogar del que ya era miembro (DELETE con estado
+  //     ANTERIOR 'aprobado').
+  // Necesita REPLICA IDENTITY FULL en hogar_miembros (ver migración
+  // 20260903120000_solicitudes_hogar.sql) para que el "old record" del
+  // payload traiga el estado previo y no solo la primary key.
   useEffect(() => {
     if (!usuario?.id) return;
 
@@ -79,10 +101,30 @@ export function HomeScreen() {
       .channel(`hogar_miembros_usuario_${usuario.id}`)
       .on(
         'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
+        (payload) => {
+          const anterior = payload.old as { estado?: string } | null;
+          const actual = payload.new as { estado?: string } | null;
+          if (anterior?.estado === 'pendiente' && actual?.estado === 'aprobado') {
+            avisar('Solicitud aceptada', 'El dueño del hogar aceptó tu solicitud. Ya sos miembro.');
+            cargarMisHogares();
+            cargarMisSolicitudes();
+            refreshUsuario();
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
-        () => {
-          avisar('Te sacaron de un hogar', 'Ya no formás parte de ese hogar.');
+        (payload) => {
+          const anterior = payload.old as { estado?: string } | null;
+          if (anterior?.estado === 'pendiente') {
+            avisar('Solicitud rechazada', 'El dueño del hogar rechazó tu solicitud para unirte.');
+          } else {
+            avisar('Te sacaron de un hogar', 'Ya no formás parte de ese hogar.');
+          }
           cargarMisHogares();
+          cargarMisSolicitudes();
           refreshUsuario();
         },
       )
@@ -91,7 +133,7 @@ export function HomeScreen() {
     return () => {
       supabase.removeChannel(canal);
     };
-  }, [usuario?.id, cargarMisHogares, refreshUsuario]);
+  }, [usuario?.id, cargarMisHogares, cargarMisSolicitudes, refreshUsuario]);
 
   function handleCrearHogar() {
     setCrearVisible(true);
@@ -118,15 +160,23 @@ export function HomeScreen() {
     setUnirseVisible(true);
   }
 
-  // Después de crear o unirse a un hogar: refresca tanto la lista de
-  // hogares de esta pantalla como `usuario` del AuthContext (por si
-  // `hogar_id` pasó de null a un valor, que es lo que usa el resto de la
-  // app como "hogar activo"). Cierra los dos modales sin problema, porque
-  // solo uno de los dos puede estar abierto a la vez.
-  async function handleHogarCreadoOUnido() {
+  // Después de crear un hogar: refresca tanto la lista de hogares de esta
+  // pantalla como `usuario` del AuthContext (por si `hogar_id` pasó de null
+  // a un valor, que es lo que usa el resto de la app como "hogar activo").
+  async function handleHogarCreado() {
     setCrearVisible(false);
-    setUnirseVisible(false);
     await Promise.all([cargarMisHogares(), refreshUsuario()]);
+  }
+
+  // A diferencia de crear un hogar, unirse por código ya NO suma como
+  // miembro directo (ver migración 20260903120000_solicitudes_hogar.sql):
+  // queda como solicitud pendiente hasta que el dueño la acepte o la
+  // rechace, así que acá solo se avisa que se mandó, sin tocar
+  // misHogares/usuario todavía (no cambiaron).
+  async function handleSolicitudEnviada(hogar: Hogar) {
+    setUnirseVisible(false);
+    avisar('Solicitud enviada', `Le pedimos al dueño de "${hogar.nombre}" que apruebe tu ingreso. Te avisamos apenas responda.`);
+    await cargarMisSolicitudes();
   }
 
   // Toques cortos sobre tabs que todavía no tienen pantalla propia
@@ -216,6 +266,24 @@ export function HomeScreen() {
               )}
             </SectionCard>
 
+            {/* Solo aparece si mandé alguna solicitud que el dueño todavía
+                no resolvió -- no confundir con "Tus hogares activos" (esos
+                ya son membresías aceptadas). */}
+            {misSolicitudes.length > 0 && (
+              <SectionCard title="Solicitudes que enviaste">
+                <View style={styles.hogaresList}>
+                  {misSolicitudes.map((solicitud) => (
+                    <View key={solicitud.hogarId} style={styles.hogarRow}>
+                      <Text style={styles.hogarNombre} numberOfLines={1}>
+                        🏠 {solicitud.nombreHogar}
+                      </Text>
+                      <Text style={styles.hogarCodigo}>Esperando respuesta del dueño</Text>
+                    </View>
+                  ))}
+                </View>
+              </SectionCard>
+            )}
+
             <SectionCard title="Actividad reciente">
               <EmptyState icon="time-outline" text="Todavía no hay movimientos para mostrar." />
             </SectionCard>
@@ -266,14 +334,14 @@ export function HomeScreen() {
         visible={crearVisible}
         mode="crear"
         onClose={() => setCrearVisible(false)}
-        onSuccess={handleHogarCreadoOUnido}
+        onSuccess={handleHogarCreado}
       />
 
       <HogarFormModal
         visible={unirseVisible}
         mode="unirse"
         onClose={() => setUnirseVisible(false)}
-        onSuccess={handleHogarCreadoOUnido}
+        onSuccess={handleSolicitudEnviada}
       />
 
       <HogarFormModal

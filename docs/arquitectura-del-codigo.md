@@ -186,6 +186,35 @@ pero el usuario expulsado no se enteraba hasta recargar la app a mano.
 id>' }, ...)`: si mi propia fila se borra (me expulsaron de algún hogar),
 refresca `misHogares`/`usuario` al toque y avisa.
 
+**El dueño acepta o rechaza a quien se quiere unir** (ver
+[20260903120000_solicitudes_hogar.sql](../supabase/migrations/20260903120000_solicitudes_hogar.sql)):
+`unirseAHogar()` ya NO suma como miembro directo -- `hogar_miembros` ahora
+tiene una columna `estado` ('pendiente' | 'aprobado'), y unirse por código
+crea la fila en 'pendiente'. `es_miembro_de()` exige `estado = 'aprobado'`,
+así que mientras la solicitud esté pendiente ese usuario no ve productos,
+nombre del hogar ni al resto de los miembros -- recién al ser aceptado pasa
+a ser miembro de verdad (y recién ahí, si no tenía hogar activo, se le
+asigna). `responderSolicitud(hogarId, usuarioId, aprobar)` es la única
+forma de resolver una solicitud (RPC `responder_solicitud`, solo el dueño
+puede llamarla, mismo patrón de guarda que `expulsarMiembro`): aceptar pasa
+la fila a 'aprobado'; rechazar la borra directamente (el usuario puede
+volver a intentar con un código más adelante).
+`listarSolicitudesPendientes(hogarId)` (para el dueño, en "Miembros del
+hogar") y `listarMisSolicitudesPendientes()` (para quien mandó la
+solicitud, en "Solicitudes que enviaste" de `HomeScreen`) muestran cada
+lado del mismo estado -- esta última va por RPC (`listar_mis_solicitudes_
+pendientes`, SECURITY DEFINER) porque mientras la solicitud está pendiente
+la policy de SELECT de `hogares` todavía no lo deja ver el nombre del
+hogar por su cuenta.
+
+La tabla tiene `REPLICA IDENTITY FULL` (en vez del default, que solo manda
+la primary key en el "old record" de Realtime): así `HomeScreen` puede
+distinguir, al recibir un cambio sobre su propia fila, si fue "me
+aceptaron" (UPDATE pendiente→aprobado), "me rechazaron" (DELETE con estado
+anterior 'pendiente') o "me expulsaron" (DELETE con estado anterior
+'aprobado') -- son tres mensajes distintos para el mismo evento de
+Realtime, y sin el estado anterior no se podían diferenciar.
+
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
 Define la **forma** de las funciones (`reconocerProductosDeTicket`,
