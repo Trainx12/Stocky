@@ -40,7 +40,10 @@ import {
   expulsarMiembro,
   listarMiembrosDeHogar,
   listarMisHogares,
+  listarMisSolicitudesPendientes,
+  listarSolicitudesPendientes,
   permitirEditarHogar,
+  responderSolicitud,
   salirDeHogar,
   unirseAHogar,
 } from './hogares';
@@ -149,14 +152,14 @@ describe('listarMisHogares', () => {
     expect(mockEq).toHaveBeenCalledWith('usuario_id', 'user-123');
   });
 
-  it('aplana el resultado anidado { rol, puede_editar, hogares: {...} } a HogarConRol[]', async () => {
+  it('aplana el resultado anidado { rol, puede_editar, estado, hogares: {...} } a HogarConRol[]', async () => {
     const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
     const hogarB = { id: '2', nombre: 'Casa B', codigo_invitacion: 'BBB222', created_at: '2026-01-02' };
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
     mockOrder.mockResolvedValue({
       data: [
-        { rol: 'dueno', puede_editar: false, hogares: hogarA },
-        { rol: 'invitado', puede_editar: false, hogares: hogarB },
+        { rol: 'dueno', puede_editar: false, estado: 'aprobado', hogares: hogarA },
+        { rol: 'invitado', puede_editar: false, estado: 'aprobado', hogares: hogarB },
       ],
       error: null,
     });
@@ -172,7 +175,10 @@ describe('listarMisHogares', () => {
   it('un invitado con puede_editar=true también puede editar (puedoEditar: true)', async () => {
     const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
-    mockOrder.mockResolvedValue({ data: [{ rol: 'invitado', puede_editar: true, hogares: hogarA }], error: null });
+    mockOrder.mockResolvedValue({
+      data: [{ rol: 'invitado', puede_editar: true, estado: 'aprobado', hogares: hogarA }],
+      error: null,
+    });
 
     const resultado = await listarMisHogares();
 
@@ -184,8 +190,25 @@ describe('listarMisHogares', () => {
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
     mockOrder.mockResolvedValue({
       data: [
-        { rol: 'dueno', puede_editar: false, hogares: hogarA },
-        { rol: 'invitado', puede_editar: false, hogares: null },
+        { rol: 'dueno', puede_editar: false, estado: 'aprobado', hogares: hogarA },
+        { rol: 'invitado', puede_editar: false, estado: 'aprobado', hogares: null },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarMisHogares();
+
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true }]);
+  });
+
+  it('descarta hogares con una solicitud pendiente (todavía no es miembro de verdad)', async () => {
+    const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
+    const hogarPendiente = { id: '2', nombre: 'Casa B', codigo_invitacion: 'BBB222', created_at: '2026-01-02' };
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockOrder.mockResolvedValue({
+      data: [
+        { rol: 'dueno', puede_editar: false, estado: 'aprobado', hogares: hogarA },
+        { rol: 'invitado', puede_editar: false, estado: 'pendiente', hogares: hogarPendiente },
       ],
       error: null,
     });
@@ -213,11 +236,30 @@ describe('listarMisHogares', () => {
 });
 
 describe('listarMiembrosDeHogar', () => {
-  it('filtra por hogar_id y aplana { usuario_id, rol, puede_editar, usuarios: {...} }', async () => {
+  it('filtra por hogar_id y aplana { usuario_id, rol, puede_editar, usuarios: {...} }, solo estado aprobado', async () => {
     mockOrder.mockResolvedValue({
       data: [
-        { usuario_id: 'u-1', rol: 'dueno', puede_editar: false, usuarios: { nombre: 'Julieta', email: 'julieta@test.com' } },
-        { usuario_id: 'u-2', rol: 'invitado', puede_editar: true, usuarios: { nombre: null, email: 'nuevo@test.com' } },
+        {
+          usuario_id: 'u-1',
+          rol: 'dueno',
+          puede_editar: false,
+          estado: 'aprobado',
+          usuarios: { nombre: 'Julieta', email: 'julieta@test.com' },
+        },
+        {
+          usuario_id: 'u-2',
+          rol: 'invitado',
+          puede_editar: true,
+          estado: 'aprobado',
+          usuarios: { nombre: null, email: 'nuevo@test.com' },
+        },
+        {
+          usuario_id: 'u-3',
+          rol: 'invitado',
+          puede_editar: false,
+          estado: 'pendiente',
+          usuarios: { nombre: null, email: 'esperando@test.com' },
+        },
       ],
       error: null,
     });
@@ -235,8 +277,14 @@ describe('listarMiembrosDeHogar', () => {
   it('descarta filas con usuarios en null en vez de romper', async () => {
     mockOrder.mockResolvedValue({
       data: [
-        { usuario_id: 'u-1', rol: 'dueno', puede_editar: false, usuarios: { nombre: 'Julieta', email: 'julieta@test.com' } },
-        { usuario_id: 'u-2', rol: 'invitado', puede_editar: false, usuarios: null },
+        {
+          usuario_id: 'u-1',
+          rol: 'dueno',
+          puede_editar: false,
+          estado: 'aprobado',
+          usuarios: { nombre: 'Julieta', email: 'julieta@test.com' },
+        },
+        { usuario_id: 'u-2', rol: 'invitado', puede_editar: false, estado: 'aprobado', usuarios: null },
       ],
       error: null,
     });
@@ -250,6 +298,109 @@ describe('listarMiembrosDeHogar', () => {
     mockOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
 
     await expect(listarMiembrosDeHogar('hogar-1')).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('listarSolicitudesPendientes', () => {
+  it('filtra por hogar_id y devuelve solo las filas en estado pendiente', async () => {
+    mockOrder.mockResolvedValue({
+      data: [
+        {
+          usuario_id: 'u-1',
+          rol: 'dueno',
+          puede_editar: false,
+          estado: 'aprobado',
+          usuarios: { nombre: 'Julieta', email: 'julieta@test.com' },
+        },
+        {
+          usuario_id: 'u-2',
+          rol: 'invitado',
+          puede_editar: false,
+          estado: 'pendiente',
+          usuarios: { nombre: null, email: 'nuevo@test.com' },
+        },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarSolicitudesPendientes('hogar-1');
+
+    expect(from).toHaveBeenCalledWith('hogar_miembros');
+    expect(mockEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
+    expect(resultado).toEqual([{ usuarioId: 'u-2', nombre: null, email: 'nuevo@test.com' }]);
+  });
+
+  it('devuelve un array vacío si no hay solicitudes pendientes', async () => {
+    mockOrder.mockResolvedValue({
+      data: [
+        {
+          usuario_id: 'u-1',
+          rol: 'dueno',
+          puede_editar: false,
+          estado: 'aprobado',
+          usuarios: { nombre: 'Julieta', email: 'julieta@test.com' },
+        },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarSolicitudesPendientes('hogar-1');
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('propaga el error si falla la consulta', async () => {
+    mockOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(listarSolicitudesPendientes('hogar-1')).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('responderSolicitud', () => {
+  it('llama a la RPC responder_solicitud con hogar, usuario y si se aprueba o no', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await responderSolicitud('hogar-1', 'u-2', true);
+
+    expect(rpc).toHaveBeenCalledWith('responder_solicitud', {
+      p_hogar_id: 'hogar-1',
+      p_usuario_id: 'u-2',
+      p_aprobar: true,
+    });
+  });
+
+  it('propaga el error si la RPC rechaza (ej: quien llama no es el dueño)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('Solo el dueño del hogar puede aceptar o rechazar solicitudes') });
+
+    await expect(responderSolicitud('hogar-1', 'u-2', false)).rejects.toThrow(
+      'Solo el dueño del hogar puede aceptar o rechazar solicitudes',
+    );
+  });
+});
+
+describe('listarMisSolicitudesPendientes', () => {
+  it('llama a la RPC y mapea { hogar_id, nombre } a MiSolicitudPendiente[]', async () => {
+    rpc.mockResolvedValue({
+      data: [
+        { hogar_id: 'hogar-1', nombre: 'Casa A', created_at: '2026-01-01' },
+        { hogar_id: 'hogar-2', nombre: 'Casa B', created_at: '2026-01-02' },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarMisSolicitudesPendientes();
+
+    expect(rpc).toHaveBeenCalledWith('listar_mis_solicitudes_pendientes');
+    expect(resultado).toEqual([
+      { hogarId: 'hogar-1', nombreHogar: 'Casa A' },
+      { hogarId: 'hogar-2', nombreHogar: 'Casa B' },
+    ]);
+  });
+
+  it('propaga el error si la RPC falla', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(listarMisSolicitudesPendientes()).rejects.toThrow('fallo de red');
   });
 });
 
