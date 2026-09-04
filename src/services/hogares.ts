@@ -10,6 +10,10 @@ export interface HogarConRol extends Hogar {
   // dueño, o soy invitado con el permiso habilitado (ver migración
   // 20260828120000_permisos_editar_hogar.sql).
   puedoEditar: boolean;
+  // Cuántas solicitudes de ingreso están esperando respuesta en ESTE hogar.
+  // Siempre 0 si miRol no es "dueno": solo el dueño resuelve solicitudes
+  // (ver HogarMiembrosModal), así que a un invitado ni se le consulta.
+  solicitudesPendientes: number;
 }
 
 // Un miembro YA ACEPTADO de un hogar (estado 'aprobado'), para la pantalla
@@ -137,9 +141,39 @@ export async function listarMisHogares(): Promise<HogarConRol[]> {
   // todavía no aceptada por el dueño, ver migración
   // 20260903120000_solicitudes_hogar.sql): no son un hogar del que el
   // usuario ya sea miembro, así que no pertenecen a "Tus hogares activos".
-  return (data ?? [])
+  const hogares: HogarConRol[] = (data ?? [])
     .filter((fila): fila is typeof fila & { hogares: Hogar } => fila.hogares !== null && fila.estado === 'aprobado')
-    .map((fila) => ({ ...fila.hogares, miRol: fila.rol, puedoEditar: fila.rol === 'dueno' || fila.puede_editar }));
+    .map((fila) => ({
+      ...fila.hogares,
+      miRol: fila.rol,
+      puedoEditar: fila.rol === 'dueno' || fila.puede_editar,
+      solicitudesPendientes: 0,
+    }));
+
+  // Solo tiene sentido contar solicitudes en los hogares donde YO soy
+  // dueño (un invitado no las resuelve, ver HogarMiembrosModal) -- se pide
+  // en una segunda consulta aparte para no traer de más en el select de
+  // arriba, que ya viene anidado con hogares(*).
+  const hogaresPropios = hogares.filter((hogar) => hogar.miRol === 'dueno').map((hogar) => hogar.id);
+  if (hogaresPropios.length > 0) {
+    const { data: pendientes, error: pendientesError } = await supabase
+      .from('hogar_miembros')
+      .select('hogar_id')
+      .eq('estado', 'pendiente')
+      .in('hogar_id', hogaresPropios);
+
+    if (pendientesError) throw pendientesError;
+
+    const conteos = new Map<string, number>();
+    for (const fila of pendientes ?? []) {
+      conteos.set(fila.hogar_id, (conteos.get(fila.hogar_id) ?? 0) + 1);
+    }
+    for (const hogar of hogares) {
+      hogar.solicitudesPendientes = conteos.get(hogar.id) ?? 0;
+    }
+  }
+
+  return hogares;
 }
 
 // Trae las filas crudas de hogar_miembros de un hogar puntual (con

@@ -135,6 +135,34 @@ export function HomeScreen() {
     };
   }, [usuario?.id, cargarMisHogares, cargarMisSolicitudes, refreshUsuario]);
 
+  // Lado DUEÑO: que el punto rojo de "hay solicitudes pendientes" (ver
+  // hogar.solicitudesPendientes) aparezca apenas alguien pide unirse, y
+  // desaparezca apenas se acepta/rechaza (desde este mismo dispositivo o
+  // desde HogarMiembrosModal), sin depender de refrescar la pantalla a mano.
+  // Sin filtro de columna a propósito: Realtime ya aplica la misma policy de
+  // SELECT que el resto de la app (usuario_id=auth.uid() OR
+  // es_miembro_de(hogar_id) OR admin), así que acá solo llegan eventos de
+  // hogares donde YO soy miembro -- no hace falta (ni se puede fácil) armar
+  // un filtro con la lista completa de mis hogares.
+  useEffect(() => {
+    if (!usuario?.id) return;
+
+    const canal = supabase
+      .channel(`hogar_miembros_solicitudes_${usuario.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'hogar_miembros' },
+        () => {
+          cargarMisHogares();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [usuario?.id, cargarMisHogares]);
+
   function handleCrearHogar() {
     setCrearVisible(true);
   }
@@ -234,9 +262,14 @@ export function HomeScreen() {
                           onPress={() => setHogarMiembrosVisible(hogar)}
                           style={styles.hogarAccionButton}
                           accessibilityRole="button"
-                          accessibilityLabel={`Miembros de ${hogar.nombre}`}
+                          accessibilityLabel={
+                            hogar.solicitudesPendientes > 0
+                              ? `Miembros de ${hogar.nombre}, ${hogar.solicitudesPendientes} solicitud${hogar.solicitudesPendientes === 1 ? '' : 'es'} pendiente${hogar.solicitudesPendientes === 1 ? '' : 's'}`
+                              : `Miembros de ${hogar.nombre}`
+                          }
                         >
                           <Ionicons name="people-outline" size={18} color={colors.textSecondary} />
+                          {hogar.solicitudesPendientes > 0 && <View style={styles.solicitudDot} />}
                         </Pressable>
                         {/* Editar el nombre está restringido al dueño por
                             default; un invitado solo lo ve si el dueño le
@@ -458,6 +491,16 @@ const styles = StyleSheet.create({
   },
   hogarAccionButton: {
     padding: spacing.xs,
+    position: 'relative',
+  },
+  solicitudDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.danger,
   },
   emptyState: {
     alignItems: 'center',
