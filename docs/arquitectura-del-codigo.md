@@ -186,6 +186,38 @@ pero el usuario expulsado no se enteraba hasta recargar la app a mano.
 id>' }, ...)`: si mi propia fila se borra (me expulsaron de algún hogar),
 refresca `misHogares`/`usuario` al toque y avisa.
 
+### `productos.ts` — ABM de productos de un hogar (RF7)
+
+A diferencia de `hogares.ts`, acá no hay ninguna RPC: `crearProducto`,
+`editarProducto` y `eliminarProducto` son un `.insert()`/`.update()`/
+`.delete()` directo contra `productos`, porque cada operación toca una
+sola fila de una sola tabla -- la policy de RLS
+(`productos_insert_propio_hogar_o_miembro` y las de update/delete/select,
+ver
+[20260826130000_hogares_multi_membresia.sql](../supabase/migrations/20260826130000_hogares_multi_membresia.sql))
+ya exige ser miembro del hogar (`hogar_id_actual()` o
+`es_miembro_de(hogar_id)`) o admin, mismo criterio que `editarHogar()`.
+
+`listarProductos(hogarId)` filtra explícito por `hogar_id` -- no alcanza
+con dejar que la RLS filtre sola, porque esa misma policy le da acceso a
+**todos** los hogares a una cuenta admin (`es_administrador()`); sin el
+`.eq()` esta pantalla podría devolver mezclado el inventario de otro
+hogar si la llamara un admin (mismo patrón de bug que
+`listarMisHogares`, ver [incidentes-sprint2.md](incidentes-sprint2.md) #2).
+
+Validación de datos (nombre/categoría vacíos, cantidad/stock mínimo
+negativos) se hace del lado del cliente ANTES de pegarle a Supabase
+(función interna `validar()`), para no depender de un constraint de base
+que todavía no existe y para que el error sea legible al toque, sin
+round-trip. La categoría es obligatoria a propósito -- sin eso el filtro
+por categoría de `ProductosScreen` pierde sentido -- aunque la columna
+`productos.categoria` en la base sigue siendo nullable (hay una fila
+vieja, de antes de esta regla, sin categoría cargada).
+
+`fecha_vencimiento`/`alerta_vencimiento_habilitada` (RF2/RF3, Sprint 4)
+todavía no se tocan desde acá -- quedan con su default de la base hasta
+ese sprint.
+
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
 Define la **forma** de las funciones (`reconocerProductosDeTicket`,
@@ -232,9 +264,11 @@ aparecer en la consola/logs, no va a quedar invisible.
 Decide entre dos stacks completos según haya sesión o no:
 
 - **Sin sesión** (`AuthStack`): Welcome → Onboarding → Login.
-- **Con sesión** (`AppStack`): hoy solo tiene Home; acá es donde se van
-  a ir agregando las pantallas de hogar/productos en los próximos
-  sprints.
+- **Con sesión** (`AppStack`): Home → Productos. `Productos` recibe
+  `{ hogarId, hogarNombre }` como parámetro de navegación (no por
+  contexto global): un usuario puede tener más de un hogar (RF6), y cada
+  uno tiene su propio inventario, así que la pantalla necesita saber
+  explícitamente de cuál hogar mostrar los productos.
 
 Importante: **no mira el rol** todavía para decidir nada (cualquier
 usuario logueado entra al mismo stack, sea `usuario` o
@@ -255,6 +289,22 @@ resuelto ni hace falta que lo esté ahora.
   se agregue el archivo real del logo a `assets/`. Está separado en su
   propio componente justo para que ese reemplazo futuro sea un cambio
   en un solo lugar, no buscar y reemplazar en cada pantalla.
+- **`ProductoFormModal.tsx`**: un solo modal para "Agregar producto" y
+  "Editar producto" (mismo patrón que `HogarFormModal`): el modo se
+  infiere de si viene un `producto` seteado o no. La unidad se elige con
+  chips (`unidad`/`kg`/`g`/`l`/`ml`/`paquete`, abreviaturas en minúscula)
+  en vez de un picker nativo porque todavía no hay ninguna librería de
+  Picker instalada. La categoría también es chips: una lista fija de
+  sugeridas (`CATEGORIAS_SUGERIDAS`) combinada con las que ya estén en uso
+  en ESE hogar (prop `categoriasExistentes`, la misma lista que calcula
+  `ProductosScreen` para su filtro), más un chip "+ Personalizada" que
+  revela un input de texto libre para una categoría nueva -- si el
+  producto que se edita ya tenía una categoría que no está entre los
+  chips, el modal arranca directo en modo personalizada para no
+  esconderla. Cantidad y stock mínimo se editan como texto libre y se
+  parsean recién al submitear (acepta coma o punto como separador
+  decimal), para no romper la UI si el usuario borra el campo a mitad de
+  tipeo.
 
 ## 9. `src/screens/` — pantallas de este sprint
 
@@ -263,10 +313,22 @@ resuelto ni hace falta que lo esté ahora.
   vencimientos) con un dot indicator, sin librería externa de carrusel.
 - **`LoginScreen`**: dispara `signInWithGoogle()` y muestra un
   `Alert` si falla.
-- **`HomeScreen`**: placeholder mínimo post-login. Muestra loading /
+- **`HomeScreen`**: dashboard post-login. Muestra loading /
   error-con-reintentar / datos reales según el estado de `usuario` en
   `AuthContext` (ver la nota del punto 6 y el incidente 8) — a
-  propósito **no** asume un rol por default.
+  propósito **no** asume un rol por default. Cada fila de "Tus hogares
+  activos" tiene un ícono de canasta que navega a `Productos` de ESE
+  hogar; los accesos rápidos "Agregar producto"/"Ver despensa" navegan
+  directo si el usuario tiene un solo hogar, o le piden elegir uno desde
+  la lista si tiene más de uno (RF6).
+- **`ProductosScreen`** (RF7): listado + ABM de productos de un hogar
+  puntual. Búsqueda por nombre y filtro por categoría son 100%
+  client-side sobre la lista ya cargada (`listarProductos`) -- a la
+  escala esperada (docs/plan-de-testing.md habla de ~20-30 productos por
+  hogar) no vale la pena ir a la base por cada letra tipeada. Las
+  categorías del filtro se calculan de los productos ya cargados (no es
+  una lista fija), así que un chip solo aparece si hay al menos un
+  producto con esa categoría.
 
 ---
 

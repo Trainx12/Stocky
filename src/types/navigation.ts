@@ -13,4 +13,8 @@ export type AuthStackParamList = {
 
 export type AppStackParamList = {
   Home: undefined;
+  // RF7: listado/ABM de productos de UN hogar puntual. Va por parámetro de
+  // navegación (no por contexto global) porque un usuario puede tener más
+  // de un hogar (RF6) y cada uno tiene su propio inventario.
+  Productos: { hogarId: string; hogarNombre: string };
 };

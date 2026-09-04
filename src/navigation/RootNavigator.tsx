@@ -7,6 +7,7 @@ import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { ProductosScreen } from '../screens/ProductosScreen';
 import { colors } from '../theme';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
 
@@ -29,6 +30,7 @@ function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home" component={HomeScreen} />
+      <AppStack.Screen name="Productos" component={ProductosScreen} />
     </AppStack.Navigator>
   );
 }
