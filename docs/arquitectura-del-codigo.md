@@ -278,6 +278,23 @@ vieja, de antes de esta regla, sin categoría cargada).
 todavía no se tocan desde acá -- quedan con su default de la base hasta
 ese sprint.
 
+### `actividad.ts` — "Actividad reciente" de HomeScreen
+
+`listarActividadReciente(hogarId, limite)` es la única función acá, y va
+por RPC (`listar_actividad_reciente`, ver
+[20260907130000_actividad_hogar.sql](../supabase/migrations/20260907130000_actividad_hogar.sql))
+en vez de un select directo a `actividad_hogar` porque el autor de una fila
+(`usuario_id`) puede ser `null` (cuenta borrada) y ese join opcional
+usuario/actividad es más simple de resolver del lado de Postgres que con el
+select anidado de PostgREST. Las filas de `actividad_hogar` no las inserta
+nada del cliente: las genera un trigger `AFTER INSERT OR UPDATE OR DELETE`
+sobre `productos` (`registrar_actividad_producto()`, `SECURITY DEFINER` por
+el mismo motivo que los helpers de RLS) -- así ninguna función de
+`productos.ts` tiene que acordarse de loguear a mano, ni hay riesgo de que
+alguien agregue un producto por afuera de ese archivo y la actividad quede
+sin registrar. Hoy solo cubre ABM de productos (lo único con ABM real);
+altas/bajas de `hogar_miembros` todavía no generan actividad.
+
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
 Define la **forma** de las funciones (`reconocerProductosDeTicket`,
@@ -376,11 +393,20 @@ resuelto ni hace falta que lo esté ahora.
 - **`HomeScreen`**: dashboard post-login. Muestra loading /
   error-con-reintentar / datos reales según el estado de `usuario` en
   `AuthContext` (ver la nota del punto 6 y el incidente 8) — a
-  propósito **no** asume un rol por default. Cada fila de "Tus hogares
-  activos" tiene un ícono de canasta que navega a `Productos` de ESE
-  hogar; los accesos rápidos "Agregar producto"/"Ver despensa" navegan
-  directo si el usuario tiene un solo hogar, o le piden elegir uno desde
-  la lista si tiene más de uno (RF6).
+  propósito **no** asume un rol por default. Todo el dashboard gira
+  alrededor de un `hogarSeleccionado` (estado local, elegido con el botón
+  "Cambiar hogar" dentro de "Tus hogares activos", que solo se muestra si
+  hay más de uno entre qué elegir) -- distinto de `usuarios.hogar_id` (el
+  "hogar activo" real que usa el resto de la app/RLS), que no se toca desde
+  acá. "Tus hogares activos" ahora muestra solo ESE hogar (no la lista
+  completa); sus accesos rápidos "Agregar producto"/"Ver despensa" navegan
+  directo a `Productos` de ese mismo hogar ("Agregar producto" además le
+  pide a `ProductosScreen` que abra el modal de carga apenas llega, vía
+  `abrirAgregar: true`). "Actividad reciente" trae datos reales de
+  `listarActividadReciente` (`src/services/actividad.ts`), generados por un
+  trigger sobre `productos` (ver
+  [20260907130000_actividad_hogar.sql](../supabase/migrations/20260907130000_actividad_hogar.sql))
+  -- hoy es lo único con ABM real, así que es lo único que se registra.
 - **`ProductosScreen`** (RF7): listado + ABM de productos de un hogar
   puntual. Búsqueda por nombre y filtro por categoría son 100%
   client-side sobre la lista ya cargada (`listarProductos`) -- a la

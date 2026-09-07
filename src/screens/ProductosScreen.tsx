@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  * tipeada, y evita mostrar un loader en cada tecla.
  */
 export function ProductosScreen({ route, navigation }: Props) {
-  const { hogarId, hogarNombre } = route.params;
+  const { hogarId, hogarNombre, abrirAgregar } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +49,14 @@ export function ProductosScreen({ route, navigation }: Props) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // El acceso rápido "Agregar producto" de HomeScreen navega acá con
+  // abrirAgregar: true para no obligar a un segundo toque sobre el FAB --
+  // solo al montar (no en cada render) para no reabrir el modal si se lo
+  // cierra sin guardar y la pantalla vuelve a renderizar por otro motivo.
+  useEffect(() => {
+    if (abrirAgregar) handleAgregar();
+  }, []);
 
   // Categorías realmente en uso en ESTE hogar (no una lista fija): se
   // recalculan a partir de los productos cargados, así que un chip solo

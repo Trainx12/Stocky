@@ -192,6 +192,17 @@ export interface Database {
         Args: Record<string, never>;
         Returns: AsRecord<{ hogar_id: string; nombre: string; created_at: string }>[];
       };
+      listar_actividad_reciente: {
+        Args: { p_hogar_id: string; p_limite?: number };
+        Returns: AsRecord<{
+          id: string;
+          tipo: string;
+          descripcion: string;
+          usuario_nombre: string | null;
+          usuario_email: string | null;
+          created_at: string;
+        }>[];
+      };
     };
   };
 }

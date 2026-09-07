@@ -16,5 +16,8 @@ export type AppStackParamList = {
   // RF7: listado/ABM de productos de UN hogar puntual. Va por parámetro de
   // navegación (no por contexto global) porque un usuario puede tener más
   // de un hogar (RF6) y cada uno tiene su propio inventario.
-  Productos: { hogarId: string; hogarNombre: string };
+  // `abrirAgregar`: si viene en true, ProductosScreen abre el modal de
+  // "Agregar producto" apenas monta (usado por el acceso rápido "Agregar
+  // producto" de HomeScreen, para no obligar a un segundo toque en el FAB).
+  Productos: { hogarId: string; hogarNombre: string; abrirAgregar?: boolean };
 };
