@@ -120,3 +120,50 @@ begin
   where id = auth.uid() and hogar_id = p_hogar_id;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- unirse_a_hogar(): otro bug de QA -- alguien que YA es miembro (o ya tiene
+-- una solicitud pendiente) de un hogar podía volver a "unirse" con el mismo
+-- código sin que nada lo impidiera. El `on conflict (hogar_id, usuario_id) do
+-- nothing` no rompía ninguna fila (la primary key ya lo evitaba), pero
+-- tampoco avisaba nada: la función devolvía éxito igual y la app mostraba
+-- "Solicitud enviada" aunque no se haya mandado ninguna, como si te pudieras
+-- volver a unir a un hogar del que ya formás parte. Ahora se valida ANTES de
+-- intentar el insert y se rechaza con un mensaje explícito para cada caso
+-- (ya sos miembro vs. ya tenés una solicitud pendiente) -- así el `on
+-- conflict do nothing` queda solo como red de seguridad ante una carrera
+-- entre dos llamadas simultáneas, no como la forma normal de manejar esto.
+-- ---------------------------------------------------------------------------
+create or replace function public.unirse_a_hogar(p_codigo text)
+returns public.hogares
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_hogar public.hogares;
+  v_estado_actual public.estado_solicitud;
+begin
+  select * into v_hogar from public.hogares where codigo_invitacion = upper(trim(p_codigo));
+
+  if v_hogar.id is null then
+    raise exception 'No existe ningún hogar con ese código de invitación';
+  end if;
+
+  select estado into v_estado_actual
+  from public.hogar_miembros
+  where hogar_id = v_hogar.id and usuario_id = auth.uid();
+
+  if v_estado_actual = 'aprobado' then
+    raise exception 'Ya sos miembro de este hogar';
+  elsif v_estado_actual = 'pendiente' then
+    raise exception 'Ya tenés una solicitud pendiente para este hogar';
+  end if;
+
+  insert into public.hogar_miembros (hogar_id, usuario_id, rol, estado)
+  values (v_hogar.id, auth.uid(), 'invitado', 'pendiente')
+  on conflict (hogar_id, usuario_id) do nothing;
+
+  return v_hogar;
+end;
+$$;

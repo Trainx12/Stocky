@@ -235,6 +235,17 @@ alcanza con la policy `hogar_miembros_delete_propio_o_admin` que ya existía
 20260826130000_hogares_multi_membresia.sql), así que no hace falta una
 función nueva del lado de Postgres solo para esto.
 
+**No se puede "volver a unir" a un hogar del que ya se es miembro** (mismo
+archivo de migración): `unirse_a_hogar()` solo tenía un `on conflict (hogar_id,
+usuario_id) do nothing` para evitar duplicar la fila, pero no avisaba nada --
+alguien ya aprobado (o con una solicitud pendiente) en ese hogar podía volver
+a mandar el código y la función devolvía éxito igual, mostrando "Solicitud
+enviada" sin haber pasado nada de verdad. Ahora valida el estado actual ANTES
+de intentar el insert y rechaza con un mensaje explícito (`Ya sos miembro de
+este hogar` / `Ya tenés una solicitud pendiente para este hogar`); el `on
+conflict do nothing` queda solo como red de seguridad ante una carrera entre
+dos llamadas simultáneas.
+
 ### `productos.ts` — ABM de productos de un hogar (RF7)
 
 A diferencia de `hogares.ts`, acá no hay ninguna RPC: `crearProducto`,
