@@ -100,6 +100,22 @@ puerta de entrada a todo lo demás.
 
 **Regresión obligatoria:** ruta crítica del Sprint 1 completa.
 
+**Actualización (aceptar/rechazar invitados):** unirse a un hogar por
+código ya no suma como miembro directo -- queda como solicitud pendiente
+hasta que el dueño la acepte o la rechace (ver migración
+20260903120000_solicitudes_hogar.sql). Sumar a la ruta crítica de arriba:
+1. Invitado manda el código → ve "Solicitud enviada" en su cuenta, NO
+   aparece todavía en "Tus hogares activos" ni puede ver productos/nombre
+   del hogar (probar entrando directo si conoce el `hogar_id`).
+2. Dueño abre "Miembros del hogar" → ve al invitado en "Solicitudes
+   pendientes" → lo acepta → el invitado se entera al instante (Realtime,
+   sin recargar) y el hogar pasa a aparecer en su "Tus hogares activos".
+3. Repetir el punto 2 pero rechazando → el invitado se entera al instante
+   ("Solicitud rechazada") y puede volver a mandar el código.
+4. Confirmar que expulsar a un miembro ya aceptado y rechazar una
+   solicitud pendiente muestran mensajes distintos del lado del invitado
+   (no deberían confundirse, aunque ambos borran la fila).
+
 ---
 
 ## Sprint 3 — ABM de productos, listado con búsqueda/filtros (RF7)

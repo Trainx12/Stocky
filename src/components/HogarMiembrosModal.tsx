@@ -1,8 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { expulsarMiembro, listarMiembrosDeHogar, permitirEditarHogar } from '../services/hogares';
-import type { MiembroHogar } from '../services/hogares';
+import {
+  expulsarMiembro,
+  listarMiembrosDeHogar,
+  listarSolicitudesPendientes,
+  permitirEditarHogar,
+  responderSolicitud,
+} from '../services/hogares';
+import type { MiembroHogar, SolicitudPendiente } from '../services/hogares';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -25,13 +31,23 @@ interface HogarMiembrosModalProps {
  */
 export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usuarioActualId }: HogarMiembrosModalProps) {
   const [miembros, setMiembros] = useState<MiembroHogar[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudPendiente[]>([]);
   const [loading, setLoading] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!hogarId) return;
     setLoading(true);
     try {
-      setMiembros(await listarMiembrosDeHogar(hogarId));
+      // Se piden en paralelo: son dos consultas independientes (miembros ya
+      // aceptados vs. solicitudes pendientes, ver migración
+      // 20260903120000_solicitudes_hogar.sql) que alimentan dos listas
+      // separadas de esta misma pantalla.
+      const [miembrosData, solicitudesData] = await Promise.all([
+        listarMiembrosDeHogar(hogarId),
+        listarSolicitudesPendientes(hogarId),
+      ]);
+      setMiembros(miembrosData);
+      setSolicitudes(solicitudesData);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudieron cargar los miembros del hogar.');
     } finally {
@@ -47,6 +63,20 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
 
   // Soy dueño de este hogar si mi propia fila en la lista dice rol "dueno".
   const soyDueno = miembros.some((m) => m.usuarioId === usuarioActualId && m.rol === 'dueno');
+
+  // Aceptar o rechazar la solicitud de un invitado puntual. El "no" no
+  // pide confirmación (no es tan destructivo como expulsar a alguien que
+  // ya era miembro: el invitado puede volver a mandar el código), pero el
+  // dueño lo hace explícitamente tocando el botón correspondiente.
+  async function handleResponderSolicitud(solicitud: SolicitudPendiente, aprobar: boolean) {
+    if (!hogarId) return;
+    try {
+      await responderSolicitud(hogarId, solicitud.usuarioId, aprobar);
+      await cargar();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo responder la solicitud.');
+    }
+  }
 
   async function handleExpulsar(miembro: MiembroHogar) {
     if (!hogarId) return;
@@ -87,54 +117,94 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
 
           {loading ? (
             <ActivityIndicator color={colors.primary} style={styles.loader} />
-          ) : miembros.length === 0 ? (
-            <Text style={styles.emptyText}>No se encontraron miembros.</Text>
           ) : (
-            <View style={styles.list}>
-              {miembros.map((miembro) => (
-                <View key={miembro.usuarioId} style={styles.rowContainer}>
-                  <View style={styles.row}>
-                    <View style={styles.rowTextos}>
-                      <Text style={styles.rowNombre} numberOfLines={1}>
-                        {miembro.nombre ?? miembro.email}
-                      </Text>
-                      <View style={[styles.badge, miembro.rol === 'dueno' ? styles.badgeDueno : styles.badgeInvitado]}>
-                        <Text style={[styles.badgeTexto, miembro.rol === 'dueno' ? styles.badgeTextoDueno : styles.badgeTextoInvitado]}>
-                          {miembro.rol === 'dueno' ? 'Dueño' : 'Invitado'}
+            <>
+              {/* Solo el dueño ve y resuelve las solicitudes pendientes --
+                  un invitado ni siquiera llega a ver quién más pidió
+                  sumarse (ver migración 20260903120000_solicitudes_hogar.sql). */}
+              {soyDueno && solicitudes.length > 0 && (
+                <View style={styles.list}>
+                  <Text style={styles.subtitle}>Solicitudes pendientes</Text>
+                  {solicitudes.map((solicitud) => (
+                    <View key={solicitud.usuarioId} style={styles.rowContainer}>
+                      <View style={styles.row}>
+                        <Text style={styles.rowNombre} numberOfLines={1}>
+                          {solicitud.nombre ?? solicitud.email}
                         </Text>
+                        <View style={styles.solicitudAcciones}>
+                          <Pressable
+                            onPress={() => handleResponderSolicitud(solicitud, true)}
+                            style={styles.solicitudButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Aceptar a ${solicitud.nombre ?? solicitud.email}`}
+                          >
+                            <Ionicons name="checkmark-circle-outline" size={22} color={colors.primary} />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleResponderSolicitud(solicitud, false)}
+                            style={styles.solicitudButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Rechazar a ${solicitud.nombre ?? solicitud.email}`}
+                          >
+                            <Ionicons name="close-circle-outline" size={22} color={colors.danger} />
+                          </Pressable>
+                        </View>
                       </View>
                     </View>
-
-                    {soyDueno && miembro.rol === 'invitado' && (
-                      <Pressable
-                        onPress={() => handleExpulsar(miembro)}
-                        style={styles.expulsarButton}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Expulsar a ${miembro.nombre ?? miembro.email}`}
-                      >
-                        <Ionicons name="person-remove-outline" size={20} color={colors.danger} />
-                      </Pressable>
-                    )}
-                  </View>
-
-                  {/* El dueño puede habilitar/deshabilitar que ESTE invitado
-                      puntual edite el nombre del hogar. Default false (ver
-                      migración 20260828120000_permisos_editar_hogar.sql):
-                      un invitado no puede editar salvo que el dueño lo
-                      habilite acá explícitamente. */}
-                  {soyDueno && miembro.rol === 'invitado' && (
-                    <View style={styles.permisoRow}>
-                      <Text style={styles.permisoTexto}>Puede editar el nombre del hogar</Text>
-                      <Switch
-                        value={miembro.puedeEditar}
-                        onValueChange={(valor) => handlePermitirEditar(miembro, valor)}
-                        trackColor={{ true: colors.primary, false: colors.border }}
-                      />
-                    </View>
-                  )}
+                  ))}
                 </View>
-              ))}
-            </View>
+              )}
+
+              {miembros.length === 0 ? (
+                <Text style={styles.emptyText}>No se encontraron miembros.</Text>
+              ) : (
+                <View style={styles.list}>
+                  {miembros.map((miembro) => (
+                    <View key={miembro.usuarioId} style={styles.rowContainer}>
+                      <View style={styles.row}>
+                        <View style={styles.rowTextos}>
+                          <Text style={styles.rowNombre} numberOfLines={1}>
+                            {miembro.nombre ?? miembro.email}
+                          </Text>
+                          <View style={[styles.badge, miembro.rol === 'dueno' ? styles.badgeDueno : styles.badgeInvitado]}>
+                            <Text style={[styles.badgeTexto, miembro.rol === 'dueno' ? styles.badgeTextoDueno : styles.badgeTextoInvitado]}>
+                              {miembro.rol === 'dueno' ? 'Dueño' : 'Invitado'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {soyDueno && miembro.rol === 'invitado' && (
+                          <Pressable
+                            onPress={() => handleExpulsar(miembro)}
+                            style={styles.expulsarButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Expulsar a ${miembro.nombre ?? miembro.email}`}
+                          >
+                            <Ionicons name="person-remove-outline" size={20} color={colors.danger} />
+                          </Pressable>
+                        )}
+                      </View>
+
+                      {/* El dueño puede habilitar/deshabilitar que ESTE invitado
+                          puntual edite el nombre del hogar. Default false (ver
+                          migración 20260828120000_permisos_editar_hogar.sql):
+                          un invitado no puede editar salvo que el dueño lo
+                          habilite acá explícitamente. */}
+                      {soyDueno && miembro.rol === 'invitado' && (
+                        <View style={styles.permisoRow}>
+                          <Text style={styles.permisoTexto}>Puede editar el nombre del hogar</Text>
+                          <Switch
+                            value={miembro.puedeEditar}
+                            onValueChange={(valor) => handlePermitirEditar(miembro, valor)}
+                            trackColor={{ true: colors.primary, false: colors.border }}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
           )}
         </Pressable>
       </Pressable>
@@ -177,8 +247,19 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
   },
+  subtitle: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
   list: {
     gap: spacing.xs,
+  },
+  solicitudAcciones: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  solicitudButton: {
+    padding: spacing.xs,
   },
   rowContainer: {
     paddingVertical: spacing.sm,

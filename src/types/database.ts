@@ -24,6 +24,16 @@ export interface Hogar {
 export type RolHogar = 'dueno' | 'invitado';
 
 /**
+ * Estado de una fila de hogar_miembros (ver migración
+ * 20260903120000_solicitudes_hogar.sql): 'pendiente' es un invitado que se
+ * sumó por código pero todavía no fue aceptado por el dueño -- mientras
+ * esté en ese estado NO es miembro de verdad (no ve productos/nombre del
+ * hogar, ver es_miembro_de()). El dueño siempre es 'aprobado' directo,
+ * nunca pasa por 'pendiente'.
+ */
+export type EstadoSolicitud = 'pendiente' | 'aprobado';
+
+/**
  * Espejo de la tabla public.hogar_miembros: relación N a N entre
  * usuarios y hogares (un usuario puede pertenecer a más de un hogar).
  * `usuarios.hogar_id` sigue existiendo aparte como "hogar activo" (el que
@@ -38,6 +48,7 @@ export interface HogarMiembro {
   // tiene que habilitarlo explícitamente. No aplica al dueño, que siempre
   // puede editar sin importar este valor.
   puede_editar: boolean;
+  estado: EstadoSolicitud;
   created_at: string;
 }
 
@@ -168,6 +179,14 @@ export interface Database {
       permitir_editar_hogar: {
         Args: { p_hogar_id: string; p_usuario_id: string; p_permitir: boolean };
         Returns: void;
+      };
+      responder_solicitud: {
+        Args: { p_hogar_id: string; p_usuario_id: string; p_aprobar: boolean };
+        Returns: void;
+      };
+      listar_mis_solicitudes_pendientes: {
+        Args: Record<string, never>;
+        Returns: AsRecord<{ hogar_id: string; nombre: string; created_at: string }>[];
       };
     };
   };
