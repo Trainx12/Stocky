@@ -125,6 +125,47 @@ publication supabase_realtime add table public.hogar_miembros`) y
 hogar, avisa y refresca `misHogares`/`usuario` sin que el usuario tenga
 que hacer nada.
 
+--- JULI
+
+## 4. Migración aplicada en el repo pero no en el proyecto Supabase real: "se perdieron" los hogares
+
+**Síntoma:** después de implementar aceptar/rechazar invitados (columna
+`hogar_miembros.estado`), un usuario real (con hogares ya creados desde
+antes) abrió la app y "Tus hogares activos" apareció vacío -- como si
+hubiera perdido toda su membresía -- aunque las filas seguían existiendo
+en la tabla (confirmado por SQL directo contra la base).
+
+**Causa raíz:** la migración
+[20260903120000_solicitudes_hogar.sql](../supabase/migrations/20260903120000_solicitudes_hogar.sql)
+solo existía como archivo en la rama de trabajo -- todavía no se había
+aplicado al proyecto real de Supabase. El código nuevo de
+`listarMisHogares()` ya pedía la columna `estado` en el `select(...)`;
+como esa columna no existía en la base, PostgREST devolvía **400** en
+cada request (confirmado revisando `edge_logs` con `query_logs`: las
+llamadas con `estado` en el `select` fallaban con 400, las mismas
+llamadas sin ese campo, de antes del cambio, seguían devolviendo 200).
+`listarMisHogares()` atrapa cualquier error de la consulta y lo loguea
+con `console.warn` sin cortar el render -- por diseño, para que un fallo
+de red no rompa toda la pantalla -- pero eso mismo hizo que el error
+quedara invisible para quien probaba la app: la UI mostraba "no tenés
+hogares" en vez de un mensaje de error real.
+
+**Solución:** aplicar la migración pendiente contra el proyecto real
+(`apply_migration` de la MCP de Supabase). Como la columna nueva tiene
+default `'aprobado'`, ninguna membresía existente se vio afectada -- se
+confirmó por SQL que las filas del usuario que reportó el problema
+siguieron en estado `'aprobado'` después de aplicar la migración, y que
+la consulta que antes devolvía 400 volvió a devolver 200.
+
+**Cómo evitar que vuelva a pasar:** una migración nueva en
+`supabase/migrations/` no tiene efecto real hasta que se aplica contra
+el proyecto de Supabase -- tenerla en la rama (o incluso mergeada a
+`main`) no alcanza. Antes de dar por "lista para probar" cualquier
+funcionalidad que dependa de un cambio de esquema, confirmar que la
+migración ya corrió contra el proyecto que se va a usar para probar (acá
+ayuda pedirle a Claude que corra `list_migrations` o pruebe la consulta
+afectada por SQL directo antes de decir "ya podés probarlo").
+
 ---
 
 ## Estado actual (para referencia rápida)
@@ -136,6 +177,12 @@ que hacer nada.
   hogar"). Default: solo el dueño puede editar.
 - `HomeScreen` está suscripto a Realtime para enterarse al instante si lo
   expulsan de un hogar mientras tiene la app abierta.
+- Aceptar/rechazar invitados (`hogar_miembros.estado`, ver
+  [20260903120000_solicitudes_hogar.sql](../supabase/migrations/20260903120000_solicitudes_hogar.sql))
+  y el ABM de productos (RF7, `src/services/productos.ts` +
+  `ProductosScreen`/`ProductoFormModal`) se agregaron durante este sprint
+  también -- ver [arquitectura-del-codigo.md](arquitectura-del-codigo.md)
+  para el detalle de cómo están armados.
 - Verificado por Claude: `tsc --noEmit` limpio, `npm test` sin errores,
   `get_advisors` de seguridad sin hallazgos nuevos, la app sigue
   bundleando y renderizando sin errores en `expo start --web`, y se
@@ -146,4 +193,5 @@ que hacer nada.
   el dueño lo deshabilita/expulsa, el invitado se entera al instante) —
   esto requiere login real, que Claude no puede hacer por sí solo. Si
   alguien logra reproducir "un invitado elimina al dueño", documentarlo
-  acá con los pasos exactos.
+  acá con los pasos exactos. Ídem para la ruta crítica del ABM de
+  productos (crear/editar/eliminar, buscar, filtrar por categoría).
