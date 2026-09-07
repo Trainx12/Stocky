@@ -10,6 +10,7 @@ import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
+import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
@@ -18,7 +19,7 @@ import type { HogarConRol, MiSolicitudPendiente } from '../services/hogares';
 import type { Hogar } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
-import { colors, spacing, typography } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 
 /**
  * Pantalla principal (dashboard) que ve cualquier usuario logueado al
@@ -60,6 +61,15 @@ export function HomeScreen() {
   // se pierda que estoy esperando una respuesta.
   const [misSolicitudes, setMisSolicitudes] = useState<MiSolicitudPendiente[]>([]);
 
+  // Hogar que el resto del dashboard (Actividad reciente, Accesos rápidos)
+  // toma como referencia. Es una selección local a esta pantalla -- no toca
+  // `usuarios.hogar_id` (el "hogar activo" real que usa el resto de la app y
+  // la RLS) -- así que cambiarla acá nunca afecta a qué hogar apunta crear
+  // un hogar/aceptar una solicitud en otro lado.
+  const [hogarSeleccionadoId, setHogarSeleccionadoId] = useState<string | null>(null);
+  const [cambiarHogarVisible, setCambiarHogarVisible] = useState(false);
+  const hogarSeleccionado = misHogares.find((h) => h.id === hogarSeleccionadoId) ?? null;
+
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
     try {
@@ -83,6 +93,25 @@ export function HomeScreen() {
     cargarMisHogares();
     cargarMisSolicitudes();
   }, [cargarMisHogares, cargarMisSolicitudes]);
+
+  // Si la selección actual ya no es válida (todavía no se eligió ninguna,
+  // o el hogar seleccionado se dejó/expulsó/etc.), se reemplaza por el
+  // "hogar activo" de siempre (usuario.hogar_id) si sigue siendo uno de mis
+  // hogares, o si no por el primero de la lista. Si ya hay una selección
+  // válida, se respeta -- no se le pisa la elección al usuario cada vez que
+  // se recarga la lista por otro motivo (crear/salir de OTRO hogar, etc.).
+  useEffect(() => {
+    if (misHogares.length === 0) {
+      if (hogarSeleccionadoId !== null) setHogarSeleccionadoId(null);
+      return;
+    }
+
+    const sigueSiendoValida = misHogares.some((h) => h.id === hogarSeleccionadoId);
+    if (sigueSiendoValida) return;
+
+    const activo = misHogares.find((h) => h.id === usuario?.hogar_id);
+    setHogarSeleccionadoId((activo ?? misHogares[0]).id);
+  }, [misHogares, hogarSeleccionadoId, usuario?.hogar_id]);
 
   // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
   // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
@@ -189,21 +218,15 @@ export function HomeScreen() {
     setUnirseVisible(true);
   }
 
-  // Accesos rápidos "Agregar producto" / "Ver despensa": si el usuario
-  // tiene un solo hogar no hace falta preguntarle cuál, se navega directo.
-  // Con más de uno (RF6) sería ambiguo, así que se lo manda a elegir desde
-  // el ícono de canasta de cada fila en "Tus hogares activos".
+  // Accesos rápidos "Agregar producto" / "Ver despensa": van directo al
+  // hogar elegido en "Cambiar hogar" arriba de todo, sin preguntar nada --
+  // si hay más de uno (RF6), para eso está el selector.
   function handleIrAProductos() {
-    if (misHogares.length === 0) {
+    if (!hogarSeleccionado) {
       avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
       return;
     }
-    if (misHogares.length === 1) {
-      const [hogar] = misHogares;
-      navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
-      return;
-    }
-    avisar('Elegí un hogar', 'Tocá el ícono de canasta 🧺 en "Tus hogares activos" para ver los productos de ese hogar.');
+    navigation.navigate('Productos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre });
   }
 
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
@@ -255,6 +278,24 @@ export function HomeScreen() {
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
+        {/* Arriba de todo, antes del saludo: a qué hogar se refiere el
+            resto del dashboard (Actividad reciente, Accesos rápidos).
+            Solo tiene sentido mostrarlo si hay algo entre qué elegir. */}
+        {hogarSeleccionado && (
+          <Pressable
+            style={styles.cambiarHogarButton}
+            onPress={() => setCambiarHogarVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Cambiar hogar, mostrando ${hogarSeleccionado.nombre}`}
+          >
+            <Ionicons name="home-outline" size={16} color={colors.primary} />
+            <Text style={styles.cambiarHogarTexto} numberOfLines={1}>
+              Cambiar hogar · {hogarSeleccionado.nombre}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.primary} />
+          </Pressable>
+        )}
+
         <Header nombre={usuario?.nombre} />
       </View>
 
@@ -383,7 +424,14 @@ export function HomeScreen() {
             )}
 
             <SectionCard title="Actividad reciente">
-              <EmptyState icon="time-outline" text="Todavía no hay movimientos para mostrar." />
+              <EmptyState
+                icon="time-outline"
+                text={
+                  hogarSeleccionado
+                    ? `Todavía no hay movimientos para mostrar en "${hogarSeleccionado.nombre}".`
+                    : 'Todavía no hay movimientos para mostrar.'
+                }
+              />
             </SectionCard>
 
             <SectionCard title="Accesos rápidos">
@@ -443,6 +491,14 @@ export function HomeScreen() {
           onClose={() => setHogarMiembrosVisible(null)}
         />
       )}
+
+      <SeleccionarHogarModal
+        visible={cambiarHogarVisible}
+        onClose={() => setCambiarHogarVisible(false)}
+        hogares={misHogares}
+        hogarSeleccionadoId={hogarSeleccionadoId}
+        onSeleccionar={setHogarSeleccionadoId}
+      />
     </ScreenContainer>
   );
 }
@@ -509,6 +565,22 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  cambiarHogarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryLight,
+  },
+  cambiarHogarTexto: {
+    ...typography.caption,
+    color: colors.primary,
+    flexShrink: 1,
   },
   hogaresList: {
     gap: spacing.xs,
