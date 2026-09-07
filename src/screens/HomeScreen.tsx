@@ -8,7 +8,6 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
-import { ManageHomesSheet } from '../components/ManageHomesSheet';
 import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { Button } from '../components/Button';
@@ -36,12 +35,10 @@ export function HomeScreen() {
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
 
-  // Controla si el bottom sheet "Gestionar Mis Hogares" está abierto.
-  // Se dispara con un long-press sobre el ícono de Perfil de la nav bar.
-  const [sheetVisible, setSheetVisible] = useState(false);
   // Modales de "Crear Nuevo Hogar" y "Unirme a un Hogar" (mismo
-  // HogarFormModal, distinto mode), disparados desde las dos opciones del
-  // sheet de arriba.
+  // HogarFormModal, distinto mode), disparados por los botones debajo de
+  // "Tus hogares activos" -- un toque directo, sin gestos escondidos (antes
+  // vivían atrás de un long-press sobre "Perfil" en la nav bar).
   const [crearVisible, setCrearVisible] = useState(false);
   const [unirseVisible, setUnirseVisible] = useState(false);
 
@@ -247,11 +244,10 @@ export function HomeScreen() {
   }
 
   // Toques cortos sobre tabs que todavía no tienen pantalla propia
-  // (Búsqueda y Notificaciones). "Home" no hace nada porque ya estamos ahí,
-  // y "Perfil" en toque corto tampoco navega todavía (solo reacciona al
-  // long-press, definido en BottomNavBar).
+  // (Búsqueda, Notificaciones y Perfil). "Home" no hace nada porque ya
+  // estamos ahí.
   function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
-    if (tab === 'search' || tab === 'notifications') {
+    if (tab === 'search' || tab === 'notifications' || tab === 'profile') {
       avisar('Próximamente', 'Esta sección todavía no está disponible.');
     }
   }
@@ -276,12 +272,7 @@ export function HomeScreen() {
               {hogaresLoading ? (
                 <ActivityIndicator color={colors.primary} />
               ) : misHogares.length === 0 ? (
-                <EmptyState
-                  icon="home-outline"
-                  text="Todavía no formás parte de ningún hogar."
-                  actionLabel="Crear mi primer hogar"
-                  onAction={handleCrearHogar}
-                />
+                <EmptyState icon="home-outline" text="Todavía no formás parte de ningún hogar." />
               ) : (
                 // Puede haber más de uno (RF6): se listan todos, no solo
                 // el "hogar activo" de usuario.hogar_id.
@@ -344,6 +335,23 @@ export function HomeScreen() {
                   ))}
                 </View>
               )}
+
+              {/* Un toque directo, sin gestos escondidos -- antes vivían
+                  atrás de un long-press sobre "Perfil" en la nav bar. */}
+              <View style={styles.hogaresAccionesRow}>
+                <Button
+                  label="Crear hogar"
+                  variant="outline"
+                  onPress={handleCrearHogar}
+                  style={styles.hogaresAccionButton}
+                />
+                <Button
+                  label="Unirme a un hogar"
+                  variant="outline"
+                  onPress={handleUnirseAHogar}
+                  style={styles.hogaresAccionButton}
+                />
+              </View>
             </SectionCard>
 
             {/* Solo aparece si mandé alguna solicitud que el dueño todavía
@@ -399,14 +407,7 @@ export function HomeScreen() {
         <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} style={styles.signOutButton} />
       </ScrollView>
 
-      <BottomNavBar active="home" onTabPress={handleTabPress} onProfileLongPress={() => setSheetVisible(true)} />
-
-      <ManageHomesSheet
-        visible={sheetVisible}
-        onClose={() => setSheetVisible(false)}
-        onCrearHogar={handleCrearHogar}
-        onUnirseAHogar={handleUnirseAHogar}
-      />
+      <BottomNavBar active="home" onTabPress={handleTabPress} />
 
       <HogarFormModal
         visible={crearVisible}
@@ -537,6 +538,16 @@ const styles = StyleSheet.create({
   hogarAccionButton: {
     padding: spacing.xs,
     position: 'relative',
+  },
+  hogaresAccionesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  hogaresAccionButton: {
+    flexGrow: 1,
+    minWidth: 140,
   },
   solicitudDot: {
     position: 'absolute',
