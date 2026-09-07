@@ -274,3 +274,39 @@ export async function permitirEditarHogar(hogarId: string, usuarioId: string, pe
   });
   if (error) throw error;
 }
+
+// El dueño le pasa el rol a otro miembro YA ACEPTADO de su elección (a
+// diferencia de la promoción automática de salirDeHogar, esto es voluntario
+// y no requiere irse del hogar). Solo puede llamarla el dueño, y el usuario
+// destino tiene que ser miembro aprobado de ese hogar -- ambas cosas las
+// valida la RPC del lado de Postgres (ceder_dueno, ver migración
+// 20260907120000_ceder_dueno_y_cancelar_solicitud.sql), no acá.
+export async function cederDueno(hogarId: string, nuevoDuenoId: string): Promise<void> {
+  const { error } = await supabase.rpc('ceder_dueno', { p_hogar_id: hogarId, p_nuevo_dueno_id: nuevoDuenoId });
+  if (error) throw error;
+}
+
+// Cancela una solicitud que YO mandé y todavía no respondió el dueño (por
+// si no quiero seguir esperando, o me arrepentí). No hace falta una RPC:
+// la policy "hogar_miembros_delete_propio_o_admin" (ver migración
+// 20260826130000_hogares_multi_membresia.sql) ya deja borrar cualquier fila
+// propia sin importar el estado, así que alcanza con un .delete() directo.
+// El filtro `estado = 'pendiente'` es una salvaguarda del lado del cliente
+// para que esta función nunca se use por error para abandonar un hogar del
+// que ya se es miembro de verdad (para eso está salirDeHogar).
+export async function cancelarSolicitud(hogarId: string): Promise<void> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+
+  const userId = userData.user?.id;
+  if (!userId) throw new Error('No se pudo identificar al usuario logueado');
+
+  const { error } = await supabase
+    .from('hogar_miembros')
+    .delete()
+    .eq('hogar_id', hogarId)
+    .eq('usuario_id', userId)
+    .eq('estado', 'pendiente');
+
+  if (error) throw error;
+}

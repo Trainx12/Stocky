@@ -215,6 +215,26 @@ anterior 'pendiente') o "me expulsaron" (DELETE con estado anterior
 'aprobado') -- son tres mensajes distintos para el mismo evento de
 Realtime, y sin el estado anterior no se podían diferenciar.
 
+**El hogar nunca queda sin dueño** (ver
+[20260907120000_ceder_dueno_y_cancelar_solicitud.sql](../supabase/migrations/20260907120000_ceder_dueno_y_cancelar_solicitud.sql)):
+antes, si el dueño se iba (`salirDeHogar`), el hogar se quedaba sin ningún
+miembro con `rol = 'dueno'` y, como `responderSolicitud`/`expulsarMiembro`/
+`permitirEditarHogar` exigen serlo, las solicitudes pendientes de ese hogar
+quedaban trabadas para siempre y nadie podía volver a unirse. Ahora
+`salir_de_hogar()` promueve a otro miembro ANTES de borrar la fila del que se
+va: primero al invitado aprobado más antiguo; si no queda ninguno, a la
+solicitud pendiente más antigua (aprobándola de paso). `cederDueno(hogarId,
+usuarioId)` es la versión voluntaria de lo mismo -- el dueño elige a quién
+pasarle el rol sin tener que irse del hogar -- con la misma guarda que
+`expulsarMiembro` (solo el dueño puede llamarla, del lado de la RPC).
+
+**Cancelar una solicitud propia no necesita RPC**: `cancelarSolicitud(hogarId)`
+hace un `.delete()` directo sobre la propia fila en estado `'pendiente'` --
+alcanza con la policy `hogar_miembros_delete_propio_o_admin` que ya existía
+(deja borrar cualquier fila propia sin importar el estado, ver migración
+20260826130000_hogares_multi_membresia.sql), así que no hace falta una
+función nueva del lado de Postgres solo para esto.
+
 ### `productos.ts` — ABM de productos de un hogar (RF7)
 
 A diferencia de `hogares.ts`, acá no hay ninguna RPC: `crearProducto`,

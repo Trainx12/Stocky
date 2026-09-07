@@ -176,6 +176,10 @@ export interface Database {
         Args: { p_hogar_id: string; p_usuario_id: string };
         Returns: void;
       };
+      ceder_dueno: {
+        Args: { p_hogar_id: string; p_nuevo_dueno_id: string };
+        Returns: void;
+      };
       permitir_editar_hogar: {
         Args: { p_hogar_id: string; p_usuario_id: string; p_permitir: boolean };
         Returns: void;

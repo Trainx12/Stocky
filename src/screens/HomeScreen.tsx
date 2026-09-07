@@ -14,7 +14,7 @@ import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
-import { listarMisHogares, listarMisSolicitudesPendientes, salirDeHogar } from '../services/hogares';
+import { cancelarSolicitud, listarMisHogares, listarMisSolicitudesPendientes, salirDeHogar } from '../services/hogares';
 import type { HogarConRol, MiSolicitudPendiente } from '../services/hogares';
 import type { Hogar } from '../types/database';
 import { supabase } from '../lib/supabase';
@@ -228,6 +228,24 @@ export function HomeScreen() {
     await cargarMisSolicitudes();
   }
 
+  // Si el dueño tarda (o no responde nunca), quien mandó la solicitud puede
+  // arrepentirse y cancelarla en vez de quedar esperando indefinidamente.
+  async function handleCancelarSolicitud(solicitud: MiSolicitudPendiente) {
+    const confirmado = await confirmar(
+      'Cancelar solicitud',
+      `¿Cancelar tu solicitud para unirte a "${solicitud.nombreHogar}"?`,
+      'Cancelar solicitud',
+    );
+    if (!confirmado) return;
+
+    try {
+      await cancelarSolicitud(solicitud.hogarId);
+      await cargarMisSolicitudes();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo cancelar la solicitud.');
+    }
+  }
+
   // Toques cortos sobre tabs que todavía no tienen pantalla propia
   // (Búsqueda y Notificaciones). "Home" no hace nada porque ya estamos ahí,
   // y "Perfil" en toque corto tampoco navega todavía (solo reacciona al
@@ -336,10 +354,20 @@ export function HomeScreen() {
                 <View style={styles.hogaresList}>
                   {misSolicitudes.map((solicitud) => (
                     <View key={solicitud.hogarId} style={styles.hogarRow}>
-                      <Text style={styles.hogarNombre} numberOfLines={1}>
-                        🏠 {solicitud.nombreHogar}
-                      </Text>
-                      <Text style={styles.hogarCodigo}>Esperando respuesta del dueño</Text>
+                      <View style={styles.hogarInfo}>
+                        <Text style={styles.hogarNombre} numberOfLines={1}>
+                          🏠 {solicitud.nombreHogar}
+                        </Text>
+                        <Text style={styles.hogarCodigo}>Esperando respuesta del dueño</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => handleCancelarSolicitud(solicitud)}
+                        style={styles.hogarAccionButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Cancelar solicitud a ${solicitud.nombreHogar}`}
+                      >
+                        <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
+                      </Pressable>
                     </View>
                   ))}
                 </View>
