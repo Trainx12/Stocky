@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AppStackParamList } from '../types/navigation';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
@@ -30,6 +33,7 @@ import { colors, spacing, typography } from '../theme';
  */
 export function HomeScreen() {
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
 
   // Controla si el bottom sheet "Gestionar Mis Hogares" está abierto.
   // Se dispara con un long-press sobre el ícono de Perfil de la nav bar.
@@ -118,6 +122,23 @@ export function HomeScreen() {
     setUnirseVisible(true);
   }
 
+  // Accesos rápidos "Agregar producto" / "Ver despensa": si el usuario
+  // tiene un solo hogar no hace falta preguntarle cuál, se navega directo.
+  // Con más de uno (RF6) sería ambiguo, así que se lo manda a elegir desde
+  // el ícono de canasta de cada fila en "Tus hogares activos".
+  function handleIrAProductos() {
+    if (misHogares.length === 0) {
+      avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
+      return;
+    }
+    if (misHogares.length === 1) {
+      const [hogar] = misHogares;
+      navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
+      return;
+    }
+    avisar('Elegí un hogar', 'Tocá el ícono de canasta 🧺 en "Tus hogares activos" para ver los productos de ese hogar.');
+  }
+
   // Después de crear o unirse a un hogar: refresca tanto la lista de
   // hogares de esta pantalla como `usuario` del AuthContext (por si
   // `hogar_id` pasó de null a un valor, que es lo que usa el resto de la
@@ -181,6 +202,14 @@ export function HomeScreen() {
                       </View>
                       <View style={styles.hogarAcciones}>
                         <Pressable
+                          onPress={() => navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre })}
+                          style={styles.hogarAccionButton}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Productos de ${hogar.nombre}`}
+                        >
+                          <Ionicons name="basket-outline" size={18} color={colors.textSecondary} />
+                        </Pressable>
+                        <Pressable
                           onPress={() => setHogarMiembrosVisible(hogar)}
                           style={styles.hogarAccionButton}
                           accessibilityRole="button"
@@ -222,20 +251,8 @@ export function HomeScreen() {
 
             <SectionCard title="Accesos rápidos">
               <View style={styles.quickAccessRow}>
-                <QuickAccessButton
-                  icon="add-circle-outline"
-                  label="Agregar producto"
-                  onPress={() =>
-                    avisar('Agregar producto', 'Esta sección todavía no está lista, llega en un próximo sprint.')
-                  }
-                />
-                <QuickAccessButton
-                  icon="basket-outline"
-                  label="Ver despensa"
-                  onPress={() =>
-                    avisar('Ver despensa', 'Esta sección todavía no está lista, llega en un próximo sprint.')
-                  }
-                />
+                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={handleIrAProductos} />
+                <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={handleIrAProductos} />
               </View>
             </SectionCard>
           </>

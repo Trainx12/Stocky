@@ -131,6 +131,18 @@ puerta de entrada a todo lo demás.
 **Regresión obligatoria:** Sprint 1 + Sprint 2 (login, ABM de hogar,
 invitaciones).
 
+**Verificado por Claude en esta implementación:** `tsc --noEmit` limpio,
+`npm test` sin errores (16 tests nuevos de `productos.ts`, incluida la
+validación de nombre vacío y cantidades negativas), la app sigue
+bundleando y renderizando Welcome sin errores de consola en
+`expo start --web`. No se tocó ninguna migración/policy (la RLS de
+`productos` ya existía desde el Sprint 1, ver `enable_rls` y
+`hogares_multi_membresia`), así que no hizo falta correr `get_advisors`
+de nuevo. **Pendiente de un humano:** todo lo de la ruta crítica en sí
+(crear/editar/eliminar un producto, buscar, filtrar por categoría) --
+requiere login real con una cuenta que ya tenga un hogar, que Claude no
+puede hacer por sí solo.
+
 ---
 
 ## Sprint 4 — Vencimientos, deshabilitar alerta, aviso visual (RF2, RF3)
