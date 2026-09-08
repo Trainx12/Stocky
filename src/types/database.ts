@@ -34,6 +34,15 @@ export type RolHogar = 'dueno' | 'invitado';
 export type EstadoSolicitud = 'pendiente' | 'aprobado';
 
 /**
+ * Quién inició una fila 'pendiente' de hogar_miembros (ver migración
+ * 20260908120000_invitar_por_email.sql): 'solicitud' es alguien pidiendo
+ * unirse por código (responde el DUEÑO); 'invitacion' es el dueño
+ * invitando a alguien por mail (responde la PERSONA invitada). Default
+ * 'solicitud' para no romper el flujo de código ya existente.
+ */
+export type OrigenMembresia = 'solicitud' | 'invitacion';
+
+/**
  * Espejo de la tabla public.hogar_miembros: relación N a N entre
  * usuarios y hogares (un usuario puede pertenecer a más de un hogar).
  * `usuarios.hogar_id` sigue existiendo aparte como "hogar activo" (el que
@@ -49,6 +58,7 @@ export interface HogarMiembro {
   // puede editar sin importar este valor.
   puede_editar: boolean;
   estado: EstadoSolicitud;
+  origen: OrigenMembresia;
   created_at: string;
 }
 
@@ -185,6 +195,20 @@ export interface Database {
         Returns: void;
       };
       listar_mis_solicitudes_pendientes: {
+        Args: Record<string, never>;
+        Returns: AsRecord<{ hogar_id: string; nombre: string; created_at: string }>[];
+      };
+      // RPCs de invitar por mail (ver migración
+      // 20260908120000_invitar_por_email.sql).
+      invitar_a_hogar: {
+        Args: { p_hogar_id: string; p_email: string };
+        Returns: void;
+      };
+      responder_invitacion: {
+        Args: { p_hogar_id: string; p_aprobar: boolean };
+        Returns: void;
+      };
+      listar_mis_invitaciones_pendientes: {
         Args: Record<string, never>;
         Returns: AsRecord<{ hogar_id: string; nombre: string; created_at: string }>[];
       };

@@ -38,11 +38,14 @@ import {
   crearHogar,
   editarHogar,
   expulsarMiembro,
+  invitarAHogar,
   listarMiembrosDeHogar,
   listarMisHogares,
+  listarMisInvitacionesPendientes,
   listarMisSolicitudesPendientes,
   listarSolicitudesPendientes,
   permitirEditarHogar,
+  responderInvitacion,
   responderSolicitud,
   salirDeHogar,
   unirseAHogar,
@@ -317,6 +320,7 @@ describe('listarSolicitudesPendientes', () => {
           rol: 'invitado',
           puede_editar: false,
           estado: 'pendiente',
+          origen: 'solicitud',
           usuarios: { nombre: null, email: 'nuevo@test.com' },
         },
       ],
@@ -328,6 +332,26 @@ describe('listarSolicitudesPendientes', () => {
     expect(from).toHaveBeenCalledWith('hogar_miembros');
     expect(mockEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
     expect(resultado).toEqual([{ usuarioId: 'u-2', nombre: null, email: 'nuevo@test.com' }]);
+  });
+
+  it('no incluye una invitación pendiente que el propio dueño mandó por mail (origen "invitacion")', async () => {
+    mockOrder.mockResolvedValue({
+      data: [
+        {
+          usuario_id: 'u-2',
+          rol: 'invitado',
+          puede_editar: false,
+          estado: 'pendiente',
+          origen: 'invitacion',
+          usuarios: { nombre: null, email: 'invitado@test.com' },
+        },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarSolicitudesPendientes('hogar-1');
+
+    expect(resultado).toEqual([]);
   });
 
   it('devuelve un array vacío si no hay solicitudes pendientes', async () => {
@@ -439,5 +463,59 @@ describe('expulsarMiembro', () => {
     rpc.mockResolvedValue({ data: null, error: new Error('Solo el dueño del hogar puede expulsar miembros') });
 
     await expect(expulsarMiembro('hogar-1', 'u-2')).rejects.toThrow('Solo el dueño del hogar puede expulsar miembros');
+  });
+});
+
+describe('invitarAHogar', () => {
+  it('llama a la RPC invitar_a_hogar con el hogar y el mail', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await invitarAHogar('hogar-1', 'nuevo@test.com');
+
+    expect(rpc).toHaveBeenCalledWith('invitar_a_hogar', { p_hogar_id: 'hogar-1', p_email: 'nuevo@test.com' });
+  });
+
+  it('propaga el error si la RPC rechaza (ej: mail sin cuenta en Stocky)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('No hay ninguna cuenta de Stocky registrada con ese mail') });
+
+    await expect(invitarAHogar('hogar-1', 'nadie@test.com')).rejects.toThrow(
+      'No hay ninguna cuenta de Stocky registrada con ese mail',
+    );
+  });
+});
+
+describe('listarMisInvitacionesPendientes', () => {
+  it('llama a la RPC y mapea { hogar_id, nombre } a MiInvitacionPendiente[]', async () => {
+    rpc.mockResolvedValue({
+      data: [{ hogar_id: 'hogar-1', nombre: 'Casa A', created_at: '2026-01-01' }],
+      error: null,
+    });
+
+    const resultado = await listarMisInvitacionesPendientes();
+
+    expect(rpc).toHaveBeenCalledWith('listar_mis_invitaciones_pendientes');
+    expect(resultado).toEqual([{ hogarId: 'hogar-1', nombreHogar: 'Casa A' }]);
+  });
+
+  it('propaga el error si la RPC falla', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(listarMisInvitacionesPendientes()).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('responderInvitacion', () => {
+  it('llama a la RPC responder_invitacion con el hogar y si se aprueba o no', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await responderInvitacion('hogar-1', true);
+
+    expect(rpc).toHaveBeenCalledWith('responder_invitacion', { p_hogar_id: 'hogar-1', p_aprobar: true });
+  });
+
+  it('propaga el error si la RPC falla', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(responderInvitacion('hogar-1', false)).rejects.toThrow('fallo de red');
   });
 });

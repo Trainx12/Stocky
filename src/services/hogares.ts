@@ -49,6 +49,15 @@ export interface MiSolicitudPendiente {
   nombreHogar: string;
 }
 
+// Una invitación que ME mandó el dueño de un hogar (por mail, ver migración
+// 20260908120000_invitar_por_email.sql) y que todavía no acepté ni rechacé.
+// Misma forma que MiSolicitudPendiente pero es el flujo inverso: acá el
+// dueño inició el contacto, no yo.
+export interface MiInvitacionPendiente {
+  hogarId: string;
+  nombreHogar: string;
+}
+
 /**
  * RF6 — un usuario puede pertenecer a más de un hogar: crear uno propio y
  * además unirse a otros ya existentes (por código de invitación).
@@ -183,7 +192,7 @@ export async function listarMisHogares(): Promise<HogarConRol[]> {
 async function obtenerFilasDeHogar(hogarId: string) {
   const { data, error } = await supabase
     .from('hogar_miembros')
-    .select('usuario_id, rol, puede_editar, estado, usuarios(nombre, email)')
+    .select('usuario_id, rol, puede_editar, estado, origen, usuarios(nombre, email)')
     .eq('hogar_id', hogarId)
     .order('created_at', { ascending: true });
 
@@ -215,11 +224,17 @@ export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHog
 // que el dueño los acepte o los rechace (ver migración
 // 20260903120000_solicitudes_hogar.sql). Misma consulta que
 // listarMiembrosDeHogar, filtrando el estado contrario.
+// Se filtra también origen='solicitud' (ver migración
+// 20260908120000_invitar_por_email.sql): una invitación que el propio
+// dueño mandó por mail también queda en estado 'pendiente', pero esa la
+// resuelve la persona invitada, no el dueño acá -- no correspondería
+// ofrecerle a el mismo un botón de "aceptar/rechazar" sobre su propia
+// invitación saliente.
 export async function listarSolicitudesPendientes(hogarId: string): Promise<SolicitudPendiente[]> {
   const filas = await obtenerFilasDeHogar(hogarId);
 
   return filas
-    .filter((fila) => fila.estado === 'pendiente')
+    .filter((fila) => fila.estado === 'pendiente' && fila.origen === 'solicitud')
     .map((fila) => ({
       usuarioId: fila.usuario_id,
       nombre: fila.usuarios.nombre,
@@ -272,5 +287,36 @@ export async function permitirEditarHogar(hogarId: string, usuarioId: string, pe
     p_usuario_id: usuarioId,
     p_permitir: permitir,
   });
+  if (error) throw error;
+}
+
+// Invita a alguien a un hogar por su mail (ver migración
+// 20260908120000_invitar_por_email.sql). Solo puede llamarla el dueño del
+// hogar (lo valida la RPC del lado de Postgres). Solo funciona si ese mail
+// ya tiene una cuenta creada en Stocky -- no manda ningún correo real; si
+// no existe cuenta con ese mail, la excepción de Postgres llega legible acá.
+export async function invitarAHogar(hogarId: string, email: string): Promise<void> {
+  const { error } = await supabase.rpc('invitar_a_hogar', { p_hogar_id: hogarId, p_email: email });
+  if (error) throw error;
+}
+
+// Lista las invitaciones que ME mandaron (el dueño de un hogar me invitó
+// por mail) y que todavía no acepté ni rechacé. Va por RPC (SECURITY
+// DEFINER), mismo motivo que listarMisSolicitudesPendientes: mientras la
+// invitación esté pendiente, la policy de "hogares" no me deja ver su
+// nombre por mi cuenta.
+export async function listarMisInvitacionesPendientes(): Promise<MiInvitacionPendiente[]> {
+  const { data, error } = await supabase.rpc('listar_mis_invitaciones_pendientes');
+  if (error) throw error;
+
+  return (data ?? []).map((fila) => ({ hogarId: fila.hogar_id, nombreHogar: fila.nombre }));
+}
+
+// Acepta o rechaza una invitación que ME mandaron (a diferencia de
+// responderSolicitud, que la llama el DUEÑO sobre la solicitud de otro,
+// esta la llamo YO sobre mi propia invitación recibida). Aceptar me suma
+// como miembro de verdad; rechazar borra la invitación sin dejar rastro.
+export async function responderInvitacion(hogarId: string, aprobar: boolean): Promise<void> {
+  const { error } = await supabase.rpc('responder_invitacion', { p_hogar_id: hogarId, p_aprobar: aprobar });
   if (error) throw error;
 }

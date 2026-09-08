@@ -14,8 +14,14 @@ import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
-import { listarMisHogares, listarMisSolicitudesPendientes, salirDeHogar } from '../services/hogares';
-import type { HogarConRol, MiSolicitudPendiente } from '../services/hogares';
+import {
+  listarMisHogares,
+  listarMisInvitacionesPendientes,
+  listarMisSolicitudesPendientes,
+  responderInvitacion,
+  salirDeHogar,
+} from '../services/hogares';
+import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
 import type { Hogar } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
@@ -63,6 +69,12 @@ export function HomeScreen() {
   // se pierda que estoy esperando una respuesta.
   const [misSolicitudes, setMisSolicitudes] = useState<MiSolicitudPendiente[]>([]);
 
+  // Invitaciones que ME mandó el dueño de un hogar por mail (ver migración
+  // 20260908120000_invitar_por_email.sql) y todavía no acepté ni rechacé.
+  // Flujo inverso de misSolicitudes: acá el dueño inició el contacto.
+  const [misInvitaciones, setMisInvitaciones] = useState<MiInvitacionPendiente[]>([]);
+  const [respondiendoInvitacion, setRespondiendoInvitacion] = useState<string | null>(null);
+
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
     try {
@@ -82,10 +94,19 @@ export function HomeScreen() {
     }
   }, []);
 
+  const cargarMisInvitaciones = useCallback(async () => {
+    try {
+      setMisInvitaciones(await listarMisInvitacionesPendientes());
+    } catch (err) {
+      console.warn('[Stocky] No se pudieron cargar las invitaciones pendientes:', err);
+    }
+  }, []);
+
   useEffect(() => {
     cargarMisHogares();
     cargarMisSolicitudes();
-  }, [cargarMisHogares, cargarMisSolicitudes]);
+    cargarMisInvitaciones();
+  }, [cargarMisHogares, cargarMisSolicitudes, cargarMisInvitaciones]);
 
   // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
   // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
@@ -105,23 +126,58 @@ export function HomeScreen() {
       .channel(`hogar_miembros_usuario_${usuario.id}`)
       .on(
         'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
+        (payload) => {
+          // Solo interesa acá el caso "el dueño de un hogar me invitó por
+          // mail" (ver migración 20260908120000_invitar_por_email.sql):
+          // "me sumo yo por código" no dispara un INSERT con mi propio
+          // usuario_id desde OTRO cliente, así que no hay caso propio que
+          // filtrar acá (a diferencia de UPDATE/DELETE, más abajo).
+          const nueva = payload.new as { origen?: string; estado?: string } | null;
+          if (nueva?.origen === 'invitacion' && nueva?.estado === 'pendiente') {
+            avisar('Te invitaron a un hogar', 'Alguien te invitó a sumarte a su hogar. Podés aceptar o rechazar desde Home.');
+            cargarMisInvitaciones();
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
         (payload) => {
-          const anterior = payload.old as { estado?: string } | null;
+          const anterior = payload.old as { estado?: string; origen?: string } | null;
           const actual = payload.new as { estado?: string } | null;
-          if (anterior?.estado === 'pendiente' && actual?.estado === 'aprobado') {
-            avisar('Solicitud aceptada', 'El dueño del hogar aceptó tu solicitud. Ya sos miembro.');
+          if (anterior?.estado !== 'pendiente' || actual?.estado !== 'aprobado') return;
+
+          // Si el origen era 'invitacion', quien acepta es uno mismo
+          // (responderInvitacion, no el dueño) -- ese mismo cliente ya
+          // actualizó su UI al hacerlo, así que acá solo hace falta
+          // refrescar en silencio, sin un aviso redundante.
+          if (anterior.origen === 'invitacion') {
             cargarMisHogares();
-            cargarMisSolicitudes();
+            cargarMisInvitaciones();
             refreshUsuario();
+            return;
           }
+
+          avisar('Solicitud aceptada', 'El dueño del hogar aceptó tu solicitud. Ya sos miembro.');
+          cargarMisHogares();
+          cargarMisSolicitudes();
+          refreshUsuario();
         },
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
         (payload) => {
-          const anterior = payload.old as { estado?: string } | null;
+          const anterior = payload.old as { estado?: string; origen?: string } | null;
+
+          // Mismo caso que en UPDATE: si era una invitación pendiente, quien
+          // la borra al rechazarla es uno mismo -- sin aviso redundante.
+          if (anterior?.estado === 'pendiente' && anterior.origen === 'invitacion') {
+            cargarMisInvitaciones();
+            return;
+          }
+
           if (anterior?.estado === 'pendiente') {
             avisar('Solicitud rechazada', 'El dueño del hogar rechazó tu solicitud para unirte.');
           } else {
@@ -137,7 +193,7 @@ export function HomeScreen() {
     return () => {
       supabase.removeChannel(canal);
     };
-  }, [usuario?.id, cargarMisHogares, cargarMisSolicitudes, refreshUsuario]);
+  }, [usuario?.id, cargarMisHogares, cargarMisSolicitudes, cargarMisInvitaciones, refreshUsuario]);
 
   // Lado DUEÑO: que el punto rojo de "hay solicitudes pendientes" (ver
   // hogar.solicitudesPendientes) aparezca apenas alguien pide unirse, y
@@ -190,6 +246,23 @@ export function HomeScreen() {
 
   function handleUnirseAHogar() {
     setUnirseVisible(true);
+  }
+
+  // Acepta o rechaza una invitación que me mandaron por mail. No pide
+  // confirmación al rechazar por el mismo motivo que "Rechazar solicitud"
+  // en HogarMiembrosModal: no es tan destructivo como salir de un hogar del
+  // que ya soy miembro.
+  async function handleResponderInvitacion(invitacion: MiInvitacionPendiente, aprobar: boolean) {
+    setRespondiendoInvitacion(invitacion.hogarId);
+    try {
+      await responderInvitacion(invitacion.hogarId, aprobar);
+      await cargarMisInvitaciones();
+      if (aprobar) await Promise.all([cargarMisHogares(), refreshUsuario()]);
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo responder la invitación.');
+    } finally {
+      setRespondiendoInvitacion(null);
+    }
   }
 
   // Accesos rápidos "Agregar producto" / "Ver despensa": si el usuario
@@ -340,6 +413,44 @@ export function HomeScreen() {
                         🏠 {solicitud.nombreHogar}
                       </Text>
                       <Text style={styles.hogarCodigo}>Esperando respuesta del dueño</Text>
+                    </View>
+                  ))}
+                </View>
+              </SectionCard>
+            )}
+
+            {/* Invitaciones que un dueño me mandó por mail (ver migración
+                20260908120000_invitar_por_email.sql) -- flujo inverso de
+                "Solicitudes que enviaste": acá el dueño inició el contacto
+                y soy yo quien decide. */}
+            {misInvitaciones.length > 0 && (
+              <SectionCard title="Invitaciones recibidas">
+                <View style={styles.hogaresList}>
+                  {misInvitaciones.map((invitacion) => (
+                    <View key={invitacion.hogarId} style={styles.hogarRow}>
+                      <Text style={styles.hogarNombre} numberOfLines={1}>
+                        🏠 {invitacion.nombreHogar}
+                      </Text>
+                      <View style={styles.invitacionAcciones}>
+                        <Pressable
+                          onPress={() => handleResponderInvitacion(invitacion, true)}
+                          style={styles.hogarAccionButton}
+                          disabled={respondiendoInvitacion === invitacion.hogarId}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Aceptar invitación a ${invitacion.nombreHogar}`}
+                        >
+                          <Ionicons name="checkmark-circle-outline" size={22} color={colors.primary} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleResponderInvitacion(invitacion, false)}
+                          style={styles.hogarAccionButton}
+                          disabled={respondiendoInvitacion === invitacion.hogarId}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Rechazar invitación a ${invitacion.nombreHogar}`}
+                        >
+                          <Ionicons name="close-circle-outline" size={22} color={colors.danger} />
+                        </Pressable>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -509,6 +620,10 @@ const styles = StyleSheet.create({
   hogarAccionButton: {
     padding: spacing.xs,
     position: 'relative',
+  },
+  invitacionAcciones: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   solicitudDot: {
     position: 'absolute',

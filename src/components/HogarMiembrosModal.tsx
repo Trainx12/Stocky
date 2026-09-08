@@ -1,14 +1,27 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   expulsarMiembro,
+  invitarAHogar,
   listarMiembrosDeHogar,
   listarSolicitudesPendientes,
   permitirEditarHogar,
   responderSolicitud,
 } from '../services/hogares';
 import type { MiembroHogar, SolicitudPendiente } from '../services/hogares';
+import { Button } from './Button';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -33,6 +46,13 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
   const [miembros, setMiembros] = useState<MiembroHogar[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudPendiente[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Input de "invitar por mail" (ver migración
+  // 20260908120000_invitar_por_email.sql). Solo lo usa el dueño, así que se
+  // limpia cada vez que se cierra el modal para no arrastrar el mail de la
+  // última vez.
+  const [emailInvitar, setEmailInvitar] = useState('');
+  const [invitando, setInvitando] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!hogarId) return;
@@ -59,6 +79,7 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
   // expulsiones/altas hechas mientras el modal estaba cerrado.
   useEffect(() => {
     if (visible) cargar();
+    else setEmailInvitar('');
   }, [visible, cargar]);
 
   // Soy dueño de este hogar si mi propia fila en la lista dice rol "dueno".
@@ -75,6 +96,24 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
       await cargar();
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo responder la solicitud.');
+    }
+  }
+
+  // Invita a alguien por mail (solo funciona si ya tiene cuenta en Stocky,
+  // ver migración 20260908120000_invitar_por_email.sql). Los errores de la
+  // RPC (mail sin cuenta, ya es miembro, etc.) llegan legibles desde
+  // Postgres, se muestran tal cual con avisar().
+  async function handleInvitar() {
+    if (!hogarId || !emailInvitar.trim()) return;
+    setInvitando(true);
+    try {
+      await invitarAHogar(hogarId, emailInvitar.trim());
+      setEmailInvitar('');
+      avisar('Invitación enviada', 'Le avisamos apenas la acepte o la rechace.');
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo enviar la invitación.');
+    } finally {
+      setInvitando(false);
     }
   }
 
@@ -110,8 +149,9 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <Pressable style={styles.sheet}>
           <View style={styles.handle} />
           <Text style={styles.title}>Miembros de {hogarNombre}</Text>
 
@@ -119,6 +159,32 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
             <ActivityIndicator color={colors.primary} style={styles.loader} />
           ) : (
             <>
+              {/* Invitar por mail: solo el dueño la ve, y solo funciona si
+                  ese mail ya tiene cuenta creada en Stocky (ver migración
+                  20260908120000_invitar_por_email.sql). */}
+              {soyDueno && (
+                <View style={styles.invitarRow}>
+                  <TextInput
+                    style={styles.invitarInput}
+                    placeholder="Invitar por mail"
+                    placeholderTextColor={colors.textSecondary}
+                    value={emailInvitar}
+                    onChangeText={setEmailInvitar}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    editable={!invitando}
+                  />
+                  <Button
+                    label="Invitar"
+                    onPress={handleInvitar}
+                    loading={invitando}
+                    disabled={!emailInvitar.trim()}
+                    style={styles.invitarButton}
+                  />
+                </View>
+              )}
+
               {/* Solo el dueño ve y resuelve las solicitudes pendientes --
                   un invitado ni siquiera llega a ver quién más pidió
                   sumarse (ver migración 20260903120000_solicitudes_hogar.sql). */}
@@ -206,13 +272,35 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
               )}
             </>
           )}
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  invitarRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  invitarInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  invitarButton: {
+    flexShrink: 0,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',
