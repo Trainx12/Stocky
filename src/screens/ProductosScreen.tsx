@@ -194,10 +194,10 @@ export function ProductosScreen({ route, navigation }: Props) {
                 <Text style={styles.productoNombre} numberOfLines={1}>
                   {producto.nombre}
                 </Text>
+                {producto.categoria && <Text style={styles.productoCategoria}>{producto.categoria}</Text>}
                 <View style={styles.cantidadRow}>
                   <Text style={styles.productoDetalle}>
                     {producto.cantidad} {producto.unidad}
-                    {producto.categoria ? ` · ${producto.categoria}` : ''}
                   </Text>
                   {/* +/- rápido sin abrir el formulario completo (ver
                       ajustarCantidadProducto en services/productos.ts),
@@ -361,12 +361,15 @@ const styles = StyleSheet.create({
   cantidadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+  },
+  productoCategoria: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   stepperGrupo: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: spacing.md,
   },
   stepperButton: {
     padding: spacing.xs,
