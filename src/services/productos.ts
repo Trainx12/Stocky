@@ -26,12 +26,20 @@ export interface DatosProducto {
   stockMinimo: number;
 }
 
+// Primera letra en mayúscula (el resto del texto queda tal cual se
+// escribió, no fuerza minúsculas en el resto) -- así "mandarina" y
+// "Mandarina" no quedan como dos productos "distintos" a simple vista en la
+// lista solo por cómo los tipeó cada uno.
+function capitalizar(texto: string): string {
+  return texto.length === 0 ? texto : texto[0].toUpperCase() + texto.slice(1);
+}
+
 // Valida los campos comunes a crear/editar antes de pegarle a Supabase:
 // nombre/categoría vacíos o cantidades negativas no tienen que llegar a la
 // base (ver docs/plan-de-testing.md, Sprint 3: "cantidades negativas
 // deberían rechazarse, no romper la UI").
 function validar(datos: DatosProducto): { nombre: string; categoria: string; cantidad: number; stockMinimo: number } {
-  const nombre = datos.nombre.trim();
+  const nombre = capitalizar(datos.nombre.trim());
   if (!nombre) throw new Error('El nombre del producto no puede estar vacío');
 
   const categoria = datos.categoria.trim();

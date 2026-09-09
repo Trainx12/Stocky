@@ -194,16 +194,18 @@ export function ProductosScreen({ route, navigation }: Props) {
                 <Text style={styles.productoNombre} numberOfLines={1}>
                   {producto.nombre}
                 </Text>
-                {producto.categoria && <Text style={styles.productoCategoria}>{producto.categoria}</Text>}
-                <View style={styles.cantidadRow}>
-                  <Text style={styles.productoDetalle}>
-                    {producto.cantidad} {producto.unidad}
-                  </Text>
+                <View style={styles.categoriaRow}>
+                  {producto.categoria ? (
+                    <Text style={styles.productoCategoria}>{producto.categoria}</Text>
+                  ) : (
+                    <View />
+                  )}
                   {/* +/- rápido sin abrir el formulario completo (ver
-                      ajustarCantidadProducto en services/productos.ts),
-                      los dos juntos a la derecha. El "-" se deshabilita en
-                      0: no tiene sentido restar más (el backend ya lo frena
-                      con greatest(...,0), esto solo evita el toque de más). */}
+                      ajustarCantidadProducto en services/productos.ts), al
+                      lado de la categoría en vez de la cantidad. El "-" se
+                      deshabilita en 0: no tiene sentido restar más (el
+                      backend ya lo frena con greatest(...,0), esto solo
+                      evita el toque de más). */}
                   <View style={styles.stepperGrupo}>
                     <Pressable
                       onPress={() => handleAjustarCantidad(producto, -1)}
@@ -229,6 +231,9 @@ export function ProductosScreen({ route, navigation }: Props) {
                     </Pressable>
                   </View>
                 </View>
+                <Text style={styles.productoDetalle}>
+                  {producto.cantidad} {producto.unidad}
+                </Text>
               </View>
               <View style={styles.productoAcciones}>
                 <Pressable
@@ -358,9 +363,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
-  cantidadRow: {
+  categoriaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   productoCategoria: {
     ...typography.caption,
@@ -369,7 +375,6 @@ const styles = StyleSheet.create({
   stepperGrupo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: spacing.md,
   },
   stepperButton: {
     padding: spacing.xs,

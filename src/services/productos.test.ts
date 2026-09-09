@@ -119,6 +119,14 @@ describe('crearProducto', () => {
     expect(resultado).toEqual(producto);
   });
 
+  it('pone en mayúscula la primera letra del nombre, sin tocar el resto', async () => {
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, nombre: 'mandarina Fina' });
+
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Mandarina Fina' }));
+  });
+
   it('rechaza un nombre vacío sin llamar a Supabase', async () => {
     await expect(crearProducto('hogar-1', { ...datosValidos, nombre: '   ' })).rejects.toThrow(
       'El nombre del producto no puede estar vacío',
