@@ -35,7 +35,7 @@ describe('listarActividadReciente', () => {
     expect(rpc).toHaveBeenCalledWith('listar_actividad_reciente', { p_hogar_id: 'hogar-1', p_limite: 5 });
   });
 
-  it('mapea las filas crudas (snake_case) a ActividadItem (camelCase), incluyendo producto_nombre/cantidad', async () => {
+  it('mapea las filas crudas (snake_case) a ActividadItem (camelCase), incluyendo producto_nombre/cantidad como delta con signo', async () => {
     rpc.mockResolvedValue({
       data: [
         {
@@ -56,7 +56,9 @@ describe('listarActividadReciente', () => {
           usuario_email: null,
           created_at: '2026-01-01T09:00:00Z',
           producto_nombre: 'Pan',
-          cantidad: 1,
+          // Negativo (ver migración 20260909020000_ajuste_rapido_y_delta_actividad.sql):
+          // "cuánto se sacó de una", ya no un valor absoluto.
+          cantidad: -1,
         },
         {
           id: 'a-3',
@@ -93,7 +95,7 @@ describe('listarActividadReciente', () => {
         usuarioEmail: null,
         createdAt: '2026-01-01T09:00:00Z',
         productoNombre: 'Pan',
-        cantidad: 1,
+        cantidad: -1,
       },
       {
         id: 'a-3',

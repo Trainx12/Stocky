@@ -112,6 +112,19 @@ export async function eliminarProducto(productoId: string): Promise<void> {
   if (error) throw error;
 }
 
+// Suma o resta `delta` a la cantidad actual (+1/-1 rápido desde la lista,
+// sin abrir el formulario de editar). Va por RPC (ver migración
+// 20260909020000_ajuste_rapido_y_delta_actividad.sql) y no por un
+// `.update()` directo porque "sumar al valor actual" necesita leer y
+// escribir de forma atómica -- si dos personas tocan +/- casi al mismo
+// tiempo, un ida-y-vuelta desde el cliente podría perder uno de los dos
+// cambios. La RPC ya evita que quede en negativo (greatest(..., 0)).
+export async function ajustarCantidadProducto(productoId: string, delta: number): Promise<Producto> {
+  const { data, error } = await supabase.rpc('ajustar_cantidad_producto', { p_producto_id: productoId, p_delta: delta });
+  if (error) throw error;
+  return data;
+}
+
 /**
  * Lógica pura de ProductosScreen/ProductoFormModal, sacada acá para poder
  * testearla con Jest sin levantar un componente (este proyecto no tiene

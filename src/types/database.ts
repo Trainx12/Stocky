@@ -206,6 +206,11 @@ export interface Database {
           cantidad: number | null;
         }>[];
       };
+      // Ver migración 20260909020000_ajuste_rapido_y_delta_actividad.sql.
+      ajustar_cantidad_producto: {
+        Args: { p_producto_id: string; p_delta: number };
+        Returns: AsRecord<Producto>;
+      };
     };
   };
 }

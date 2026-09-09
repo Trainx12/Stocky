@@ -4,7 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
-import { categoriasEnUso, eliminarProducto, filtrarProductos, listarProductos } from '../services/productos';
+import { ajustarCantidadProducto, categoriasEnUso, eliminarProducto, filtrarProductos, listarProductos } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -29,6 +29,10 @@ export function ProductosScreen({ route, navigation }: Props) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+  // Ids con un ajuste de +/- en vuelo (ver handleAjustarCantidad), para
+  // deshabilitar sus botones mientras se resuelve y no disparar dos veces
+  // el mismo delta con un doble toque.
+  const [ajustandoIds, setAjustandoIds] = useState<Set<string>>(new Set());
 
   // Trae el inventario completo del hogar; se vuelve a llamar después de
   // crear/editar/eliminar un producto, en vez de actualizar el array a
@@ -85,6 +89,34 @@ export function ProductosScreen({ route, navigation }: Props) {
     setFormVisible(false);
     setProductoEditando(null);
     await cargar();
+  }
+
+  // +/- rápido de a una unidad, sin abrir el formulario de editar.
+  // Actualiza el estado local al toque (optimista) y revierte si la RPC
+  // falla, mismo patrón que el switch de "puede editar" en
+  // HogarMiembrosModal -- se siente inmediato sin esperar el roundtrip.
+  async function handleAjustarCantidad(producto: Producto, delta: number) {
+    if (ajustandoIds.has(producto.id)) return;
+    setAjustandoIds((actuales) => new Set(actuales).add(producto.id));
+
+    const cantidadAnterior = producto.cantidad;
+    setProductos((actuales) =>
+      actuales.map((p) => (p.id === producto.id ? { ...p, cantidad: Math.max(p.cantidad + delta, 0) } : p)),
+    );
+
+    try {
+      const actualizado = await ajustarCantidadProducto(producto.id, delta);
+      setProductos((actuales) => actuales.map((p) => (p.id === producto.id ? actualizado : p)));
+    } catch (err) {
+      setProductos((actuales) => actuales.map((p) => (p.id === producto.id ? { ...p, cantidad: cantidadAnterior } : p)));
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo actualizar la cantidad.');
+    } finally {
+      setAjustandoIds((actuales) => {
+        const siguientes = new Set(actuales);
+        siguientes.delete(producto.id);
+        return siguientes;
+      });
+    }
   }
 
   // Eliminar es destructivo, no se dispara sin confirmar antes (mismo
@@ -162,10 +194,39 @@ export function ProductosScreen({ route, navigation }: Props) {
                 <Text style={styles.productoNombre} numberOfLines={1}>
                   {producto.nombre}
                 </Text>
-                <Text style={styles.productoDetalle}>
-                  {producto.cantidad} {producto.unidad}
-                  {producto.categoria ? ` · ${producto.categoria}` : ''}
-                </Text>
+                <View style={styles.cantidadRow}>
+                  {/* +/- rápido sin abrir el formulario completo (ver
+                      ajustarCantidadProducto en services/productos.ts). El
+                      "-" se deshabilita en 0: no tiene sentido restar más
+                      (el backend ya lo frena con greatest(...,0), esto solo
+                      evita el toque de más). */}
+                  <Pressable
+                    onPress={() => handleAjustarCantidad(producto, -1)}
+                    disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
+                    style={styles.stepperButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Restar 1 a ${producto.nombre}`}
+                  >
+                    <Ionicons
+                      name="remove-circle-outline"
+                      size={20}
+                      color={producto.cantidad <= 0 ? colors.border : colors.danger}
+                    />
+                  </Pressable>
+                  <Text style={styles.productoDetalle}>
+                    {producto.cantidad} {producto.unidad}
+                    {producto.categoria ? ` · ${producto.categoria}` : ''}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleAjustarCantidad(producto, 1)}
+                    disabled={ajustandoIds.has(producto.id)}
+                    style={styles.stepperButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sumar 1 a ${producto.nombre}`}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color={colors.success} />
+                  </Pressable>
+                </View>
               </View>
               <View style={styles.productoAcciones}>
                 <Pressable
@@ -294,6 +355,14 @@ const styles = StyleSheet.create({
   productoDetalle: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  cantidadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  stepperButton: {
+    padding: 2,
   },
   productoAcciones: {
     flexDirection: 'row',

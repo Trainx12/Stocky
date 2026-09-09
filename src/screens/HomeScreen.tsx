@@ -584,21 +584,22 @@ function formatearFechaActividad(iso: string): string {
   return `${diaMes} ${hora}`;
 }
 
-// Para 'producto_creado'/'producto_eliminado' arma un badge tipo "Pera +3"
-// (verde) / "Pera -3" (rojo) en vez de mostrar `descripcion` a secas -- ver
-// migración 20260909010000_actividad_cantidad_visual.sql. 'producto_editado'
-// (y cualquier tipo futuro sin producto_nombre/cantidad) devuelve null: esos
-// siguen mostrando `descripcion` tal cual.
+// Arma un badge tipo "Pera +3" (verde) / "Pera -3" (rojo) a partir del
+// DELTA con signo que trae `cantidad` (ver migración
+// 20260909020000_ajuste_rapido_y_delta_actividad.sql): +N al crear un
+// producto o sumarle cantidad, -N al eliminarlo o restarle cantidad. Sin
+// ramificar por `tipo` a propósito -- editar SIN tocar la cantidad llega
+// acá con cantidad=0 y cae al mismo `return null` que cualquier actividad
+// futura sin producto_nombre/cantidad, mostrando `descripcion` a secas.
 function actividadVisual(item: ActividadItem): { texto: string; color: string; signo: '+' | '-' } | null {
-  if (item.productoNombre === null || item.cantidad === null) return null;
+  if (item.productoNombre === null || item.cantidad === null || item.cantidad === 0) return null;
 
-  if (item.tipo === 'producto_creado') {
-    return { texto: `${item.productoNombre} +${item.cantidad}`, color: colors.success, signo: '+' };
-  }
-  if (item.tipo === 'producto_eliminado') {
-    return { texto: `${item.productoNombre} -${item.cantidad}`, color: colors.danger, signo: '-' };
-  }
-  return null;
+  const positivo = item.cantidad > 0;
+  return {
+    texto: `${item.productoNombre} ${positivo ? '+' : ''}${item.cantidad}`,
+    color: positivo ? colors.success : colors.danger,
+    signo: positivo ? '+' : '-',
+  };
 }
 
 interface EmptyStateProps {
