@@ -11,9 +11,7 @@ import type { Producto, UnidadProducto } from '../types/database';
  * editarHogar() en hogares.ts.
  */
 
-// Campos que completa el usuario al crear o editar un producto. Los que no
-// dependen de RF2/RF3 (fecha_vencimiento, alerta_vencimiento_habilitada) no
-// se tocan todavía: quedan con su default de la base hasta ese sprint.
+// Campos que completa el usuario al crear o editar un producto.
 export interface DatosProducto {
   nombre: string;
   // Obligatoria a propósito: todo producto tiene que quedar clasificado
@@ -24,6 +22,32 @@ export interface DatosProducto {
   unidad: UnidadProducto;
   cantidad: number;
   stockMinimo: number;
+  // RF2/RF3 (Sprint 4): fecha de vencimiento cargada a mano ('YYYY-MM-DD')
+  // o null si el producto no tiene seguimiento de vencimiento. Independiente
+  // de alertaVencimientoHabilitada: se puede tener la fecha cargada y la
+  // alerta apagada a propósito (ver estadoVencimiento más abajo).
+  fechaVencimiento: string | null;
+  alertaVencimientoHabilitada: boolean;
+}
+
+// Parsea 'YYYY-MM-DD' como Date en hora LOCAL a medianoche. `new
+// Date('YYYY-MM-DD')` (sin descomponer) lo interpreta como UTC, lo que
+// corre la fecha un día para atrás en cualquier zona horaria negativa
+// (Argentina, UTC-3) -- por eso se arma con los componentes numéricos en
+// vez de pasarle el string entero al constructor de Date.
+function parsearFechaLocal(fecha: string): Date {
+  const [anio, mes, dia] = fecha.split('-').map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+// true si `fecha` tiene el formato 'YYYY-MM-DD' Y es una fecha real (Date
+// "corrige" fechas imposibles como 31 de febrero en vez de rechazarlas, por
+// eso se compara contra los componentes originales).
+function esFechaValida(fecha: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return false;
+  const [anio, mes, dia] = fecha.split('-').map(Number);
+  const d = parsearFechaLocal(fecha);
+  return d.getFullYear() === anio && d.getMonth() === mes - 1 && d.getDate() === dia;
 }
 
 // Primera letra en mayúscula (el resto del texto queda tal cual se
@@ -35,10 +59,17 @@ function capitalizar(texto: string): string {
 }
 
 // Valida los campos comunes a crear/editar antes de pegarle a Supabase:
-// nombre/categoría vacíos o cantidades negativas no tienen que llegar a la
-// base (ver docs/plan-de-testing.md, Sprint 3: "cantidades negativas
-// deberían rechazarse, no romper la UI").
-function validar(datos: DatosProducto): { nombre: string; categoria: string; cantidad: number; stockMinimo: number } {
+// nombre/categoría vacíos, cantidades negativas o una fecha de vencimiento
+// con formato/valor inválido no tienen que llegar a la base (ver
+// docs/plan-de-testing.md, Sprint 3: "cantidades negativas deberían
+// rechazarse, no romper la UI"; mismo criterio para la fecha en Sprint 4).
+function validar(datos: DatosProducto): {
+  nombre: string;
+  categoria: string;
+  cantidad: number;
+  stockMinimo: number;
+  fechaVencimiento: string | null;
+} {
   const nombre = capitalizar(datos.nombre.trim());
   if (!nombre) throw new Error('El nombre del producto no puede estar vacío');
 
@@ -48,7 +79,12 @@ function validar(datos: DatosProducto): { nombre: string; categoria: string; can
   if (datos.cantidad < 0) throw new Error('La cantidad no puede ser negativa');
   if (datos.stockMinimo < 0) throw new Error('El stock mínimo no puede ser negativo');
 
-  return { nombre, categoria, cantidad: datos.cantidad, stockMinimo: datos.stockMinimo };
+  const fechaVencimiento = datos.fechaVencimiento?.trim() || null;
+  if (fechaVencimiento && !esFechaValida(fechaVencimiento)) {
+    throw new Error('La fecha de vencimiento no es válida (formato AAAA-MM-DD)');
+  }
+
+  return { nombre, categoria, cantidad: datos.cantidad, stockMinimo: datos.stockMinimo, fechaVencimiento };
 }
 
 // Lista los productos de un hogar puntual. Filtra explícito por hogar_id
@@ -71,7 +107,7 @@ export async function listarProductos(hogarId: string): Promise<Producto[]> {
 
 // Crea un producto nuevo en un hogar puntual.
 export async function crearProducto(hogarId: string, datos: DatosProducto): Promise<Producto> {
-  const { nombre, categoria, cantidad, stockMinimo } = validar(datos);
+  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento } = validar(datos);
 
   const { data, error } = await supabase
     .from('productos')
@@ -82,6 +118,8 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
       unidad: datos.unidad,
       cantidad,
       stock_minimo: stockMinimo,
+      fecha_vencimiento: fechaVencimiento,
+      alerta_vencimiento_habilitada: datos.alertaVencimientoHabilitada,
     })
     .select()
     .single();
@@ -94,7 +132,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
 // mínimo). No hace falta pasar el hogar_id: la RLS ya rechaza el update si
 // el producto no pertenece a un hogar del que el usuario sea miembro.
 export async function editarProducto(productoId: string, datos: DatosProducto): Promise<Producto> {
-  const { nombre, categoria, cantidad, stockMinimo } = validar(datos);
+  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento } = validar(datos);
 
   const { data, error } = await supabase
     .from('productos')
@@ -104,6 +142,8 @@ export async function editarProducto(productoId: string, datos: DatosProducto): 
       unidad: datos.unidad,
       cantidad,
       stock_minimo: stockMinimo,
+      fecha_vencimiento: fechaVencimiento,
+      alerta_vencimiento_habilitada: datos.alertaVencimientoHabilitada,
     })
     .eq('id', productoId)
     .select()
@@ -174,4 +214,106 @@ export function filtrarProductos(productos: Producto[], busqueda: string, catego
 export function parsearNumero(texto: string): number {
   const valor = Number(texto.replace(',', '.'));
   return Number.isFinite(valor) ? valor : 0;
+}
+
+/**
+ * RF2/RF3 (Sprint 4) — vencimiento de productos: fecha manual + alerta
+ * visual de productos próximos a vencer, con opción de deshabilitar la
+ * alerta por producto puntual (ver docs/plan-de-testing.md, Sprint 4).
+ */
+
+// Ventana de "próximo a vencer": un producto entra en alerta si le quedan
+// esta cantidad de días o menos. Único lugar donde vive este umbral, para
+// no tener que sincronizarlo entre ProductosScreen y HomeScreen si cambia.
+const DIAS_PROXIMO_A_VENCER = 7;
+
+const MS_POR_DIA = 1000 * 60 * 60 * 24;
+
+// Diferencia en días de calendario entre `fecha` (YYYY-MM-DD) y `hoy`
+// (positivo = la fecha todavía no llegó). Redondea sobre medianoche local
+// de ambas fechas para no depender de la hora del día en que se ejecuta.
+function diasHastaVencimiento(fecha: string, hoy: Date): number {
+  const vencimiento = parsearFechaLocal(fecha);
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return Math.round((vencimiento.getTime() - hoySinHora.getTime()) / MS_POR_DIA);
+}
+
+export type EstadoVencimiento = 'ok' | 'proximo' | 'vencido';
+
+// Estado de vencimiento de un producto para pintar el badge/alerta visual.
+// Devuelve null cuando no corresponde mostrar nada: sin fecha cargada, o
+// con la alerta deshabilitada a propósito por el usuario (RF3) -- en
+// cualquiera de los dos casos el producto no debe aparecer resaltado ni
+// en ProductosScreen ni en "Productos próximos a vencer" del dashboard.
+// `hoy` es un parámetro (default `new Date()`) para poder testear fechas
+// límite sin mockear el reloj del sistema.
+export function estadoVencimiento(
+  producto: Pick<Producto, 'fecha_vencimiento' | 'alerta_vencimiento_habilitada'>,
+  hoy: Date = new Date(),
+): EstadoVencimiento | null {
+  if (!producto.alerta_vencimiento_habilitada || !producto.fecha_vencimiento) return null;
+
+  const dias = diasHastaVencimiento(producto.fecha_vencimiento, hoy);
+  if (dias < 0) return 'vencido';
+  if (dias <= DIAS_PROXIMO_A_VENCER) return 'proximo';
+  return 'ok';
+}
+
+// Texto legible para el badge de vencimiento ("Vence hoy", "Vence en 3
+// días", "Vencido hace 2 días"). null con el mismo criterio que
+// estadoVencimiento (no hay nada que mostrar). Separado de estadoVencimiento
+// a propósito: qué estado es vs. cómo se lee son cosas distintas, y este
+// texto no depende de ningún color de theme (lo decide quien lo pinta).
+export function etiquetaVencimiento(
+  producto: Pick<Producto, 'fecha_vencimiento' | 'alerta_vencimiento_habilitada'>,
+  hoy: Date = new Date(),
+): string | null {
+  const estado = estadoVencimiento(producto, hoy);
+  if (estado !== 'proximo' && estado !== 'vencido') return null;
+
+  const dias = diasHastaVencimiento(producto.fecha_vencimiento as string, hoy);
+  if (estado === 'vencido') {
+    const diasVencido = Math.abs(dias);
+    return diasVencido === 1 ? 'Vencido hace 1 día' : `Vencido hace ${diasVencido} días`;
+  }
+  if (dias === 0) return 'Vence hoy';
+  if (dias === 1) return 'Vence mañana';
+  return `Vence en ${dias} días`;
+}
+
+// Productos con alerta de vencimiento activa que están 'proximo' o
+// 'vencido' (no 'ok' ni sin alerta), ordenados por fecha de vencimiento
+// ascendente (lo más urgente primero). La usa el dashboard (HomeScreen,
+// "Productos próximos a vencer") sobre una lista ya traída de la base.
+export function productosProximosAVencer(productos: Producto[], hoy: Date = new Date()): Producto[] {
+  return productos
+    .filter((p) => {
+      const estado = estadoVencimiento(p, hoy);
+      return estado === 'proximo' || estado === 'vencido';
+    })
+    .sort((a, b) => (a.fecha_vencimiento ?? '').localeCompare(b.fecha_vencimiento ?? ''));
+}
+
+// Productos próximos a vencer o vencidos de varios hogares a la vez (los
+// del usuario logueado), para el dashboard. Recibe `hogarIds` explícito en
+// vez de dejar que la RLS filtre sola -- mismo motivo que listarProductos
+// de arriba: una cuenta admin ve TODOS los hogares vía es_administrador(),
+// así que sin el .in() acá el dashboard podría mezclar productos de
+// hogares ajenos si lo abriera un admin (ver docs/incidentes-sprint2.md
+// #2). El filtro de `alerta_vencimiento_habilitada`/`fecha_vencimiento` en
+// la query es solo una optimización (traer menos filas); el filtro real de
+// "próximo o vencido" lo hace productosProximosAVencer sobre el resultado.
+export async function listarProductosProximosAVencer(hogarIds: string[]): Promise<Producto[]> {
+  if (hogarIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('productos')
+    .select('*')
+    .in('hogar_id', hogarIds)
+    .eq('alerta_vencimiento_habilitada', true)
+    .not('fecha_vencimiento', 'is', null)
+    .order('fecha_vencimiento', { ascending: true });
+
+  if (error) throw error;
+  return productosProximosAVencer(data ?? []);
 }

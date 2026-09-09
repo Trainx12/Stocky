@@ -274,9 +274,34 @@ por categoría de `ProductosScreen` pierde sentido -- aunque la columna
 `productos.categoria` en la base sigue siendo nullable (hay una fila
 vieja, de antes de esta regla, sin categoría cargada).
 
-`fecha_vencimiento`/`alerta_vencimiento_habilitada` (RF2/RF3, Sprint 4)
-todavía no se tocan desde acá -- quedan con su default de la base hasta
-ese sprint.
+**Vencimiento de productos** (RF2/RF3, Sprint 4): `fecha_vencimiento`
+(texto libre `AAAA-MM-DD`, cargado a mano desde `ProductoFormModal`, sin
+picker nativo por el mismo motivo que `unidad`/`categoria`) y
+`alerta_vencimiento_habilitada` (switch en el mismo modal, default `true`
+como la columna) ya se mandan desde `crearProducto`/`editarProducto`;
+`validar()` rechaza una fecha con formato o valor inválido (`esFechaValida`
+compara contra los componentes numéricos, no contra el string, porque
+`Date` "corrige" fechas imposibles como el 30 de febrero en vez de
+rechazarlas) antes de pegarle a Supabase, mismo criterio que
+nombre/categoría/cantidad.
+
+`estadoVencimiento(producto, hoy?)` es la única fuente de verdad de "está
+por vencer" (`'ok' | 'proximo' | 'vencido' | null`, con `null` cuando no
+corresponde alertar: sin fecha cargada, o alerta deshabilitada a
+propósito): la usan tanto `ProductosScreen` (badge por fila) como
+`HomeScreen` (dashboard). `DIAS_PROXIMO_A_VENCER` (7 días) vive ahí como
+único umbral, para no tener que sincronizarlo entre pantallas si cambia.
+`etiquetaVencimiento()` arma el texto legible ("Vence hoy"/"Vence en N
+días"/"Vencido hace N días") a partir del mismo estado, pero por separado
+-- el color del badge lo decide cada pantalla con `colors.stockStatus`
+(ver `src/theme/colors.ts`), este servicio no importa nada de theme.
+
+`listarProductosProximosAVencer(hogarIds)` trae los candidatos de varios
+hogares a la vez (los del usuario logueado, pasados explícitos por
+`HomeScreen` desde `listarMisHogares()`) y les aplica
+`productosProximosAVencer()` -- mismo patrón de "filtrar explícito en vez
+de confiar solo en la RLS" que `listarProductos`, porque un admin ve todos
+los hogares vía `es_administrador()`.
 
 ### `actividad.ts` — "Actividad reciente" de HomeScreen
 

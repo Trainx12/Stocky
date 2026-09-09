@@ -25,7 +25,8 @@ import {
 import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
 import { listarActividadReciente } from '../services/actividad';
 import type { ActividadItem } from '../services/actividad';
-import type { Hogar } from '../types/database';
+import { etiquetaVencimiento, estadoVencimiento, listarProductosProximosAVencer } from '../services/productos';
+import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -42,7 +43,13 @@ import { colors, radius, spacing, typography } from '../theme';
  * app/RLS), que no se toca desde acá. "Actividad reciente" muestra datos
  * reales (ver src/services/actividad.ts y la migración
  * 20260907130000_actividad_hogar.sql), generados por triggers sobre
- * `productos` -- hoy es lo único con ABM real.
+ * `productos` -- hoy es lo único con ABM real. "Productos próximos a
+ * vencer" (RF2/RF3, ver src/services/productos.ts) va arriba de "Actividad
+ * reciente" a propósito -- es la alerta más visible del dashboard -- y a
+ * diferencia del resto de las secciones no depende de `hogarSeleccionado`:
+ * junta los productos de TODOS los hogares del usuario, porque algo por
+ * vencer en un hogar que no es el seleccionado en ese momento no debería
+ * quedar escondido.
  */
 export function HomeScreen() {
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
@@ -94,6 +101,13 @@ export function HomeScreen() {
   // al volver de cargar un producto en ProductosScreen).
   const [actividad, setActividad] = useState<ActividadItem[]>([]);
   const [actividadLoading, setActividadLoading] = useState(false);
+
+  // RF2/RF3: productos de TODOS mis hogares que están próximos a vencer o
+  // ya vencidos (con la alerta habilitada), para "Productos próximos a
+  // vencer". Se muestra arriba de "Actividad reciente" a propósito -- es
+  // la alerta más importante del dashboard, tiene que verse sin scroll.
+  const [productosPorVencer, setProductosPorVencer] = useState<Producto[]>([]);
+  const [productosPorVencerLoading, setProductosPorVencerLoading] = useState(true);
 
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
@@ -172,6 +186,31 @@ export function HomeScreen() {
       }
     }, [hogarSeleccionado?.id, cargarActividad]),
   );
+
+  // Se recarga cada vez que cambia la lista de hogares (alta/baja de un
+  // hogar), pasándole los IDs explícitos en vez de dejar que la RLS
+  // filtre sola (mismo motivo que el resto de las queries "mis X" de este
+  // archivo/servicio -- ver docs/incidentes-sprint2.md #2).
+  useEffect(() => {
+    let cancelado = false;
+    const hogarIds = misHogares.map((h) => h.id);
+
+    setProductosPorVencerLoading(true);
+    listarProductosProximosAVencer(hogarIds)
+      .then((productos) => {
+        if (!cancelado) setProductosPorVencer(productos);
+      })
+      .catch((err) => {
+        console.warn('[Stocky] No se pudieron cargar los productos próximos a vencer:', err);
+      })
+      .finally(() => {
+        if (!cancelado) setProductosPorVencerLoading(false);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [misHogares]);
 
   // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
   // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
@@ -389,6 +428,15 @@ export function HomeScreen() {
     }
   }
 
+  // Toca un producto de "Productos próximos a vencer": va directo a la
+  // pantalla de Productos del hogar al que pertenece (mismo patrón que el
+  // ícono de canasta de "Tus hogares activos").
+  function handleVerProductoPorVencer(producto: Producto) {
+    const hogar = misHogares.find((h) => h.id === producto.hogar_id);
+    if (!hogar) return;
+    navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
+  }
+
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
@@ -573,6 +621,42 @@ export function HomeScreen() {
                 </View>
               </SectionCard>
             )}
+
+            {/* RF2/RF3: la alerta más importante del dashboard, por eso va
+                arriba de "Actividad reciente" -- tiene que verse apenas se
+                entra, sin que el usuario tenga que buscarla. */}
+            <SectionCard title="Productos próximos a vencer">
+              {productosPorVencerLoading ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : productosPorVencer.length === 0 ? (
+                <EmptyState icon="checkmark-circle-outline" text="No tenés productos por vencer en los próximos días." />
+              ) : (
+                <View style={styles.hogaresList}>
+                  {productosPorVencer.map((producto) => {
+                    const hogar = misHogares.find((h) => h.id === producto.hogar_id);
+                    const estado = estadoVencimiento(producto);
+                    const etiqueta = etiquetaVencimiento(producto);
+                    return (
+                      <Pressable key={producto.id} style={styles.hogarRow} onPress={() => handleVerProductoPorVencer(producto)}>
+                        <View style={styles.hogarInfo}>
+                          <Text style={styles.hogarNombre} numberOfLines={1}>
+                            {producto.nombre}
+                          </Text>
+                          <Text style={styles.hogarCodigo} numberOfLines={1}>
+                            {hogar?.nombre ?? ''}
+                          </Text>
+                        </View>
+                        {etiqueta && (
+                          <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
+                            <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </SectionCard>
 
             <SectionCard title="Actividad reciente">
               {actividadLoading ? (
@@ -852,6 +936,23 @@ const styles = StyleSheet.create({
   actividadMeta: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  // RF2/RF3: mismo criterio de color que el badge de ProductosScreen (ver
+  // colors.stockStatus en src/theme/colors.ts) para que la alerta se lea
+  // igual en las dos pantallas.
+  vencimientoBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.stockStatus.critical,
+  },
+  vencimientoBadgeVencido: {
+    backgroundColor: colors.stockStatus.expired,
+  },
+  vencimientoBadgeTexto: {
+    ...typography.caption,
+    color: colors.white,
+    fontSize: 11,
   },
   solicitudDot: {
     position: 'absolute',

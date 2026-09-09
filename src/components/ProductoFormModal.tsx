@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Button } from './Button';
 import { crearProducto, editarProducto, parsearNumero } from '../services/productos';
 import type { Producto } from '../types/database';
@@ -73,6 +73,11 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // Number('') explote la UI a mitad de tipeo.
   const [cantidad, setCantidad] = useState('0');
   const [stockMinimo, setStockMinimo] = useState('0');
+  // RF2/RF3: fecha de vencimiento cargada a mano (texto libre 'AAAA-MM-DD',
+  // vacío = sin fecha) y si avisar cuando esté próximo a vencer. Default
+  // `true` para el toggle, igual que el default de la columna en la base.
+  const [fechaVencimiento, setFechaVencimiento] = useState('');
+  const [alertaVencimientoHabilitada, setAlertaVencimientoHabilitada] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +103,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
       setUnidad(producto.unidad);
       setCantidad(String(producto.cantidad));
       setStockMinimo(String(producto.stock_minimo));
+      setFechaVencimiento(producto.fecha_vencimiento ?? '');
+      setAlertaVencimientoHabilitada(producto.alerta_vencimiento_habilitada);
     } else {
       setNombre('');
       setCategoria('');
@@ -105,6 +112,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
       setUnidad('unidad');
       setCantidad('0');
       setStockMinimo('0');
+      setFechaVencimiento('');
+      setAlertaVencimientoHabilitada(true);
     }
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,6 +158,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
         unidad,
         cantidad: parsearNumero(cantidad),
         stockMinimo: parsearNumero(stockMinimo),
+        fechaVencimiento: fechaVencimiento || null,
+        alertaVencimientoHabilitada,
       };
       const resultado = editando ? await editarProducto(producto!.id, datos) : await crearProducto(hogarId, datos);
       onSuccess(resultado);
@@ -262,6 +273,27 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               </View>
             </View>
 
+            <Text style={styles.label}>Fecha de vencimiento (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="AAAA-MM-DD"
+              placeholderTextColor={colors.textSecondary}
+              value={fechaVencimiento}
+              onChangeText={setFechaVencimiento}
+              keyboardType="numbers-and-punctuation"
+              editable={!loading}
+            />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.label}>Avisarme cuando esté por vencer</Text>
+              <Switch
+                value={alertaVencimientoHabilitada}
+                onValueChange={setAlertaVencimientoHabilitada}
+                disabled={loading}
+                accessibilityLabel="Avisarme cuando esté por vencer"
+              />
+            </View>
+
             {error && <Text style={styles.error}>{error}</Text>}
 
             <Button
@@ -349,6 +381,12 @@ const styles = StyleSheet.create({
   fila: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
   mitad: {
     flex: 1,

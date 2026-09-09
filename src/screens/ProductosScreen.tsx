@@ -4,7 +4,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
-import { ajustarCantidadProducto, categoriasEnUso, eliminarProducto, filtrarProductos, listarProductos } from '../services/productos';
+import {
+  ajustarCantidadProducto,
+  categoriasEnUso,
+  eliminarProducto,
+  estadoVencimiento,
+  etiquetaVencimiento,
+  filtrarProductos,
+  listarProductos,
+} from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -188,7 +196,12 @@ export function ProductosScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
-          {productosFiltrados.map((producto) => (
+          {productosFiltrados.map((producto) => {
+            // RF2/RF3: badge de vencimiento (null = sin fecha, o alerta
+            // deshabilitada a propósito -- ver estadoVencimiento).
+            const estado = estadoVencimiento(producto);
+            const etiqueta = etiquetaVencimiento(producto);
+            return (
             <View key={producto.id} style={styles.productoRow}>
               <View style={styles.productoInfo}>
                 <Text style={styles.productoNombre} numberOfLines={1}>
@@ -234,6 +247,11 @@ export function ProductosScreen({ route, navigation }: Props) {
                 <Text style={styles.productoDetalle}>
                   {producto.cantidad} {producto.unidad}
                 </Text>
+                {etiqueta && (
+                  <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
+                    <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
+                  </View>
+                )}
               </View>
               <View style={styles.productoAcciones}>
                 <Pressable
@@ -254,7 +272,8 @@ export function ProductosScreen({ route, navigation }: Props) {
                 </Pressable>
               </View>
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
 
@@ -379,6 +398,25 @@ const styles = StyleSheet.create({
   },
   stepperButton: {
     padding: spacing.xs,
+  },
+  // RF2/RF3: badge de "próximo a vencer"/"vencido". Usa colors.stockStatus
+  // (ver src/theme/colors.ts) en vez de un color a mano, para no duplicar
+  // los umbrales de color que ya definió el sistema de diseño.
+  vencimientoBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.stockStatus.critical,
+  },
+  vencimientoBadgeVencido: {
+    backgroundColor: colors.stockStatus.expired,
+  },
+  vencimientoBadgeTexto: {
+    ...typography.caption,
+    color: colors.white,
+    fontSize: 11,
   },
   productoAcciones: {
     flexDirection: 'row',

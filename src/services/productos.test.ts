@@ -16,7 +16,12 @@ const mockDeleteEq = jest.fn();
 const mockDelete = jest.fn(() => ({ eq: mockDeleteEq }));
 const mockOrder = jest.fn();
 const mockSelectEq = jest.fn(() => ({ order: mockOrder }));
-const mockSelect = jest.fn(() => ({ eq: mockSelectEq }));
+// listarProductosProximosAVencer encadena select('*').in().eq().not().order().
+const mockInOrder = jest.fn();
+const mockInNot = jest.fn(() => ({ order: mockInOrder }));
+const mockInEq = jest.fn(() => ({ not: mockInNot }));
+const mockSelectIn = jest.fn(() => ({ eq: mockInEq }));
+const mockSelect = jest.fn(() => ({ eq: mockSelectEq, in: mockSelectIn }));
 
 jest.mock('../lib/supabase', () => ({
   supabase: {
@@ -32,9 +37,13 @@ import {
   crearProducto,
   editarProducto,
   eliminarProducto,
+  estadoVencimiento,
+  etiquetaVencimiento,
   filtrarProductos,
   listarProductos,
+  listarProductosProximosAVencer,
   parsearNumero,
+  productosProximosAVencer,
 } from './productos';
 import type { DatosProducto } from './productos';
 import type { Producto } from '../types/database';
@@ -48,6 +57,8 @@ const datosValidos: DatosProducto = {
   unidad: 'l',
   cantidad: 2,
   stockMinimo: 1,
+  fechaVencimiento: null,
+  alertaVencimientoHabilitada: true,
 };
 
 beforeEach(() => {
@@ -55,6 +66,10 @@ beforeEach(() => {
   mockSelect.mockClear();
   mockSelectEq.mockClear();
   mockOrder.mockReset();
+  mockSelectIn.mockClear();
+  mockInEq.mockClear();
+  mockInNot.mockClear();
+  mockInOrder.mockReset();
   mockInsert.mockClear();
   mockInsertSelect.mockClear();
   mockUpdate.mockClear();
@@ -115,6 +130,8 @@ describe('crearProducto', () => {
       unidad: 'l',
       cantidad: 2,
       stock_minimo: 1,
+      fecha_vencimiento: null,
+      alerta_vencimiento_habilitada: true,
     });
     expect(resultado).toEqual(producto);
   });
@@ -155,6 +172,36 @@ describe('crearProducto', () => {
     expect(from).not.toHaveBeenCalled();
   });
 
+  it('rechaza una fecha de vencimiento con formato inválido sin llamar a Supabase', async () => {
+    await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '31/12/2026' })).rejects.toThrow(
+      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+    );
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una fecha de vencimiento inexistente (ej: 30 de febrero) sin llamar a Supabase', async () => {
+    await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '2026-02-30' })).rejects.toThrow(
+      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+    );
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('acepta una fecha de vencimiento válida y la manda tal cual', async () => {
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '2026-12-31' });
+
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ fecha_vencimiento: '2026-12-31' }));
+  });
+
+  it('trata una fecha vacía o solo espacios como sin fecha (null)', async () => {
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '   ' });
+
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ fecha_vencimiento: null }));
+  });
+
   it('acepta cantidad y stock mínimo en 0', async () => {
     mockSingle.mockResolvedValue({ data: {}, error: null });
 
@@ -184,6 +231,8 @@ describe('editarProducto', () => {
       unidad: 'l',
       cantidad: 3,
       stock_minimo: 1,
+      fecha_vencimiento: null,
+      alerta_vencimiento_habilitada: true,
     });
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
     expect(resultado).toEqual(producto);
@@ -207,6 +256,13 @@ describe('editarProducto', () => {
     mockSingle.mockResolvedValue({ data: null, error: new Error('new row violates row-level security policy') });
 
     await expect(editarProducto('p1', datosValidos)).rejects.toThrow('new row violates row-level security policy');
+  });
+
+  it('rechaza una fecha de vencimiento inválida sin llamar a Supabase', async () => {
+    await expect(editarProducto('p1', { ...datosValidos, fechaVencimiento: '31/12/2026' })).rejects.toThrow(
+      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+    );
+    expect(from).not.toHaveBeenCalled();
   });
 });
 
@@ -349,5 +405,144 @@ describe('parsearNumero', () => {
 
   it('conserva números negativos (la validación de negativos vive en validar(), no acá)', () => {
     expect(parsearNumero('-3')).toBe(-3);
+  });
+});
+
+// "Hoy" fijo para no depender de la fecha real de cuando corren los tests.
+const HOY = new Date(2026, 8, 15); // 2026-09-15
+
+describe('estadoVencimiento', () => {
+  it('devuelve null si no tiene fecha de vencimiento cargada', () => {
+    expect(estadoVencimiento(producto({ fecha_vencimiento: null, alerta_vencimiento_habilitada: true }), HOY)).toBeNull();
+  });
+
+  it('devuelve null si la alerta está deshabilitada, aunque tenga fecha cargada', () => {
+    expect(
+      estadoVencimiento(producto({ fecha_vencimiento: '2026-09-16', alerta_vencimiento_habilitada: false }), HOY),
+    ).toBeNull();
+  });
+
+  it('devuelve "vencido" si la fecha ya pasó', () => {
+    expect(
+      estadoVencimiento(producto({ fecha_vencimiento: '2026-09-14', alerta_vencimiento_habilitada: true }), HOY),
+    ).toBe('vencido');
+  });
+
+  it('devuelve "proximo" (no "vencido") si la fecha es hoy mismo', () => {
+    expect(
+      estadoVencimiento(producto({ fecha_vencimiento: '2026-09-15', alerta_vencimiento_habilitada: true }), HOY),
+    ).toBe('proximo');
+  });
+
+  it('devuelve "proximo" justo en el límite de la ventana (7 días)', () => {
+    expect(
+      estadoVencimiento(producto({ fecha_vencimiento: '2026-09-22', alerta_vencimiento_habilitada: true }), HOY),
+    ).toBe('proximo');
+  });
+
+  it('devuelve "ok" un día después del límite de la ventana (8 días)', () => {
+    expect(
+      estadoVencimiento(producto({ fecha_vencimiento: '2026-09-23', alerta_vencimiento_habilitada: true }), HOY),
+    ).toBe('ok');
+  });
+
+  it('devuelve "ok" para una fecha muy en el futuro', () => {
+    expect(
+      estadoVencimiento(producto({ fecha_vencimiento: '2027-01-01', alerta_vencimiento_habilitada: true }), HOY),
+    ).toBe('ok');
+  });
+});
+
+describe('etiquetaVencimiento', () => {
+  it('devuelve null si estadoVencimiento devuelve null (sin fecha o alerta deshabilitada)', () => {
+    expect(etiquetaVencimiento(producto({ fecha_vencimiento: null, alerta_vencimiento_habilitada: true }), HOY)).toBeNull();
+    expect(
+      etiquetaVencimiento(producto({ fecha_vencimiento: '2026-09-16', alerta_vencimiento_habilitada: false }), HOY),
+    ).toBeNull();
+  });
+
+  it('"Vence hoy" cuando la fecha es hoy', () => {
+    expect(etiquetaVencimiento(producto({ fecha_vencimiento: '2026-09-15', alerta_vencimiento_habilitada: true }), HOY)).toBe(
+      'Vence hoy',
+    );
+  });
+
+  it('"Vence mañana" cuando falta un día', () => {
+    expect(etiquetaVencimiento(producto({ fecha_vencimiento: '2026-09-16', alerta_vencimiento_habilitada: true }), HOY)).toBe(
+      'Vence mañana',
+    );
+  });
+
+  it('"Vence en N días" para el resto de la ventana', () => {
+    expect(etiquetaVencimiento(producto({ fecha_vencimiento: '2026-09-20', alerta_vencimiento_habilitada: true }), HOY)).toBe(
+      'Vence en 5 días',
+    );
+  });
+
+  it('"Vencido hace 1 día" en singular', () => {
+    expect(etiquetaVencimiento(producto({ fecha_vencimiento: '2026-09-14', alerta_vencimiento_habilitada: true }), HOY)).toBe(
+      'Vencido hace 1 día',
+    );
+  });
+
+  it('"Vencido hace N días" en plural', () => {
+    expect(etiquetaVencimiento(producto({ fecha_vencimiento: '2026-09-10', alerta_vencimiento_habilitada: true }), HOY)).toBe(
+      'Vencido hace 5 días',
+    );
+  });
+});
+
+describe('productosProximosAVencer', () => {
+  it('descarta los productos "ok" y los que no tienen alerta, y ordena por fecha ascendente', () => {
+    const vencido = producto({ id: 'p1', fecha_vencimiento: '2026-09-10', alerta_vencimiento_habilitada: true });
+    const proximo = producto({ id: 'p2', fecha_vencimiento: '2026-09-16', alerta_vencimiento_habilitada: true });
+    const ok = producto({ id: 'p3', fecha_vencimiento: '2027-01-01', alerta_vencimiento_habilitada: true });
+    const sinAlerta = producto({ id: 'p4', fecha_vencimiento: '2026-09-16', alerta_vencimiento_habilitada: false });
+    const sinFecha = producto({ id: 'p5', fecha_vencimiento: null, alerta_vencimiento_habilitada: true });
+
+    const resultado = productosProximosAVencer([ok, proximo, sinAlerta, vencido, sinFecha], HOY);
+
+    expect(resultado).toEqual([vencido, proximo]);
+  });
+
+  it('devuelve un array vacío si ningún producto está próximo o vencido', () => {
+    const ok = producto({ fecha_vencimiento: '2027-01-01', alerta_vencimiento_habilitada: true });
+    expect(productosProximosAVencer([ok], HOY)).toEqual([]);
+  });
+});
+
+describe('listarProductosProximosAVencer', () => {
+  it('devuelve un array vacío sin consultar Supabase si no hay hogares', async () => {
+    const resultado = await listarProductosProximosAVencer([]);
+
+    expect(resultado).toEqual([]);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('filtra explícitamente por los hogarIds recibidos (regresión: no debe apoyarse solo en RLS)', async () => {
+    mockInOrder.mockResolvedValue({ data: [], error: null });
+
+    await listarProductosProximosAVencer(['hogar-1', 'hogar-2']);
+
+    expect(from).toHaveBeenCalledWith('productos');
+    expect(mockSelectIn).toHaveBeenCalledWith('hogar_id', ['hogar-1', 'hogar-2']);
+    expect(mockInEq).toHaveBeenCalledWith('alerta_vencimiento_habilitada', true);
+    expect(mockInNot).toHaveBeenCalledWith('fecha_vencimiento', 'is', null);
+  });
+
+  it('aplica productosProximosAVencer sobre el resultado (descarta los "ok")', async () => {
+    const vencido = producto({ id: 'p1', fecha_vencimiento: '2026-09-10', alerta_vencimiento_habilitada: true });
+    const ok = producto({ id: 'p2', fecha_vencimiento: '2027-01-01', alerta_vencimiento_habilitada: true });
+    mockInOrder.mockResolvedValue({ data: [ok, vencido], error: null });
+
+    const resultado = await listarProductosProximosAVencer(['hogar-1']);
+
+    expect(resultado).toEqual([vencido]);
+  });
+
+  it('propaga el error si falla la consulta', async () => {
+    mockInOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(listarProductosProximosAVencer(['hogar-1'])).rejects.toThrow('fallo de red');
   });
 });
