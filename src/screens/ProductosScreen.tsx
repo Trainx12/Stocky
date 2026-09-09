@@ -375,6 +375,7 @@ const styles = StyleSheet.create({
   stepperGrupo: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: spacing.lg,
   },
   stepperButton: {
     padding: spacing.xs,
