@@ -275,15 +275,30 @@ por categoría de `ProductosScreen` pierde sentido -- aunque la columna
 vieja, de antes de esta regla, sin categoría cargada).
 
 **Vencimiento de productos** (RF2/RF3, Sprint 4): `fecha_vencimiento`
-(texto libre `AAAA-MM-DD`, cargado a mano desde `ProductoFormModal`, sin
-picker nativo por el mismo motivo que `unidad`/`categoria`) y
-`alerta_vencimiento_habilitada` (switch en el mismo modal, default `true`
-como la columna) ya se mandan desde `crearProducto`/`editarProducto`;
-`validar()` rechaza una fecha con formato o valor inválido (`esFechaValida`
-compara contra los componentes numéricos, no contra el string, porque
-`Date` "corrige" fechas imposibles como el 30 de febrero en vez de
-rechazarlas) antes de pegarle a Supabase, mismo criterio que
-nombre/categoría/cantidad.
+(texto libre `AAAA-MM-DD`, cargado a mano o con el calendario -- ver
+abajo -- desde `ProductoFormModal`) y `alerta_vencimiento_habilitada`
+(switch en el mismo modal, default `true` como la columna) ya se mandan
+desde `crearProducto`/`editarProducto`; `validar()` rechaza una fecha con
+formato o valor inválido (`esFechaValida` compara contra los componentes
+numéricos, no contra el string, porque `Date` "corrige" fechas imposibles
+como el 30 de febrero en vez de rechazarlas) antes de pegarle a Supabase,
+mismo criterio que nombre/categoría/cantidad. `formatearFechaInput()` es
+la lógica del auto-guionado (el usuario solo tipea dígitos, los `-` se
+insertan solos) que usa el campo de texto; `formatearFechaISO()` es la
+inversa (`Date` → `'YYYY-MM-DD'`, con componentes LOCALES, no
+`toISOString()`) que usa el calendario nativo para volcar la fecha
+elegida al mismo campo.
+
+**Calendario** (`@react-native-community/datetimepicker`, instalado con
+`npx expo install`, incluido en Expo Go): en nativo, el botón de
+calendario de `ProductoFormModal` abre el `<DateTimePicker>` de esa
+librería. Esa librería **no soporta web** (su propio fallback ahí
+renderiza `null` con un `console.warn`) -- en web el mismo botón arma a
+mano un `<input type="date">` invisible (`document.createElement`,
+posicionado fuera de pantalla) y lo dispara con `showPicker()`/`click()`,
+para usar el selector nativo del navegador. Si se agregan más pantallas
+con selector de fecha, conviene sacar esto a un helper compartido en vez
+de repetir el `Platform.OS === 'web'` en cada lugar.
 
 `estadoVencimiento(producto, hoy?)` es la única fuente de verdad de "está
 por vencer" (`'ok' | 'proximo' | 'vencido' | null`, con `null` cuando no

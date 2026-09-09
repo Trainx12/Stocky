@@ -40,6 +40,8 @@ import {
   estadoVencimiento,
   etiquetaVencimiento,
   filtrarProductos,
+  formatearFechaInput,
+  formatearFechaISO,
   listarProductos,
   listarProductosProximosAVencer,
   parsearNumero,
@@ -405,6 +407,52 @@ describe('parsearNumero', () => {
 
   it('conserva números negativos (la validación de negativos vive en validar(), no acá)', () => {
     expect(parsearNumero('-3')).toBe(-3);
+  });
+});
+
+describe('formatearFechaInput', () => {
+  it('inserta el primer guion después de 4 dígitos', () => {
+    expect(formatearFechaInput('20261')).toBe('2026-1');
+  });
+
+  it('inserta el segundo guion después de 6 dígitos', () => {
+    expect(formatearFechaInput('2026102')).toBe('2026-10-2');
+  });
+
+  it('formatea una fecha completa de 8 dígitos', () => {
+    expect(formatearFechaInput('20261025')).toBe('2026-10-25');
+  });
+
+  it('es idempotente: formatear una fecha ya formateada la deja igual', () => {
+    expect(formatearFechaInput('2026-10-25')).toBe('2026-10-25');
+  });
+
+  it('ignora caracteres que no son dígitos (permite pegar con "/")', () => {
+    expect(formatearFechaInput('2026/10/25')).toBe('2026-10-25');
+  });
+
+  it('trunca cualquier dígito de más allá del octavo', () => {
+    expect(formatearFechaInput('202610259999')).toBe('2026-10-25');
+  });
+
+  it('texto vacío devuelve vacío', () => {
+    expect(formatearFechaInput('')).toBe('');
+  });
+
+  it('al borrar el dígito justo después de un guion, el guion desaparece con él', () => {
+    // Simula lo que recibe onChangeText cuando el usuario borra un carácter
+    // del valor ya formateado "2026-1" (6 chars) -> queda "2026-" (5 chars).
+    expect(formatearFechaInput('2026-')).toBe('2026');
+  });
+});
+
+describe('formatearFechaISO', () => {
+  it('formatea un Date a AAAA-MM-DD con ceros a la izquierda', () => {
+    expect(formatearFechaISO(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+
+  it('usa los componentes locales, no toISOString (evita el corrimiento de zona horaria)', () => {
+    expect(formatearFechaISO(new Date(2026, 11, 31))).toBe('2026-12-31');
   });
 });
 

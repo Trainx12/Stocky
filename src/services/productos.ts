@@ -222,6 +222,30 @@ export function parsearNumero(texto: string): number {
  * alerta por producto puntual (ver docs/plan-de-testing.md, Sprint 4).
  */
 
+// Formatea lo que el usuario va tipeando en el campo de fecha de
+// vencimiento, insertando los guiones solo (AAAA-MM-DD) sin que tenga que
+// escribirlos a mano. Se re-deriva de los dígitos en cada tecla (no
+// concatena), así que también funciona bien al borrar: si el usuario borra
+// el último dígito justo después de un guion, el guion desaparece con él
+// en vez de quedar "pegado". Ignora cualquier caracter que no sea dígito
+// (para que pegar una fecha con "/" también funcione) y trunca a 8 dígitos.
+export function formatearFechaInput(texto: string): string {
+  const digitos = texto.replace(/\D/g, '').slice(0, 8);
+  return [digitos.slice(0, 4), digitos.slice(4, 6), digitos.slice(6, 8)].filter(Boolean).join('-');
+}
+
+// Convierte un Date a 'YYYY-MM-DD' usando sus componentes LOCALES, no
+// `toISOString()` (que convierte a UTC y puede correr la fecha un día para
+// atrás en cualquier zona horaria negativa, como Argentina). La usa
+// ProductoFormModal para volcar la fecha elegida en el calendario nativo al
+// campo de texto.
+export function formatearFechaISO(fecha: Date): string {
+  const anio = fecha.getFullYear();
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
 // Ventana de "próximo a vencer": un producto entra en alerta si le quedan
 // esta cantidad de días o menos. Único lugar donde vive este umbral, para
 // no tener que sincronizarlo entre ProductosScreen y HomeScreen si cambia.

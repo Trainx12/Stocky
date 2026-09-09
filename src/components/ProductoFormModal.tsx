@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Button } from './Button';
-import { crearProducto, editarProducto, parsearNumero } from '../services/productos';
+import { crearProducto, editarProducto, formatearFechaISO, formatearFechaInput, parsearNumero } from '../services/productos';
 import type { Producto } from '../types/database';
 import type { UnidadProducto } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
@@ -78,6 +80,9 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // `true` para el toggle, igual que el default de la columna en la base.
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [alertaVencimientoHabilitada, setAlertaVencimientoHabilitada] = useState(true);
+  // Solo se usa en nativo (ver handleAbrirCalendario): controla si el
+  // DateTimePicker de @react-native-community/datetimepicker está abierto.
+  const [pickerNativoVisible, setPickerNativoVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -146,6 +151,64 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
 
   function handleBlurNumerico(valor: string, setValor: (v: string) => void) {
     if (valor.trim() === '') setValor('0');
+  }
+
+  // Fecha ya cargada como Date, para arrancar el calendario mostrando el mes
+  // correcto en vez de siempre el actual (si el texto no es una fecha válida
+  // todavía -- ej. a mitad de tipeo -- usa hoy como fallback).
+  function fechaComoDate(): Date {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fechaVencimiento)) {
+      const [anio, mes, dia] = fechaVencimiento.split('-').map(Number);
+      const parseada = new Date(anio, mes - 1, dia);
+      if (!Number.isNaN(parseada.getTime())) return parseada;
+    }
+    return new Date();
+  }
+
+  // @react-native-community/datetimepicker no soporta web (ver su propio
+  // fallback: renderiza null y un console.warn) -- ahí se abre en cambio el
+  // selector nativo del navegador (<input type="date">), armado a mano y
+  // disparado por código porque React Native no expone ese tag directo. En
+  // nativo, en cambio, simplemente muestra el <DateTimePicker>.
+  function handleAbrirCalendario() {
+    if (Platform.OS !== 'web') {
+      setPickerNativoVisible(true);
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'date';
+    input.value = fechaVencimiento;
+    // Fuera de la pantalla en vez de display:none -- algunos navegadores no
+    // abren el selector de un input que nunca se llegó a "pintar".
+    input.style.position = 'fixed';
+    input.style.top = '-1000px';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', () => {
+      if (input.value) setFechaVencimiento(input.value);
+      document.body.removeChild(input);
+    });
+    input.addEventListener('blur', () => {
+      if (document.body.contains(input)) document.body.removeChild(input);
+    });
+
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.click();
+    }
+  }
+
+  // onChange del DateTimePicker nativo (iOS/Android): en los dos casos el
+  // modo "default" se cierra solo apenas el usuario elige una fecha (o
+  // cancela), así que alcanza con ocultar `pickerNativoVisible` en
+  // cualquiera de los dos casos -- `event.type === 'set'` es lo único que
+  // distingue "eligió" de "canceló".
+  function handleFechaSeleccionada(event: DateTimePickerEvent, fecha?: Date) {
+    setPickerNativoVisible(false);
+    if (event.type === 'set' && fecha) setFechaVencimiento(formatearFechaISO(fecha));
   }
 
   async function handleSubmit() {
@@ -274,15 +337,33 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             </View>
 
             <Text style={styles.label}>Fecha de vencimiento (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="AAAA-MM-DD"
-              placeholderTextColor={colors.textSecondary}
-              value={fechaVencimiento}
-              onChangeText={setFechaVencimiento}
-              keyboardType="numbers-and-punctuation"
-              editable={!loading}
-            />
+            <View style={styles.filaFecha}>
+              <TextInput
+                style={[styles.input, styles.inputFecha]}
+                placeholder="AAAA-MM-DD"
+                placeholderTextColor={colors.textSecondary}
+                value={fechaVencimiento}
+                // Formatea a medida que se tipea: el usuario solo escribe
+                // dígitos, los guiones (AAAA-MM-DD) se insertan solos.
+                onChangeText={(texto) => setFechaVencimiento(formatearFechaInput(texto))}
+                keyboardType="number-pad"
+                maxLength={10}
+                editable={!loading}
+              />
+              <Pressable
+                onPress={handleAbrirCalendario}
+                style={styles.calendarioButton}
+                disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel="Elegir fecha de vencimiento con el calendario"
+              >
+                <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+              </Pressable>
+            </View>
+
+            {pickerNativoVisible && (
+              <DateTimePicker value={fechaComoDate()} mode="date" display="default" onChange={handleFechaSeleccionada} />
+            )}
 
             <View style={styles.switchRow}>
               <Text style={styles.label}>Avisarme cuando esté por vencer</Text>
@@ -381,6 +462,18 @@ const styles = StyleSheet.create({
   fila: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  filaFecha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  inputFecha: {
+    flex: 1,
+  },
+  calendarioButton: {
+    padding: spacing.sm,
+    marginBottom: spacing.md,
   },
   switchRow: {
     flexDirection: 'row',
