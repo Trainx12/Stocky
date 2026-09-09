@@ -125,6 +125,20 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     onClose();
   }
 
+  // Cantidad/stock mínimo arrancan en "0" (ver useEffect de arriba). Sin
+  // esto, tocar el campo y escribir un número lo deja pegado adelante del
+  // cero ("05" en vez de "5") porque el input no estaba vacío al empezar a
+  // tipear. Al perder el foco, si quedó vacío (lo borró todo y no escribió
+  // nada) se restaura a "0" -- mismo valor que ya asumía parsearNumero()
+  // para texto vacío, pero mostrado explícito en vez de un input en blanco.
+  function handleFocusNumerico(valor: string, setValor: (v: string) => void) {
+    if (valor === '0') setValor('');
+  }
+
+  function handleBlurNumerico(valor: string, setValor: (v: string) => void) {
+    if (valor.trim() === '') setValor('0');
+  }
+
   async function handleSubmit() {
     setLoading(true);
     setError(null);
@@ -229,6 +243,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                   keyboardType="numeric"
                   value={cantidad}
                   onChangeText={setCantidad}
+                  onFocus={() => handleFocusNumerico(cantidad, setCantidad)}
+                  onBlur={() => handleBlurNumerico(cantidad, setCantidad)}
                   editable={!loading}
                 />
               </View>
@@ -239,6 +255,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                   keyboardType="numeric"
                   value={stockMinimo}
                   onChangeText={setStockMinimo}
+                  onFocus={() => handleFocusNumerico(stockMinimo, setStockMinimo)}
+                  onBlur={() => handleBlurNumerico(stockMinimo, setStockMinimo)}
                   editable={!loading}
                 />
               </View>

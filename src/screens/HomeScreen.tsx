@@ -1,20 +1,21 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../types/navigation';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
-import { ManageHomesSheet } from '../components/ManageHomesSheet';
 import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
+import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../services/auth';
 import {
+  cancelarSolicitud,
   listarMisHogares,
   listarMisInvitacionesPendientes,
   listarMisSolicitudesPendientes,
@@ -22,32 +23,35 @@ import {
   salirDeHogar,
 } from '../services/hogares';
 import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
+import { listarActividadReciente } from '../services/actividad';
+import type { ActividadItem } from '../services/actividad';
 import type { Hogar } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
-import { colors, spacing, typography } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 
 /**
  * Pantalla principal (dashboard) que ve cualquier usuario logueado al
  * entrar a la app: header con saludo + logo, contenido con accesos rápidos
  * a lo que ya existe (hogar, productos) y nav bar inferior fija.
  *
- * "Tus hogares activos" ya lista los hogares reales del usuario (RF5/RF6,
- * ver src/services/hogares.ts). "Actividad reciente" sigue mostrando un
- * estado vacío a propósito: todavía no existe ningún log de actividad que
- * mostrar ahí (RF de un sprint siguiente) — se deja la estructura visual
- * lista para no tener que rehacer el layout cuando esa parte llegue.
+ * Todo el dashboard (el hogar que se muestra en "Tus hogares activos", su
+ * actividad reciente y los accesos rápidos) gira alrededor de un único
+ * `hogarSeleccionado`, elegido con "Cambiar hogar" -- distinto de
+ * `usuarios.hogar_id` (el "hogar activo" real que usa el resto de la
+ * app/RLS), que no se toca desde acá. "Actividad reciente" muestra datos
+ * reales (ver src/services/actividad.ts y la migración
+ * 20260907130000_actividad_hogar.sql), generados por triggers sobre
+ * `productos` -- hoy es lo único con ABM real.
  */
 export function HomeScreen() {
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
 
-  // Controla si el bottom sheet "Gestionar Mis Hogares" está abierto.
-  // Se dispara con un long-press sobre el ícono de Perfil de la nav bar.
-  const [sheetVisible, setSheetVisible] = useState(false);
   // Modales de "Crear Nuevo Hogar" y "Unirme a un Hogar" (mismo
-  // HogarFormModal, distinto mode), disparados desde las dos opciones del
-  // sheet de arriba.
+  // HogarFormModal, distinto mode), disparados por los botones debajo de
+  // "Tus hogares activos" -- un toque directo, sin gestos escondidos (antes
+  // vivían atrás de un long-press sobre "Perfil" en la nav bar).
   const [crearVisible, setCrearVisible] = useState(false);
   const [unirseVisible, setUnirseVisible] = useState(false);
 
@@ -74,6 +78,22 @@ export function HomeScreen() {
   // Flujo inverso de misSolicitudes: acá el dueño inició el contacto.
   const [misInvitaciones, setMisInvitaciones] = useState<MiInvitacionPendiente[]>([]);
   const [respondiendoInvitacion, setRespondiendoInvitacion] = useState<string | null>(null);
+
+  // Hogar que el resto del dashboard (Actividad reciente, Accesos rápidos)
+  // toma como referencia. Es una selección local a esta pantalla -- no toca
+  // `usuarios.hogar_id` (el "hogar activo" real que usa el resto de la app y
+  // la RLS) -- así que cambiarla acá nunca afecta a qué hogar apunta crear
+  // un hogar/aceptar una solicitud en otro lado.
+  const [hogarSeleccionadoId, setHogarSeleccionadoId] = useState<string | null>(null);
+  const [cambiarHogarVisible, setCambiarHogarVisible] = useState(false);
+  const hogarSeleccionado = misHogares.find((h) => h.id === hogarSeleccionadoId) ?? null;
+
+  // Actividad reciente del hogar seleccionado (ver migración
+  // 20260907130000_actividad_hogar.sql). Se recarga cada vez que cambia la
+  // selección y cada vez que esta pantalla vuelve a tener foco (por ejemplo,
+  // al volver de cargar un producto en ProductosScreen).
+  const [actividad, setActividad] = useState<ActividadItem[]>([]);
+  const [actividadLoading, setActividadLoading] = useState(false);
 
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
@@ -107,6 +127,51 @@ export function HomeScreen() {
     cargarMisSolicitudes();
     cargarMisInvitaciones();
   }, [cargarMisHogares, cargarMisSolicitudes, cargarMisInvitaciones]);
+
+  // Si la selección actual ya no es válida (todavía no se eligió ninguna,
+  // o el hogar seleccionado se dejó/expulsó/etc.), se reemplaza por el
+  // "hogar activo" de siempre (usuario.hogar_id) si sigue siendo uno de mis
+  // hogares, o si no por el primero de la lista. Si ya hay una selección
+  // válida, se respeta -- no se le pisa la elección al usuario cada vez que
+  // se recarga la lista por otro motivo (crear/salir de OTRO hogar, etc.).
+  useEffect(() => {
+    if (misHogares.length === 0) {
+      if (hogarSeleccionadoId !== null) setHogarSeleccionadoId(null);
+      return;
+    }
+
+    const sigueSiendoValida = misHogares.some((h) => h.id === hogarSeleccionadoId);
+    if (sigueSiendoValida) return;
+
+    const activo = misHogares.find((h) => h.id === usuario?.hogar_id);
+    setHogarSeleccionadoId((activo ?? misHogares[0]).id);
+  }, [misHogares, hogarSeleccionadoId, usuario?.hogar_id]);
+
+  const cargarActividad = useCallback(async (hogarId: string) => {
+    setActividadLoading(true);
+    try {
+      setActividad(await listarActividadReciente(hogarId));
+    } catch (err) {
+      console.warn('[Stocky] No se pudo cargar la actividad reciente:', err);
+    } finally {
+      setActividadLoading(false);
+    }
+  }, []);
+
+  // Se recarga al montar, cada vez que cambia el hogar seleccionado, y cada
+  // vez que esta pantalla vuelve a tener foco (por ejemplo, al volver de
+  // cargar un producto en ProductosScreen) -- useFocusEffect cubre los tres
+  // casos: corre al enfocar y de nuevo si cambia el callback (que depende
+  // del id seleccionado) mientras sigue enfocada.
+  useFocusEffect(
+    useCallback(() => {
+      if (hogarSeleccionado) {
+        cargarActividad(hogarSeleccionado.id);
+      } else {
+        setActividad([]);
+      }
+    }, [hogarSeleccionado?.id, cargarActividad]),
+  );
 
   // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
   // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
@@ -265,21 +330,17 @@ export function HomeScreen() {
     }
   }
 
-  // Accesos rápidos "Agregar producto" / "Ver despensa": si el usuario
-  // tiene un solo hogar no hace falta preguntarle cuál, se navega directo.
-  // Con más de uno (RF6) sería ambiguo, así que se lo manda a elegir desde
-  // el ícono de canasta de cada fila en "Tus hogares activos".
-  function handleIrAProductos() {
-    if (misHogares.length === 0) {
+  // Accesos rápidos "Agregar producto" / "Ver despensa": van directo al
+  // hogar elegido en "Cambiar hogar", sin preguntar nada -- si hay más de
+  // uno (RF6), para eso está el selector. "Agregar producto" además le pide
+  // a ProductosScreen que abra el modal de carga apenas llega, para no
+  // obligar a un segundo toque sobre el FAB.
+  function handleIrAProductos(abrirAgregar: boolean) {
+    if (!hogarSeleccionado) {
       avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
       return;
     }
-    if (misHogares.length === 1) {
-      const [hogar] = misHogares;
-      navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
-      return;
-    }
-    avisar('Elegí un hogar', 'Tocá el ícono de canasta 🧺 en "Tus hogares activos" para ver los productos de ese hogar.');
+    navigation.navigate('Productos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre, abrirAgregar });
   }
 
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
@@ -301,12 +362,29 @@ export function HomeScreen() {
     await cargarMisSolicitudes();
   }
 
+  // Si el dueño tarda (o no responde nunca), quien mandó la solicitud puede
+  // arrepentirse y cancelarla en vez de quedar esperando indefinidamente.
+  async function handleCancelarSolicitud(solicitud: MiSolicitudPendiente) {
+    const confirmado = await confirmar(
+      'Cancelar solicitud',
+      `¿Cancelar tu solicitud para unirte a "${solicitud.nombreHogar}"?`,
+      'Cancelar solicitud',
+    );
+    if (!confirmado) return;
+
+    try {
+      await cancelarSolicitud(solicitud.hogarId);
+      await cargarMisSolicitudes();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo cancelar la solicitud.');
+    }
+  }
+
   // Toques cortos sobre tabs que todavía no tienen pantalla propia
-  // (Búsqueda y Notificaciones). "Home" no hace nada porque ya estamos ahí,
-  // y "Perfil" en toque corto tampoco navega todavía (solo reacciona al
-  // long-press, definido en BottomNavBar).
+  // (Búsqueda, Notificaciones y Perfil). "Home" no hace nada porque ya
+  // estamos ahí.
   function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
-    if (tab === 'search' || tab === 'notifications') {
+    if (tab === 'search' || tab === 'notifications' || tab === 'profile') {
       avisar('Próximamente', 'Esta sección todavía no está disponible.');
     }
   }
@@ -331,74 +409,103 @@ export function HomeScreen() {
               {hogaresLoading ? (
                 <ActivityIndicator color={colors.primary} />
               ) : misHogares.length === 0 ? (
-                <EmptyState
-                  icon="home-outline"
-                  text="Todavía no formás parte de ningún hogar."
-                  actionLabel="Crear mi primer hogar"
-                  onAction={handleCrearHogar}
-                />
+                <EmptyState icon="home-outline" text="Todavía no formás parte de ningún hogar." />
               ) : (
-                // Puede haber más de uno (RF6): se listan todos, no solo
-                // el "hogar activo" de usuario.hogar_id.
-                <View style={styles.hogaresList}>
-                  {misHogares.map((hogar) => (
-                    <View key={hogar.id} style={styles.hogarRow}>
+                hogarSeleccionado && (
+                  <View style={styles.hogaresList}>
+                    {/* Solo se muestra el hogar elegido en "Cambiar hogar"
+                        (no toda la lista) -- el resto del dashboard
+                        (Actividad reciente, Accesos rápidos) también se
+                        refiere a este mismo. El botón de cambiar solo tiene
+                        sentido si hay más de uno entre qué elegir. */}
+                    {misHogares.length > 1 && (
+                      <Pressable
+                        style={styles.cambiarHogarButton}
+                        onPress={() => setCambiarHogarVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Cambiar hogar, mostrando ${hogarSeleccionado.nombre}`}
+                      >
+                        <Ionicons name="swap-horizontal-outline" size={16} color={colors.primary} />
+                        <Text style={styles.cambiarHogarTexto}>Cambiar hogar</Text>
+                      </Pressable>
+                    )}
+
+                    <View style={styles.hogarRow}>
                       <View style={styles.hogarInfo}>
                         <Text style={styles.hogarNombre} numberOfLines={1}>
-                          🏠 {hogar.nombre}
+                          🏠 {hogarSeleccionado.nombre}
                         </Text>
                         <Text style={styles.hogarCodigo}>
-                          Código: {hogar.codigo_invitacion} · {hogar.miRol === 'dueno' ? 'Dueño' : 'Invitado'}
+                          Código: {hogarSeleccionado.codigo_invitacion} · {hogarSeleccionado.miRol === 'dueno' ? 'Dueño' : 'Invitado'}
                         </Text>
                       </View>
                       <View style={styles.hogarAcciones}>
                         <Pressable
-                          onPress={() => navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre })}
+                          onPress={() =>
+                            navigation.navigate('Productos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre })
+                          }
                           style={styles.hogarAccionButton}
                           accessibilityRole="button"
-                          accessibilityLabel={`Productos de ${hogar.nombre}`}
+                          accessibilityLabel={`Productos de ${hogarSeleccionado.nombre}`}
                         >
                           <Ionicons name="basket-outline" size={18} color={colors.textSecondary} />
                         </Pressable>
                         <Pressable
-                          onPress={() => setHogarMiembrosVisible(hogar)}
+                          onPress={() => setHogarMiembrosVisible(hogarSeleccionado)}
                           style={styles.hogarAccionButton}
                           accessibilityRole="button"
                           accessibilityLabel={
-                            hogar.solicitudesPendientes > 0
-                              ? `Miembros de ${hogar.nombre}, ${hogar.solicitudesPendientes} solicitud${hogar.solicitudesPendientes === 1 ? '' : 'es'} pendiente${hogar.solicitudesPendientes === 1 ? '' : 's'}`
-                              : `Miembros de ${hogar.nombre}`
+                            hogarSeleccionado.solicitudesPendientes > 0
+                              ? `Miembros de ${hogarSeleccionado.nombre}, ${hogarSeleccionado.solicitudesPendientes} solicitud${hogarSeleccionado.solicitudesPendientes === 1 ? '' : 'es'} pendiente${hogarSeleccionado.solicitudesPendientes === 1 ? '' : 's'}`
+                              : `Miembros de ${hogarSeleccionado.nombre}`
                           }
                         >
                           <Ionicons name="people-outline" size={18} color={colors.textSecondary} />
-                          {hogar.solicitudesPendientes > 0 && <View style={styles.solicitudDot} />}
+                          {hogarSeleccionado.solicitudesPendientes > 0 && <View style={styles.solicitudDot} />}
                         </Pressable>
                         {/* Editar el nombre está restringido al dueño por
                             default; un invitado solo lo ve si el dueño le
                             habilitó el permiso (ver "Miembros del hogar"). */}
-                        {hogar.puedoEditar && (
+                        {hogarSeleccionado.puedoEditar && (
                           <Pressable
-                            onPress={() => setHogarEditando(hogar)}
+                            onPress={() => setHogarEditando(hogarSeleccionado)}
                             style={styles.hogarAccionButton}
                             accessibilityRole="button"
-                            accessibilityLabel={`Editar ${hogar.nombre}`}
+                            accessibilityLabel={`Editar ${hogarSeleccionado.nombre}`}
                           >
                             <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
                           </Pressable>
                         )}
                         <Pressable
-                          onPress={() => handleSalirDeHogar(hogar)}
+                          onPress={() => handleSalirDeHogar(hogarSeleccionado)}
                           style={styles.hogarAccionButton}
                           accessibilityRole="button"
-                          accessibilityLabel={`Salir de ${hogar.nombre}`}
+                          accessibilityLabel={`Salir de ${hogarSeleccionado.nombre}`}
                         >
                           <Ionicons name="exit-outline" size={18} color={colors.danger} />
                         </Pressable>
                       </View>
                     </View>
-                  ))}
-                </View>
+                  </View>
+                )
               )}
+
+              {/* Un toque directo, sin gestos escondidos -- antes vivían
+                  atrás de un long-press sobre "Perfil" en la nav bar. */}
+              <View style={styles.hogaresAccionesRow}>
+                <Button
+                  label="Crear hogar"
+                  variant="outline"
+                  onPress={handleCrearHogar}
+                  style={styles.hogaresAccionButton}
+                />
+                <Button
+                  label="Unirme a un hogar"
+                  variant="outline"
+                  onPress={handleUnirseAHogar}
+                  style={styles.hogaresAccionButton}
+                />
+              </View>
             </SectionCard>
 
             {/* Solo aparece si mandé alguna solicitud que el dueño todavía
@@ -409,10 +516,20 @@ export function HomeScreen() {
                 <View style={styles.hogaresList}>
                   {misSolicitudes.map((solicitud) => (
                     <View key={solicitud.hogarId} style={styles.hogarRow}>
-                      <Text style={styles.hogarNombre} numberOfLines={1}>
-                        🏠 {solicitud.nombreHogar}
-                      </Text>
-                      <Text style={styles.hogarCodigo}>Esperando respuesta del dueño</Text>
+                      <View style={styles.hogarInfo}>
+                        <Text style={styles.hogarNombre} numberOfLines={1}>
+                          🏠 {solicitud.nombreHogar}
+                        </Text>
+                        <Text style={styles.hogarCodigo}>Esperando respuesta del dueño</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => handleCancelarSolicitud(solicitud)}
+                        style={styles.hogarAccionButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Cancelar solicitud a ${solicitud.nombreHogar}`}
+                      >
+                        <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
+                      </Pressable>
                     </View>
                   ))}
                 </View>
@@ -458,13 +575,49 @@ export function HomeScreen() {
             )}
 
             <SectionCard title="Actividad reciente">
-              <EmptyState icon="time-outline" text="Todavía no hay movimientos para mostrar." />
+              {actividadLoading ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : actividad.length === 0 ? (
+                <EmptyState
+                  icon="time-outline"
+                  text={
+                    hogarSeleccionado
+                      ? `Todavía no hay movimientos para mostrar en "${hogarSeleccionado.nombre}".`
+                      : 'Todavía no hay movimientos para mostrar.'
+                  }
+                />
+              ) : (
+                <View style={styles.hogaresList}>
+                  {actividad.map((item) => {
+                    const visual = actividadVisual(item);
+                    return (
+                      <View key={item.id} style={styles.actividadRow}>
+                        {visual ? (
+                          <View style={styles.actividadPrincipal}>
+                            <Ionicons
+                              name={visual.signo === '+' ? 'arrow-up-circle' : 'arrow-down-circle'}
+                              size={16}
+                              color={visual.color}
+                            />
+                            <Text style={[styles.actividadDescripcion, { color: visual.color }]}>{visual.texto}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.actividadDescripcion}>{item.descripcion}</Text>
+                        )}
+                        <Text style={styles.actividadMeta}>
+                          {item.usuarioNombre ?? item.usuarioEmail ?? 'Alguien'} · {formatearFechaActividad(item.createdAt)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </SectionCard>
 
             <SectionCard title="Accesos rápidos">
               <View style={styles.quickAccessRow}>
-                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={handleIrAProductos} />
-                <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={handleIrAProductos} />
+                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos(true)} />
+                <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos(false)} />
               </View>
             </SectionCard>
           </>
@@ -482,14 +635,7 @@ export function HomeScreen() {
         <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} style={styles.signOutButton} />
       </ScrollView>
 
-      <BottomNavBar active="home" onTabPress={handleTabPress} onProfileLongPress={() => setSheetVisible(true)} />
-
-      <ManageHomesSheet
-        visible={sheetVisible}
-        onClose={() => setSheetVisible(false)}
-        onCrearHogar={handleCrearHogar}
-        onUnirseAHogar={handleUnirseAHogar}
-      />
+      <BottomNavBar active="home" onTabPress={handleTabPress} />
 
       <HogarFormModal
         visible={crearVisible}
@@ -525,8 +671,47 @@ export function HomeScreen() {
           onClose={() => setHogarMiembrosVisible(null)}
         />
       )}
+
+      <SeleccionarHogarModal
+        visible={cambiarHogarVisible}
+        onClose={() => setCambiarHogarVisible(false)}
+        hogares={misHogares}
+        hogarSeleccionadoId={hogarSeleccionadoId}
+        onSeleccionar={setHogarSeleccionadoId}
+      />
     </ScreenContainer>
   );
+}
+
+// Fecha corta para cada fila de "Actividad reciente": solo la hora si fue
+// hoy (lo más común, no hace falta repetir la fecha), día/mes + hora si no.
+function formatearFechaActividad(iso: string): string {
+  const fecha = new Date(iso);
+  const hoy = new Date();
+  const hora = fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+  if (fecha.toDateString() === hoy.toDateString()) return hora;
+
+  const diaMes = fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+  return `${diaMes} ${hora}`;
+}
+
+// Arma un badge tipo "Pera +3" (verde) / "Pera -3" (rojo) a partir del
+// DELTA con signo que trae `cantidad` (ver migración
+// 20260909020000_ajuste_rapido_y_delta_actividad.sql): +N al crear un
+// producto o sumarle cantidad, -N al eliminarlo o restarle cantidad. Sin
+// ramificar por `tipo` a propósito -- editar SIN tocar la cantidad llega
+// acá con cantidad=0 y cae al mismo `return null` que cualquier actividad
+// futura sin producto_nombre/cantidad, mostrando `descripcion` a secas.
+function actividadVisual(item: ActividadItem): { texto: string; color: string; signo: '+' | '-' } | null {
+  if (item.productoNombre === null || item.cantidad === null || item.cantidad === 0) return null;
+
+  const positivo = item.cantidad > 0;
+  return {
+    texto: `${item.productoNombre} ${positivo ? '+' : ''}${item.cantidad}`,
+    color: positivo ? colors.success : colors.danger,
+    signo: positivo ? '+' : '-',
+  };
 }
 
 interface EmptyStateProps {
@@ -592,6 +777,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  cambiarHogarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryLight,
+  },
+  cambiarHogarTexto: {
+    ...typography.caption,
+    color: colors.primary,
+    flexShrink: 1,
+  },
   hogaresList: {
     gap: spacing.xs,
   },
@@ -624,6 +825,33 @@ const styles = StyleSheet.create({
   invitacionAcciones: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  hogaresAccionesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  hogaresAccionButton: {
+    flexGrow: 1,
+    minWidth: 140,
+  },
+  actividadRow: {
+    paddingVertical: spacing.xs,
+    gap: 2,
+  },
+  actividadPrincipal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actividadDescripcion: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  actividadMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   solicitudDot: {
     position: 'absolute',

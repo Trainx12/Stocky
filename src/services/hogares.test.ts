@@ -24,17 +24,25 @@ const mockUpdateEq = jest.fn(() => ({ select: jest.fn(() => ({ single: mockSingl
 const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
 const mockEq = jest.fn(() => ({ order: mockOrder }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
+// cancelarSolicitud encadena tres .eq() (hogar_id, usuario_id, estado); el
+// último resuelve la promesa con { error }.
+const mockDeleteThirdEq = jest.fn();
+const mockDeleteSecondEq = jest.fn(() => ({ eq: mockDeleteThirdEq }));
+const mockDeleteFirstEq = jest.fn(() => ({ eq: mockDeleteSecondEq }));
+const mockDelete = jest.fn(() => ({ eq: mockDeleteFirstEq }));
 
 jest.mock('../lib/supabase', () => ({
   supabase: {
     rpc: jest.fn(),
     auth: { getUser: jest.fn() },
-    from: jest.fn(() => ({ select: mockSelect, update: mockUpdate })),
+    from: jest.fn(() => ({ select: mockSelect, update: mockUpdate, delete: mockDelete })),
   },
 }));
 
 import { supabase } from '../lib/supabase';
 import {
+  cancelarSolicitud,
+  cederDueno,
   crearHogar,
   editarHogar,
   expulsarMiembro,
@@ -65,6 +73,10 @@ beforeEach(() => {
   mockUpdate.mockClear();
   mockUpdateEq.mockClear();
   mockSingle.mockReset();
+  mockDelete.mockClear();
+  mockDeleteFirstEq.mockClear();
+  mockDeleteSecondEq.mockClear();
+  mockDeleteThirdEq.mockReset();
 });
 
 describe('crearHogar', () => {
@@ -517,5 +529,49 @@ describe('responderInvitacion', () => {
     rpc.mockResolvedValue({ data: null, error: new Error('fallo de red') });
 
     await expect(responderInvitacion('hogar-1', false)).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('cederDueno', () => {
+  it('llama a la RPC ceder_dueno con el hogar y el nuevo dueño', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await cederDueno('hogar-1', 'u-2');
+
+    expect(rpc).toHaveBeenCalledWith('ceder_dueno', { p_hogar_id: 'hogar-1', p_nuevo_dueno_id: 'u-2' });
+  });
+
+  it('propaga el error si la RPC rechaza (ej: quien llama no es el dueño, o el target no es miembro)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('Ese usuario no es miembro de este hogar') });
+
+    await expect(cederDueno('hogar-1', 'u-2')).rejects.toThrow('Ese usuario no es miembro de este hogar');
+  });
+});
+
+describe('cancelarSolicitud', () => {
+  it('borra la propia fila pendiente (hogar_id, usuario_id logueado, estado=pendiente)', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockDeleteThirdEq.mockResolvedValue({ error: null });
+
+    await cancelarSolicitud('hogar-1');
+
+    expect(from).toHaveBeenCalledWith('hogar_miembros');
+    expect(mockDeleteFirstEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
+    expect(mockDeleteSecondEq).toHaveBeenCalledWith('usuario_id', 'user-123');
+    expect(mockDeleteThirdEq).toHaveBeenCalledWith('estado', 'pendiente');
+  });
+
+  it('propaga el error si falla el delete', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockDeleteThirdEq.mockResolvedValue({ error: new Error('fallo de red') });
+
+    await expect(cancelarSolicitud('hogar-1')).rejects.toThrow('fallo de red');
+  });
+
+  it('falla sin consultar la tabla si no hay usuario logueado', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(cancelarSolicitud('hogar-1')).rejects.toThrow('No se pudo identificar al usuario logueado');
+    expect(from).not.toHaveBeenCalled();
   });
 });

@@ -21,15 +21,26 @@ const mockSelect = jest.fn(() => ({ eq: mockSelectEq }));
 jest.mock('../lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({ select: mockSelect, insert: mockInsert, update: mockUpdate, delete: mockDelete })),
+    rpc: jest.fn(),
   },
 }));
 
 import { supabase } from '../lib/supabase';
-import { categoriasEnUso, crearProducto, editarProducto, eliminarProducto, filtrarProductos, listarProductos, parsearNumero } from './productos';
+import {
+  ajustarCantidadProducto,
+  categoriasEnUso,
+  crearProducto,
+  editarProducto,
+  eliminarProducto,
+  filtrarProductos,
+  listarProductos,
+  parsearNumero,
+} from './productos';
 import type { DatosProducto } from './productos';
 import type { Producto } from '../types/database';
 
 const from = supabase.from as jest.Mock;
+const rpc = supabase.rpc as jest.Mock;
 
 const datosValidos: DatosProducto = {
   nombre: 'Leche',
@@ -52,6 +63,7 @@ beforeEach(() => {
   mockDelete.mockClear();
   mockDeleteEq.mockReset();
   mockSingle.mockReset();
+  rpc.mockReset();
 });
 
 describe('listarProductos', () => {
@@ -105,6 +117,14 @@ describe('crearProducto', () => {
       stock_minimo: 1,
     });
     expect(resultado).toEqual(producto);
+  });
+
+  it('pone en mayúscula la primera letra del nombre, sin tocar el resto', async () => {
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, nombre: 'mandarina Fina' });
+
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Mandarina Fina' }));
   });
 
   it('rechaza un nombre vacío sin llamar a Supabase', async () => {
@@ -204,6 +224,26 @@ describe('eliminarProducto', () => {
     mockDeleteEq.mockResolvedValue({ error: new Error('fallo de red') });
 
     await expect(eliminarProducto('p1')).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('ajustarCantidadProducto', () => {
+  it('llama a la RPC ajustar_cantidad_producto con el producto y el delta, y devuelve el producto actualizado', async () => {
+    const actualizado = { id: 'p1', nombre: 'Mandarina', cantidad: 2 };
+    rpc.mockResolvedValue({ data: actualizado, error: null });
+
+    const resultado = await ajustarCantidadProducto('p1', -1);
+
+    expect(rpc).toHaveBeenCalledWith('ajustar_cantidad_producto', { p_producto_id: 'p1', p_delta: -1 });
+    expect(resultado).toEqual(actualizado);
+  });
+
+  it('propaga el error si la RPC falla (ej: producto de otro hogar)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('No se encontró el producto (o no pertenece a tu hogar activo)') });
+
+    await expect(ajustarCantidadProducto('p-ajeno', 1)).rejects.toThrow(
+      'No se encontró el producto (o no pertenece a tu hogar activo)',
+    );
   });
 });
 

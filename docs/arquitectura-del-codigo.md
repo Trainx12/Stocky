@@ -215,6 +215,37 @@ anterior 'pendiente') o "me expulsaron" (DELETE con estado anterior
 'aprobado') -- son tres mensajes distintos para el mismo evento de
 Realtime, y sin el estado anterior no se podían diferenciar.
 
+**El hogar nunca queda sin dueño** (ver
+[20260907120000_ceder_dueno_y_cancelar_solicitud.sql](../supabase/migrations/20260907120000_ceder_dueno_y_cancelar_solicitud.sql)):
+antes, si el dueño se iba (`salirDeHogar`), el hogar se quedaba sin ningún
+miembro con `rol = 'dueno'` y, como `responderSolicitud`/`expulsarMiembro`/
+`permitirEditarHogar` exigen serlo, las solicitudes pendientes de ese hogar
+quedaban trabadas para siempre y nadie podía volver a unirse. Ahora
+`salir_de_hogar()` promueve a otro miembro ANTES de borrar la fila del que se
+va: primero al invitado aprobado más antiguo; si no queda ninguno, a la
+solicitud pendiente más antigua (aprobándola de paso). `cederDueno(hogarId,
+usuarioId)` es la versión voluntaria de lo mismo -- el dueño elige a quién
+pasarle el rol sin tener que irse del hogar -- con la misma guarda que
+`expulsarMiembro` (solo el dueño puede llamarla, del lado de la RPC).
+
+**Cancelar una solicitud propia no necesita RPC**: `cancelarSolicitud(hogarId)`
+hace un `.delete()` directo sobre la propia fila en estado `'pendiente'` --
+alcanza con la policy `hogar_miembros_delete_propio_o_admin` que ya existía
+(deja borrar cualquier fila propia sin importar el estado, ver migración
+20260826130000_hogares_multi_membresia.sql), así que no hace falta una
+función nueva del lado de Postgres solo para esto.
+
+**No se puede "volver a unir" a un hogar del que ya se es miembro** (mismo
+archivo de migración): `unirse_a_hogar()` solo tenía un `on conflict (hogar_id,
+usuario_id) do nothing` para evitar duplicar la fila, pero no avisaba nada --
+alguien ya aprobado (o con una solicitud pendiente) en ese hogar podía volver
+a mandar el código y la función devolvía éxito igual, mostrando "Solicitud
+enviada" sin haber pasado nada de verdad. Ahora valida el estado actual ANTES
+de intentar el insert y rechaza con un mensaje explícito (`Ya sos miembro de
+este hogar` / `Ya tenés una solicitud pendiente para este hogar`); el `on
+conflict do nothing` queda solo como red de seguridad ante una carrera entre
+dos llamadas simultáneas.
+
 ### `productos.ts` — ABM de productos de un hogar (RF7)
 
 A diferencia de `hogares.ts`, acá no hay ninguna RPC: `crearProducto`,
@@ -246,6 +277,23 @@ vieja, de antes de esta regla, sin categoría cargada).
 `fecha_vencimiento`/`alerta_vencimiento_habilitada` (RF2/RF3, Sprint 4)
 todavía no se tocan desde acá -- quedan con su default de la base hasta
 ese sprint.
+
+### `actividad.ts` — "Actividad reciente" de HomeScreen
+
+`listarActividadReciente(hogarId, limite)` es la única función acá, y va
+por RPC (`listar_actividad_reciente`, ver
+[20260907130000_actividad_hogar.sql](../supabase/migrations/20260907130000_actividad_hogar.sql))
+en vez de un select directo a `actividad_hogar` porque el autor de una fila
+(`usuario_id`) puede ser `null` (cuenta borrada) y ese join opcional
+usuario/actividad es más simple de resolver del lado de Postgres que con el
+select anidado de PostgREST. Las filas de `actividad_hogar` no las inserta
+nada del cliente: las genera un trigger `AFTER INSERT OR UPDATE OR DELETE`
+sobre `productos` (`registrar_actividad_producto()`, `SECURITY DEFINER` por
+el mismo motivo que los helpers de RLS) -- así ninguna función de
+`productos.ts` tiene que acordarse de loguear a mano, ni hay riesgo de que
+alguien agregue un producto por afuera de ese archivo y la actividad quede
+sin registrar. Hoy solo cubre ABM de productos (lo único con ABM real);
+altas/bajas de `hogar_miembros` todavía no generan actividad.
 
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
@@ -345,11 +393,20 @@ resuelto ni hace falta que lo esté ahora.
 - **`HomeScreen`**: dashboard post-login. Muestra loading /
   error-con-reintentar / datos reales según el estado de `usuario` en
   `AuthContext` (ver la nota del punto 6 y el incidente 8) — a
-  propósito **no** asume un rol por default. Cada fila de "Tus hogares
-  activos" tiene un ícono de canasta que navega a `Productos` de ESE
-  hogar; los accesos rápidos "Agregar producto"/"Ver despensa" navegan
-  directo si el usuario tiene un solo hogar, o le piden elegir uno desde
-  la lista si tiene más de uno (RF6).
+  propósito **no** asume un rol por default. Todo el dashboard gira
+  alrededor de un `hogarSeleccionado` (estado local, elegido con el botón
+  "Cambiar hogar" dentro de "Tus hogares activos", que solo se muestra si
+  hay más de uno entre qué elegir) -- distinto de `usuarios.hogar_id` (el
+  "hogar activo" real que usa el resto de la app/RLS), que no se toca desde
+  acá. "Tus hogares activos" ahora muestra solo ESE hogar (no la lista
+  completa); sus accesos rápidos "Agregar producto"/"Ver despensa" navegan
+  directo a `Productos` de ese mismo hogar ("Agregar producto" además le
+  pide a `ProductosScreen` que abra el modal de carga apenas llega, vía
+  `abrirAgregar: true`). "Actividad reciente" trae datos reales de
+  `listarActividadReciente` (`src/services/actividad.ts`), generados por un
+  trigger sobre `productos` (ver
+  [20260907130000_actividad_hogar.sql](../supabase/migrations/20260907130000_actividad_hogar.sql))
+  -- hoy es lo único con ABM real, así que es lo único que se registra.
 - **`ProductosScreen`** (RF7): listado + ABM de productos de un hogar
   puntual. Búsqueda por nombre y filtro por categoría son 100%
   client-side sobre la lista ya cargada (`listarProductos`) -- a la

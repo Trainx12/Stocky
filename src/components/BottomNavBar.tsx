@@ -21,14 +21,12 @@ interface BottomNavBarProps {
   /**
    * Toque corto en cualquier tab que todavía no tiene pantalla propia
    * (search/notifications/profile). HomeScreen decide qué hacer con eso
-   * (por ahora, un aviso de "próximamente").
+   * (por ahora, un aviso de "próximamente"). Crear/unirse a un hogar ya no
+   * pasa por acá (antes era un long-press sobre "Perfil"): son botones
+   * directos debajo de "Tus hogares activos" en HomeScreen, sin gestos
+   * escondidos.
    */
   onTabPress?: (tab: TabKey) => void;
-  /**
-   * Toque largo específicamente sobre "Perfil": dispara el bottom sheet
-   * "Gestionar Mis Hogares" (RF de creación/administración de hogar).
-   */
-  onProfileLongPress: () => void;
 }
 
 /**
@@ -39,9 +37,9 @@ interface BottomNavBarProps {
  * sprints), este componente se puede reemplazar por un
  * createBottomTabNavigator sin tocar el resto de HomeScreen.
  */
-export function BottomNavBar({ active = 'home', onTabPress, onProfileLongPress }: BottomNavBarProps) {
+export function BottomNavBar({ active = 'home', onTabPress }: BottomNavBarProps) {
   // Se resalta el ícono mientras el dedo lo mantiene presionado (feedback
-  // visual del long-press en curso, aparte del círculo claro del mockup).
+  // visual inmediato del toque, aparte del círculo claro del mockup).
   const [pressedTab, setPressedTab] = useState<TabKey | null>(null);
 
   const tabs: TabKey[] = ['home', 'search', 'notifications', 'profile'];
@@ -57,10 +55,6 @@ export function BottomNavBar({ active = 'home', onTabPress, onProfileLongPress }
           <Pressable
             key={tab}
             onPress={() => onTabPress?.(tab)}
-            // Solo "profile" tiene comportamiento de long-press (abrir el
-            // menú de hogares); en los demás tabs no pasa nada especial.
-            onLongPress={tab === 'profile' ? onProfileLongPress : undefined}
-            delayLongPress={400}
             onPressIn={() => setPressedTab(tab)}
             onPressOut={() => setPressedTab(null)}
             style={styles.tab}

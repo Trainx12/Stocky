@@ -186,6 +186,10 @@ export interface Database {
         Args: { p_hogar_id: string; p_usuario_id: string };
         Returns: void;
       };
+      ceder_dueno: {
+        Args: { p_hogar_id: string; p_nuevo_dueno_id: string };
+        Returns: void;
+      };
       permitir_editar_hogar: {
         Args: { p_hogar_id: string; p_usuario_id: string; p_permitir: boolean };
         Returns: void;
@@ -211,6 +215,25 @@ export interface Database {
       listar_mis_invitaciones_pendientes: {
         Args: Record<string, never>;
         Returns: AsRecord<{ hogar_id: string; nombre: string; created_at: string }>[];
+      };
+      listar_actividad_reciente: {
+        Args: { p_hogar_id: string; p_limite?: number };
+        Returns: AsRecord<{
+          id: string;
+          tipo: string;
+          descripcion: string;
+          usuario_nombre: string | null;
+          usuario_email: string | null;
+          created_at: string;
+          // Ver migración 20260909010000_actividad_cantidad_visual.sql.
+          producto_nombre: string | null;
+          cantidad: number | null;
+        }>[];
+      };
+      // Ver migración 20260909020000_ajuste_rapido_y_delta_actividad.sql.
+      ajustar_cantidad_producto: {
+        Args: { p_producto_id: string; p_delta: number };
+        Returns: AsRecord<Producto>;
       };
     };
   };

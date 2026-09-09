@@ -26,12 +26,20 @@ export interface DatosProducto {
   stockMinimo: number;
 }
 
+// Primera letra en mayúscula (el resto del texto queda tal cual se
+// escribió, no fuerza minúsculas en el resto) -- así "mandarina" y
+// "Mandarina" no quedan como dos productos "distintos" a simple vista en la
+// lista solo por cómo los tipeó cada uno.
+function capitalizar(texto: string): string {
+  return texto.length === 0 ? texto : texto[0].toUpperCase() + texto.slice(1);
+}
+
 // Valida los campos comunes a crear/editar antes de pegarle a Supabase:
 // nombre/categoría vacíos o cantidades negativas no tienen que llegar a la
 // base (ver docs/plan-de-testing.md, Sprint 3: "cantidades negativas
 // deberían rechazarse, no romper la UI").
 function validar(datos: DatosProducto): { nombre: string; categoria: string; cantidad: number; stockMinimo: number } {
-  const nombre = datos.nombre.trim();
+  const nombre = capitalizar(datos.nombre.trim());
   if (!nombre) throw new Error('El nombre del producto no puede estar vacío');
 
   const categoria = datos.categoria.trim();
@@ -110,6 +118,19 @@ export async function editarProducto(productoId: string, datos: DatosProducto): 
 export async function eliminarProducto(productoId: string): Promise<void> {
   const { error } = await supabase.from('productos').delete().eq('id', productoId);
   if (error) throw error;
+}
+
+// Suma o resta `delta` a la cantidad actual (+1/-1 rápido desde la lista,
+// sin abrir el formulario de editar). Va por RPC (ver migración
+// 20260909020000_ajuste_rapido_y_delta_actividad.sql) y no por un
+// `.update()` directo porque "sumar al valor actual" necesita leer y
+// escribir de forma atómica -- si dos personas tocan +/- casi al mismo
+// tiempo, un ida-y-vuelta desde el cliente podría perder uno de los dos
+// cambios. La RPC ya evita que quede en negativo (greatest(..., 0)).
+export async function ajustarCantidadProducto(productoId: string, delta: number): Promise<Producto> {
+  const { data, error } = await supabase.rpc('ajustar_cantidad_producto', { p_producto_id: productoId, p_delta: delta });
+  if (error) throw error;
+  return data;
 }
 
 /**

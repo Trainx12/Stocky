@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
+  cederDueno,
   expulsarMiembro,
   invitarAHogar,
   listarMiembrosDeHogar,
@@ -114,6 +115,27 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
       avisar('Error', err instanceof Error ? err.message : 'No se pudo enviar la invitación.');
     } finally {
       setInvitando(false);
+    }
+  }
+
+  // Ceder el dueño es fuerte (dejo de poder expulsar/editar permisos y
+  // paso a depender del nuevo dueño para todo eso), por eso pide
+  // confirmación explícita, igual que expulsar.
+  async function handleCederDueno(miembro: MiembroHogar) {
+    if (!hogarId) return;
+    const nombreMostrado = miembro.nombre ?? miembro.email;
+    const confirmado = await confirmar(
+      'Ceder el rol de dueño',
+      `¿Seguro que querés que "${nombreMostrado}" pase a ser el dueño de "${hogarNombre}"? Vos vas a quedar como invitado.`,
+      'Ceder dueño',
+    );
+    if (!confirmado) return;
+
+    try {
+      await cederDueno(hogarId, miembro.usuarioId);
+      await cargar();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo ceder el rol de dueño.');
     }
   }
 
@@ -239,15 +261,32 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
                           </View>
                         </View>
 
+                        {/* Agrupadas en un solo contenedor a propósito: si
+                            quedan como hermanos sueltos de rowTextos, el
+                            justify-content: space-between de "row" las
+                            reparte por separado y, en pantallas anchas
+                            (web/desktop), el botón del medio termina flotando
+                            solo en el centro de la pantalla en vez de al
+                            lado del de expulsar. */}
                         {soyDueno && miembro.rol === 'invitado' && (
-                          <Pressable
-                            onPress={() => handleExpulsar(miembro)}
-                            style={styles.expulsarButton}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Expulsar a ${miembro.nombre ?? miembro.email}`}
-                          >
-                            <Ionicons name="person-remove-outline" size={20} color={colors.danger} />
-                          </Pressable>
+                          <View style={styles.miembroAcciones}>
+                            <Pressable
+                              onPress={() => handleCederDueno(miembro)}
+                              style={styles.cederDuenoButton}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Hacer dueño a ${miembro.nombre ?? miembro.email}`}
+                            >
+                              <Text style={styles.cederDuenoTexto}>Hacer dueño</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => handleExpulsar(miembro)}
+                              style={styles.expulsarButton}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Expulsar a ${miembro.nombre ?? miembro.email}`}
+                            >
+                              <Ionicons name="person-remove-outline" size={20} color={colors.danger} />
+                            </Pressable>
+                          </View>
                         )}
                       </View>
 
@@ -406,5 +445,21 @@ const styles = StyleSheet.create({
   },
   expulsarButton: {
     padding: spacing.xs,
+  },
+  miembroAcciones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  cederDuenoButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cederDuenoTexto: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
 });
