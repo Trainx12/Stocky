@@ -520,9 +520,16 @@ comentario `TODO` apuntando a qué sprint le toca la lógica real.
   `android.package` (identidad del proyecto/app para EAS Build, no se
   deberían cambiar una vez que existan builds subidas).
 - **`eas.json`**: perfiles de build de EAS (`development`, `preview`,
-  `production`). El que usa el equipo hoy es `development`
-  (`developmentClient: true`), para el dev client que reemplaza a Expo
-  Go y no depende de la red (ver incidente 9).
+  `production`). Quedó armado como solución definitiva al bug de IP de
+  Expo Go (ver incidente 9), pero **hoy el equipo prueba con Expo Go**
+  (la app que se instala desde [expo.dev/go](https://expo.dev/go), ver
+  incidente 1), no con ese dev client -- si se agrega una librería con
+  código nativo nuevo (por ejemplo
+  `@react-native-community/datetimepicker`, ver incidente de
+  vencimiento de productos), Expo Go ya la trae incluida y no hace
+  falta ningún rebuild; un dev client de EAS sí necesitaría
+  reconstruirse para levantarla. Si el equipo vuelve a depender del dev
+  client en algún momento, actualizar esta nota.
 - **`tsconfig.json`**: config de TypeScript, extiende la base de Expo.
   Excluye `supabase/functions` por el tema de Deno mencionado arriba, y
   fija `"types": ["jest"]` para que los archivos `*.test.ts` compilen
