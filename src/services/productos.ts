@@ -237,13 +237,43 @@ export function formatearFechaInput(texto: string): string {
 // Convierte un Date a 'YYYY-MM-DD' usando sus componentes LOCALES, no
 // `toISOString()` (que convierte a UTC y puede correr la fecha un día para
 // atrás en cualquier zona horaria negativa, como Argentina). La usa
-// ProductoFormModal para volcar la fecha elegida en el calendario nativo al
-// campo de texto.
+// CalendarioPicker para armar cada celda de la grilla y para volcar el día
+// tocado al campo de texto de ProductoFormModal.
 export function formatearFechaISO(fecha: Date): string {
   const anio = fecha.getFullYear();
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getDate()).padStart(2, '0');
   return `${anio}-${mes}-${dia}`;
+}
+
+// Un día de la grilla de CalendarioPicker.
+export interface DiaCalendario {
+  fecha: string; // 'YYYY-MM-DD'
+  dia: number; // día del mes (1-31), para mostrar en la celda
+  enMesActual: boolean; // false para los días de relleno del mes anterior/siguiente
+}
+
+// Arma la grilla de un mes para CalendarioPicker: siempre 6 semanas (42
+// días), empezando el lunes, rellenando con los días del mes anterior y
+// siguiente que caen en esas semanas -- así la grilla nunca cambia de
+// tamaño (evita que el calendario "salte" de alto al cambiar de mes según
+// cuántos días tenga o en qué día de la semana caiga el 1°).
+export function diasDelMesCalendario(anio: number, mesIndiceCero: number): DiaCalendario[] {
+  const primerDiaMes = new Date(anio, mesIndiceCero, 1);
+  // Date#getDay(): 0=domingo..6=sábado. Se convierte a "cuántos días
+  // retroceder hasta el lunes anterior" (lunes=0 ... domingo=6), porque la
+  // semana en la grilla arranca en lunes (convención local, no de EE.UU.).
+  const offsetHastaElLunes = (primerDiaMes.getDay() + 6) % 7;
+  const inicioGrilla = new Date(anio, mesIndiceCero, 1 - offsetHastaElLunes);
+
+  return Array.from({ length: 42 }, (_, i) => {
+    const fecha = new Date(inicioGrilla.getFullYear(), inicioGrilla.getMonth(), inicioGrilla.getDate() + i);
+    return {
+      fecha: formatearFechaISO(fecha),
+      dia: fecha.getDate(),
+      enMesActual: fecha.getMonth() === mesIndiceCero,
+    };
+  });
 }
 
 // Ventana de "próximo a vencer": un producto entra en alerta si le quedan

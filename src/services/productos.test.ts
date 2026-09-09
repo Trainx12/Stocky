@@ -40,6 +40,7 @@ import {
   estadoVencimiento,
   etiquetaVencimiento,
   filtrarProductos,
+  diasDelMesCalendario,
   formatearFechaInput,
   formatearFechaISO,
   listarProductos,
@@ -453,6 +454,42 @@ describe('formatearFechaISO', () => {
 
   it('usa los componentes locales, no toISOString (evita el corrimiento de zona horaria)', () => {
     expect(formatearFechaISO(new Date(2026, 11, 31))).toBe('2026-12-31');
+  });
+});
+
+describe('diasDelMesCalendario', () => {
+  it('devuelve siempre 42 días (6 semanas), sin importar el mes', () => {
+    expect(diasDelMesCalendario(2026, 8)).toHaveLength(42); // septiembre, 30 días
+    expect(diasDelMesCalendario(2026, 1)).toHaveLength(42); // febrero, 28 días
+  });
+
+  it('arranca la grilla un lunes', () => {
+    const [primero] = diasDelMesCalendario(2026, 8);
+    const [anio, mes, dia] = primero.fecha.split('-').map(Number);
+    expect(new Date(anio, mes - 1, dia).getDay()).toBe(1); // 1 = lunes
+  });
+
+  it('incluye todos los días reales del mes marcados con enMesActual: true', () => {
+    const dias = diasDelMesCalendario(2026, 8); // septiembre 2026, 30 días
+    const delMes = dias.filter((d) => d.enMesActual);
+    expect(delMes).toHaveLength(30);
+    expect(delMes.map((d) => d.dia)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
+  });
+
+  it('rellena con días del mes anterior/siguiente marcados enMesActual: false', () => {
+    const dias = diasDelMesCalendario(2026, 8);
+    const relleno = dias.filter((d) => !d.enMesActual);
+    expect(relleno.length).toBeGreaterThan(0);
+    expect(relleno.length).toBe(42 - 30);
+  });
+
+  it('diciembre pasa el año al armar enero como relleno (no se rompe en el borde del año)', () => {
+    const dias = diasDelMesCalendario(2026, 11); // diciembre 2026
+    const ultimo = dias[dias.length - 1];
+    // El último día de la grilla puede ser de enero de 2027 si diciembre
+    // no completa la última semana -- lo importante es que no explote y
+    // que la fecha siga siendo válida.
+    expect(ultimo.fecha).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 

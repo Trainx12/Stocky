@@ -276,29 +276,34 @@ vieja, de antes de esta regla, sin categoría cargada).
 
 **Vencimiento de productos** (RF2/RF3, Sprint 4): `fecha_vencimiento`
 (texto libre `AAAA-MM-DD`, cargado a mano o con el calendario -- ver
-abajo -- desde `ProductoFormModal`) y `alerta_vencimiento_habilitada`
-(switch en el mismo modal, default `true` como la columna) ya se mandan
-desde `crearProducto`/`editarProducto`; `validar()` rechaza una fecha con
-formato o valor inválido (`esFechaValida` compara contra los componentes
-numéricos, no contra el string, porque `Date` "corrige" fechas imposibles
-como el 30 de febrero en vez de rechazarlas) antes de pegarle a Supabase,
-mismo criterio que nombre/categoría/cantidad. `formatearFechaInput()` es
-la lógica del auto-guionado (el usuario solo tipea dígitos, los `-` se
-insertan solos) que usa el campo de texto; `formatearFechaISO()` es la
+`CalendarioPicker` abajo -- desde `ProductoFormModal`) y
+`alerta_vencimiento_habilitada` (switch en el mismo modal, default `true`
+como la columna) ya se mandan desde `crearProducto`/`editarProducto`;
+`validar()` rechaza una fecha con formato o valor inválido
+(`esFechaValida` compara contra los componentes numéricos, no contra el
+string, porque `Date` "corrige" fechas imposibles como el 30 de febrero
+en vez de rechazarlas) antes de pegarle a Supabase, mismo criterio que
+nombre/categoría/cantidad. `formatearFechaInput()` es la lógica del
+auto-guionado (el usuario solo tipea dígitos, los `-` se insertan solos,
+incluso al borrar) que usa el campo de texto; `formatearFechaISO()` es la
 inversa (`Date` → `'YYYY-MM-DD'`, con componentes LOCALES, no
-`toISOString()`) que usa el calendario nativo para volcar la fecha
-elegida al mismo campo.
+`toISOString()`) que usa `CalendarioPicker` para volcar el día tocado al
+mismo campo.
 
-**Calendario** (`@react-native-community/datetimepicker`, instalado con
-`npx expo install`, incluido en Expo Go): en nativo, el botón de
-calendario de `ProductoFormModal` abre el `<DateTimePicker>` de esa
-librería. Esa librería **no soporta web** (su propio fallback ahí
-renderiza `null` con un `console.warn`) -- en web el mismo botón arma a
-mano un `<input type="date">` invisible (`document.createElement`,
-posicionado fuera de pantalla) y lo dispara con `showPicker()`/`click()`,
-para usar el selector nativo del navegador. Si se agregan más pantallas
-con selector de fecha, conviene sacar esto a un helper compartido en vez
-de repetir el `Platform.OS === 'web'` en cada lugar.
+**`src/components/CalendarioPicker.tsx`**: calendario en grilla (mes +
+flechas para navegar + cuadrícula de días, con el día de hoy resaltado)
+construido a mano con componentes de React Native -- no una librería de
+date picker (se probó `@react-native-community/datetimepicker`, pero esa
+librería **no soporta web**, dibuja el selector nativo del sistema
+operativo en vez de algo estilable, y en este caso puntual el equipo pidió
+justamente que se viera como una grilla igual en cualquier plataforma). Se
+embebe inline debajo del campo de fecha en `ProductoFormModal` (se
+expande/colapsa con el botón de calendario, mismo patrón que
+"categoriaPersonalizada" del propio modal) en vez de ser un popup
+flotante, más simple de armar dentro de un modal que ya scrollea.
+`diasDelMesCalendario(anio, mesIndiceCero)` (en `productos.ts`) arma la
+grilla de 42 días (6 semanas, arrancando el lunes, con relleno de los
+meses lindantes) como lógica pura testeable, separada del componente.
 
 `estadoVencimiento(producto, hoy?)` es la única fuente de verdad de "está
 por vencer" (`'ok' | 'proximo' | 'vencido' | null`, con `null` cuando no
@@ -523,13 +528,13 @@ comentario `TODO` apuntando a qué sprint le toca la lógica real.
   `production`). Quedó armado como solución definitiva al bug de IP de
   Expo Go (ver incidente 9), pero **hoy el equipo prueba con Expo Go**
   (la app que se instala desde [expo.dev/go](https://expo.dev/go), ver
-  incidente 1), no con ese dev client -- si se agrega una librería con
-  código nativo nuevo (por ejemplo
-  `@react-native-community/datetimepicker`, ver incidente de
-  vencimiento de productos), Expo Go ya la trae incluida y no hace
-  falta ningún rebuild; un dev client de EAS sí necesitaría
-  reconstruirse para levantarla. Si el equipo vuelve a depender del dev
-  client en algún momento, actualizar esta nota.
+  incidente 1), no con ese dev client -- ojo si se agrega una librería
+  con código nativo nuevo (no aplica hoy: `CalendarioPicker`, ver más
+  arriba, se armó justamente sin ninguna, a propósito): Expo Go trae
+  incluidas las más comunes y no hace falta rebuild, pero un dev client
+  de EAS sí necesitaría reconstruirse para levantarla. Si el equipo
+  vuelve a depender del dev client en algún momento, actualizar esta
+  nota.
 - **`tsconfig.json`**: config de TypeScript, extiende la base de Expo.
   Excluye `supabase/functions` por el tema de Deno mencionado arriba, y
   fija `"types": ["jest"]` para que los archivos `*.test.ts` compilen

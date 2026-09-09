@@ -26,8 +26,7 @@
     "plugins": [
       "expo-status-bar",
       "expo-font",
-      "expo-web-browser",
-      "@react-native-community/datetimepicker"
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
