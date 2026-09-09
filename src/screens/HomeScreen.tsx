@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -79,6 +79,19 @@ export function HomeScreen() {
   // verdad) para que, si cierro y reabro la app antes de que respondan, no
   // se pierda que estoy esperando una respuesta.
   const [misSolicitudes, setMisSolicitudes] = useState<MiSolicitudPendiente[]>([]);
+
+  // hogarIds de solicitudes que YO mismo acabo de cancelar (ver
+  // handleCancelarSolicitud). El DELETE que dispara cancelarSolicitud()
+  // también le llega a este mismo cliente por Realtime (está suscripto a
+  // sus propios cambios, no solo a los de otros) -- y a diferencia de
+  // "rechacé mi propia invitación" (que se distingue por origen='invitacion'
+  // en el payload), "cancelé mi propia solicitud" y "el dueño la rechazó"
+  // son EXACTAMENTE el mismo DELETE (mismo estado, mismo origen='solicitud'),
+  // no hay ningún campo que los diferencie. Se guarda acá para que el
+  // handler de Realtime sepa que este DELETE puntual no necesita ningún
+  // aviso. Un ref (no state) porque no hace falta re-renderizar, solo que
+  // el próximo evento lo pueda leer.
+  const solicitudesCanceladasPorMi = useRef<Set<string>>(new Set());
 
   // Invitaciones que ME mandó el dueño de un hogar por mail (ver migración
   // 20260908120000_invitar_por_email.sql) y todavía no acepté ni rechacé.
@@ -273,7 +286,16 @@ export function HomeScreen() {
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
         (payload) => {
-          const anterior = payload.old as { estado?: string; origen?: string } | null;
+          const anterior = payload.old as { hogar_id?: string; estado?: string; origen?: string } | null;
+
+          // Si cancelé yo mismo esta solicitud (ver handleCancelarSolicitud
+          // y el comentario de solicitudesCanceladasPorMi más arriba), no
+          // corresponde ningún aviso -- ya lo reflejé en la UI al tocar el
+          // botón. `Set#delete` devuelve true si estaba y lo saca, así que
+          // esto también limpia la marca para no dejarla pisada.
+          if (anterior?.hogar_id && solicitudesCanceladasPorMi.current.delete(anterior.hogar_id)) {
+            return;
+          }
 
           // Mismo caso que en UPDATE: si era una invitación pendiente, quien
           // la borra al rechazarla es uno mismo -- sin aviso redundante.
@@ -411,10 +433,16 @@ export function HomeScreen() {
     );
     if (!confirmado) return;
 
+    // Marcado ANTES de llamar a cancelarSolicitud: el DELETE puede llegar
+    // por Realtime en cualquier momento después de que la RLS lo confirme,
+    // así que tiene que estar disponible desde antes de que exista la
+    // menor chance de que el evento llegue (ver handler de DELETE más abajo).
+    solicitudesCanceladasPorMi.current.add(solicitud.hogarId);
     try {
       await cancelarSolicitud(solicitud.hogarId);
       await cargarMisSolicitudes();
     } catch (err) {
+      solicitudesCanceladasPorMi.current.delete(solicitud.hogarId);
       avisar('Error', err instanceof Error ? err.message : 'No se pudo cancelar la solicitud.');
     }
   }
