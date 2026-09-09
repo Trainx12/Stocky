@@ -209,7 +209,7 @@ export function ProductosScreen({ route, navigation }: Props) {
                   >
                     <Ionicons
                       name="remove-circle-outline"
-                      size={20}
+                      size={30}
                       color={producto.cantidad <= 0 ? colors.border : colors.danger}
                     />
                   </Pressable>
@@ -224,7 +224,7 @@ export function ProductosScreen({ route, navigation }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel={`Sumar 1 a ${producto.nombre}`}
                   >
-                    <Ionicons name="add-circle-outline" size={20} color={colors.success} />
+                    <Ionicons name="add-circle-outline" size={30} color={colors.success} />
                   </Pressable>
                 </View>
               </View>
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   stepperButton: {
-    padding: 2,
+    padding: spacing.xs,
   },
   productoAcciones: {
     flexDirection: 'row',
