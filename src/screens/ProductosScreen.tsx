@@ -195,37 +195,39 @@ export function ProductosScreen({ route, navigation }: Props) {
                   {producto.nombre}
                 </Text>
                 <View style={styles.cantidadRow}>
-                  {/* +/- rápido sin abrir el formulario completo (ver
-                      ajustarCantidadProducto en services/productos.ts). El
-                      "-" se deshabilita en 0: no tiene sentido restar más
-                      (el backend ya lo frena con greatest(...,0), esto solo
-                      evita el toque de más). */}
-                  <Pressable
-                    onPress={() => handleAjustarCantidad(producto, -1)}
-                    disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
-                    style={styles.stepperButton}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Restar 1 a ${producto.nombre}`}
-                  >
-                    <Ionicons
-                      name="remove-circle-outline"
-                      size={30}
-                      color={producto.cantidad <= 0 ? colors.border : colors.danger}
-                    />
-                  </Pressable>
                   <Text style={styles.productoDetalle}>
                     {producto.cantidad} {producto.unidad}
                     {producto.categoria ? ` · ${producto.categoria}` : ''}
                   </Text>
-                  <Pressable
-                    onPress={() => handleAjustarCantidad(producto, 1)}
-                    disabled={ajustandoIds.has(producto.id)}
-                    style={styles.stepperButton}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Sumar 1 a ${producto.nombre}`}
-                  >
-                    <Ionicons name="add-circle-outline" size={30} color={colors.success} />
-                  </Pressable>
+                  {/* +/- rápido sin abrir el formulario completo (ver
+                      ajustarCantidadProducto en services/productos.ts),
+                      los dos juntos a la derecha. El "-" se deshabilita en
+                      0: no tiene sentido restar más (el backend ya lo frena
+                      con greatest(...,0), esto solo evita el toque de más). */}
+                  <View style={styles.stepperGrupo}>
+                    <Pressable
+                      onPress={() => handleAjustarCantidad(producto, -1)}
+                      disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
+                      style={styles.stepperButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Restar 1 a ${producto.nombre}`}
+                    >
+                      <Ionicons
+                        name="remove-circle-outline"
+                        size={30}
+                        color={producto.cantidad <= 0 ? colors.border : colors.danger}
+                      />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleAjustarCantidad(producto, 1)}
+                      disabled={ajustandoIds.has(producto.id)}
+                      style={styles.stepperButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Sumar 1 a ${producto.nombre}`}
+                    >
+                      <Ionicons name="add-circle-outline" size={30} color={colors.success} />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
               <View style={styles.productoAcciones}>
@@ -359,7 +361,12 @@ const styles = StyleSheet.create({
   cantidadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  stepperGrupo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   stepperButton: {
     padding: spacing.xs,
