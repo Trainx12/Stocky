@@ -35,7 +35,7 @@ describe('listarActividadReciente', () => {
     expect(rpc).toHaveBeenCalledWith('listar_actividad_reciente', { p_hogar_id: 'hogar-1', p_limite: 5 });
   });
 
-  it('mapea las filas crudas (snake_case) a ActividadItem (camelCase)', async () => {
+  it('mapea las filas crudas (snake_case) a ActividadItem (camelCase), incluyendo producto_nombre/cantidad', async () => {
     rpc.mockResolvedValue({
       data: [
         {
@@ -45,6 +45,8 @@ describe('listarActividadReciente', () => {
           usuario_nombre: 'Julieta',
           usuario_email: 'julieta@test.com',
           created_at: '2026-01-01T10:00:00Z',
+          producto_nombre: 'Leche',
+          cantidad: 2,
         },
         {
           id: 'a-2',
@@ -53,6 +55,18 @@ describe('listarActividadReciente', () => {
           usuario_nombre: null,
           usuario_email: null,
           created_at: '2026-01-01T09:00:00Z',
+          producto_nombre: 'Pan',
+          cantidad: 1,
+        },
+        {
+          id: 'a-3',
+          tipo: 'producto_editado',
+          descripcion: 'Se actualizó "Pan"',
+          usuario_nombre: null,
+          usuario_email: null,
+          created_at: '2026-01-01T08:00:00Z',
+          producto_nombre: null,
+          cantidad: null,
         },
       ],
       error: null,
@@ -68,6 +82,8 @@ describe('listarActividadReciente', () => {
         usuarioNombre: 'Julieta',
         usuarioEmail: 'julieta@test.com',
         createdAt: '2026-01-01T10:00:00Z',
+        productoNombre: 'Leche',
+        cantidad: 2,
       },
       {
         id: 'a-2',
@@ -76,6 +92,18 @@ describe('listarActividadReciente', () => {
         usuarioNombre: null,
         usuarioEmail: null,
         createdAt: '2026-01-01T09:00:00Z',
+        productoNombre: 'Pan',
+        cantidad: 1,
+      },
+      {
+        id: 'a-3',
+        tipo: 'producto_editado',
+        descripcion: 'Se actualizó "Pan"',
+        usuarioNombre: null,
+        usuarioEmail: null,
+        createdAt: '2026-01-01T08:00:00Z',
+        productoNombre: null,
+        cantidad: null,
       },
     ]);
   });

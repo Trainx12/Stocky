@@ -476,14 +476,28 @@ export function HomeScreen() {
                 />
               ) : (
                 <View style={styles.hogaresList}>
-                  {actividad.map((item) => (
-                    <View key={item.id} style={styles.actividadRow}>
-                      <Text style={styles.actividadDescripcion}>{item.descripcion}</Text>
-                      <Text style={styles.actividadMeta}>
-                        {item.usuarioNombre ?? item.usuarioEmail ?? 'Alguien'} · {formatearFechaActividad(item.createdAt)}
-                      </Text>
-                    </View>
-                  ))}
+                  {actividad.map((item) => {
+                    const visual = actividadVisual(item);
+                    return (
+                      <View key={item.id} style={styles.actividadRow}>
+                        {visual ? (
+                          <View style={styles.actividadPrincipal}>
+                            <Ionicons
+                              name={visual.signo === '+' ? 'arrow-up-circle' : 'arrow-down-circle'}
+                              size={16}
+                              color={visual.color}
+                            />
+                            <Text style={[styles.actividadDescripcion, { color: visual.color }]}>{visual.texto}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.actividadDescripcion}>{item.descripcion}</Text>
+                        )}
+                        <Text style={styles.actividadMeta}>
+                          {item.usuarioNombre ?? item.usuarioEmail ?? 'Alguien'} · {formatearFechaActividad(item.createdAt)}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               )}
             </SectionCard>
@@ -568,6 +582,23 @@ function formatearFechaActividad(iso: string): string {
 
   const diaMes = fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
   return `${diaMes} ${hora}`;
+}
+
+// Para 'producto_creado'/'producto_eliminado' arma un badge tipo "Pera +3"
+// (verde) / "Pera -3" (rojo) en vez de mostrar `descripcion` a secas -- ver
+// migración 20260909010000_actividad_cantidad_visual.sql. 'producto_editado'
+// (y cualquier tipo futuro sin producto_nombre/cantidad) devuelve null: esos
+// siguen mostrando `descripcion` tal cual.
+function actividadVisual(item: ActividadItem): { texto: string; color: string; signo: '+' | '-' } | null {
+  if (item.productoNombre === null || item.cantidad === null) return null;
+
+  if (item.tipo === 'producto_creado') {
+    return { texto: `${item.productoNombre} +${item.cantidad}`, color: colors.success, signo: '+' };
+  }
+  if (item.tipo === 'producto_eliminado') {
+    return { texto: `${item.productoNombre} -${item.cantidad}`, color: colors.danger, signo: '-' };
+  }
+  return null;
 }
 
 interface EmptyStateProps {
@@ -691,6 +722,11 @@ const styles = StyleSheet.create({
   actividadRow: {
     paddingVertical: spacing.xs,
     gap: 2,
+  },
+  actividadPrincipal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   actividadDescripcion: {
     ...typography.bodyMedium,

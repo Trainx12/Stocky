@@ -201,6 +201,9 @@ export interface Database {
           usuario_nombre: string | null;
           usuario_email: string | null;
           created_at: string;
+          // Ver migración 20260909010000_actividad_cantidad_visual.sql.
+          producto_nombre: string | null;
+          cantidad: number | null;
         }>[];
       };
     };
