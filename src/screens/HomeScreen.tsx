@@ -354,6 +354,17 @@ export function HomeScreen() {
               <View style={styles.quickAccessRow}>
                 <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={handleIrAProductos} />
                 <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={handleIrAProductos} />
+                {/* Primer acceso gateado por rol de la app (ver comentario
+                    en AdminSugerenciasScreen): un usuario común ni ve el
+                    botón, y aunque fuerce la navegación la RLS tampoco le
+                    muestra ninguna sugerencia pendiente ajena. */}
+                {usuario.rol === 'administrador' && (
+                  <QuickAccessButton
+                    icon="pricetags-outline"
+                    label="Sugerencias de productos"
+                    onPress={() => navigation.navigate('AdminSugerencias')}
+                  />
+                )}
               </View>
             </SectionCard>
           </>

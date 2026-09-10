@@ -190,7 +190,6 @@ export function ProductosScreen({ route, navigation }: Props) {
         visible={formVisible}
         hogarId={hogarId}
         producto={productoEditando}
-        categoriasExistentes={categorias}
         onClose={() => {
           setFormVisible(false);
           setProductoEditando(null);

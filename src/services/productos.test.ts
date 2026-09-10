@@ -37,6 +37,7 @@ const datosValidos: DatosProducto = {
   unidad: 'l',
   cantidad: 2,
   stockMinimo: 1,
+  catalogoId: 'cat-1',
 };
 
 beforeEach(() => {
@@ -103,6 +104,7 @@ describe('crearProducto', () => {
       unidad: 'l',
       cantidad: 2,
       stock_minimo: 1,
+      catalogo_id: 'cat-1',
     });
     expect(resultado).toEqual(producto);
   });
@@ -220,6 +222,7 @@ function producto(datos: Partial<Producto>): Producto {
     stock_minimo: 0,
     fecha_vencimiento: null,
     alerta_vencimiento_habilitada: true,
+    catalogo_id: null,
     created_at: '2026-01-01',
     updated_at: '2026-01-01',
     ...datos,

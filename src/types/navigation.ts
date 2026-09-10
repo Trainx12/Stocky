@@ -17,4 +17,8 @@ export type AppStackParamList = {
   // navegación (no por contexto global) porque un usuario puede tener más
   // de un hogar (RF6) y cada uno tiene su propio inventario.
   Productos: { hogarId: string; hogarNombre: string };
+  // Admin: sugerencias de productos nuevos para el catálogo global
+  // pendientes de aprobar/rechazar (ver services/catalogo.ts). Sin
+  // parámetros -- lista todo lo pendiente, no es por hogar.
+  AdminSugerencias: undefined;
 };

@@ -22,7 +22,12 @@ const mockOrder = jest.fn();
 const mockSingle = jest.fn();
 const mockUpdateEq = jest.fn(() => ({ select: jest.fn(() => ({ single: mockSingle })) }));
 const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
-const mockEq = jest.fn(() => ({ order: mockOrder }));
+// listarMisHogares hace una segunda consulta (select('hogar_id').eq('estado',
+// 'pendiente').in('hogar_id', hogaresPropios)) para contar solicitudes
+// pendientes en los hogares donde el usuario es dueño -- por eso el mismo
+// mockEq tiene que resolver tanto .order() como .in().
+const mockIn = jest.fn();
+const mockEq = jest.fn(() => ({ order: mockOrder, in: mockIn }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
 
 jest.mock('../lib/supabase', () => ({
@@ -59,6 +64,7 @@ beforeEach(() => {
   mockSelect.mockClear();
   mockEq.mockClear();
   mockOrder.mockReset();
+  mockIn.mockReset();
   mockUpdate.mockClear();
   mockUpdateEq.mockClear();
   mockSingle.mockReset();
@@ -163,12 +169,15 @@ describe('listarMisHogares', () => {
       ],
       error: null,
     });
+    // Soy dueño de hogarA -> listarMisHogares hace la segunda consulta
+    // (conteo de solicitudes pendientes) solo para ese hogar.
+    mockIn.mockResolvedValue({ data: [], error: null });
 
     const resultado = await listarMisHogares();
 
     expect(resultado).toEqual([
-      { ...hogarA, miRol: 'dueno', puedoEditar: true },
-      { ...hogarB, miRol: 'invitado', puedoEditar: false },
+      { ...hogarA, miRol: 'dueno', puedoEditar: true, solicitudesPendientes: 0 },
+      { ...hogarB, miRol: 'invitado', puedoEditar: false, solicitudesPendientes: 0 },
     ]);
   });
 
@@ -182,7 +191,7 @@ describe('listarMisHogares', () => {
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([{ ...hogarA, miRol: 'invitado', puedoEditar: true }]);
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'invitado', puedoEditar: true, solicitudesPendientes: 0 }]);
   });
 
   it('descarta filas con hogares en null en vez de romper', async () => {
@@ -195,16 +204,18 @@ describe('listarMisHogares', () => {
       ],
       error: null,
     });
+    mockIn.mockResolvedValue({ data: [], error: null });
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true }]);
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true, solicitudesPendientes: 0 }]);
   });
 
   it('descarta hogares con una solicitud pendiente (todavía no es miembro de verdad)', async () => {
     const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
     const hogarPendiente = { id: '2', nombre: 'Casa B', codigo_invitacion: 'BBB222', created_at: '2026-01-02' };
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockIn.mockResolvedValue({ data: [], error: null });
     mockOrder.mockResolvedValue({
       data: [
         { rol: 'dueno', puede_editar: false, estado: 'aprobado', hogares: hogarA },
@@ -215,7 +226,7 @@ describe('listarMisHogares', () => {
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true }]);
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true, solicitudesPendientes: 0 }]);
   });
 
   it('devuelve un array vacío si no hay usuario logueado, sin consultar la tabla', async () => {

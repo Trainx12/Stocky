@@ -24,6 +24,11 @@ export interface DatosProducto {
   unidad: UnidadProducto;
   cantidad: number;
   stockMinimo: number;
+  // De qué fila de productos_catalogo salieron nombre/categoria/unidad
+  // (ver ProductoFormModal / CatalogoSelectorModal, y la migración
+  // 20260909212018_catalogo_productos.sql). Null en productos que ya
+  // existían antes del catálogo.
+  catalogoId: string | null;
 }
 
 // Valida los campos comunes a crear/editar antes de pegarle a Supabase:
@@ -74,6 +79,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
       unidad: datos.unidad,
       cantidad,
       stock_minimo: stockMinimo,
+      catalogo_id: datos.catalogoId,
     })
     .select()
     .single();
