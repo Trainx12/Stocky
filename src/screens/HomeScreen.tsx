@@ -177,7 +177,7 @@ export function HomeScreen() {
   const cargarActividad = useCallback(async (hogarId: string) => {
     setActividadLoading(true);
     try {
-      setActividad(await listarActividadReciente(hogarId));
+      setActividad(await listarActividadReciente(hogarId, 5));
     } catch (err) {
       console.warn('[Stocky] No se pudo cargar la actividad reciente:', err);
     } finally {
