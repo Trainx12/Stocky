@@ -20,7 +20,7 @@ interface HogarFormModalProps {
 const COPY: Record<Mode, { title: string; placeholder: string; buttonLabel: string; autoCapitalize: 'words' | 'characters' }> = {
   crear: {
     title: 'Crear Nuevo Hogar',
-    placeholder: 'Ej: Casa de Julie',
+    placeholder: 'Ej: Casa de Nombre',
     buttonLabel: 'Crear hogar',
     autoCapitalize: 'words',
   },

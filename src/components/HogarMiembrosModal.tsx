@@ -24,7 +24,7 @@ import {
 import type { MiembroHogar, SolicitudPendiente } from '../services/hogares';
 import { Button } from './Button';
 import { avisar, confirmar } from '../lib/alert';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, fontSize, radius, spacing, typography } from '../theme';
 
 interface HogarMiembrosModalProps {
   visible: boolean;
@@ -203,6 +203,7 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
                     loading={invitando}
                     disabled={!emailInvitar.trim()}
                     style={styles.invitarButton}
+                    textStyle={styles.invitarButtonTexto}
                   />
                 </View>
               )}
@@ -339,6 +340,9 @@ const styles = StyleSheet.create({
   },
   invitarButton: {
     flexShrink: 0,
+  },
+  invitarButtonTexto: {
+    fontSize: fontSize.sm,
   },
   backdrop: {
     flex: 1,
