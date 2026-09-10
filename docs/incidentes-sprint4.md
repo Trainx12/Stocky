@@ -132,7 +132,59 @@ por rama.
 
 ---
 
-## 4. Notas de diseño del catálogo de productos (no son bugs, pero conviene dejarlas escritas)
+## 4. `REPLICA IDENTITY FULL` + lista de columnas en la publicación de Realtime rompía todo `UPDATE` de `hogar_miembros`
+
+**Síntoma:** reportado por QA -- al intentar aceptar la solicitud de un
+invitado desde "Miembros del hogar", aparecía "Error: No se pudo
+responder la solicitud." El mismo problema afectaba a cualquier otra
+acción que hiciera un `UPDATE` sobre `hogar_miembros`: aceptar/rechazar
+invitación (`responder_invitacion`), ceder dueño (`ceder_dueno`),
+habilitar "puede editar" (`permitir_editar_hogar`).
+
+**Causa raíz:** el incidente 2 de este mismo documento dejó
+`hogar_miembros` con `REPLICA IDENTITY FULL` (para que Realtime mande la
+fila completa como "old record"). Más tarde,
+[20260909200553_fix_realtime_columnas_hogar_miembros.sql](../supabase/migrations/20260909200553_fix_realtime_columnas_hogar_miembros.sql)
+le agregó a la publicación `supabase_realtime` una lista explícita de
+columnas para esa tabla (buscando que Realtime volviera a mandar
+`origen`). Postgres no permite combinar `REPLICA IDENTITY FULL` con una
+lista de columnas en la publicación -- ni siquiera si la lista incluye
+absolutamente todas las columnas de la tabla. Desde que esa migración se
+aplicó, cualquier `UPDATE` sobre `hogar_miembros` empezó a fallar con:
+
+```
+ERROR: 42P10: cannot update table "hogar_miembros"
+DETAIL: Column list used by the publication does not cover the replica identity.
+```
+
+El error nunca llegaba legible a la UI: `responder_solicitud()` lo
+relanza como una excepción de Postgres, pero el cliente (`avisar('Error',
+err instanceof Error ? err.message : '...')`) mostraba el mensaje
+genérico de fallback porque el problema se reprodujo primero contra la
+base directamente, no se llegó a inspeccionar qué le llegaba al
+`catch` en el cliente -- si vuelve a pasar algo parecido, conviene
+loguear `err` completo (no solo `.message`) antes de asumir cuál es el
+mensaje real.
+
+**Solución:**
+[20260910212500_fix_replica_identity_full_vs_columnas_publicacion.sql](../supabase/migrations/20260910212500_fix_replica_identity_full_vs_columnas_publicacion.sql)
+saca la lista de columnas de la publicación
+(`alter publication supabase_realtime set table public.hogar_miembros;`
+sin lista). Con `REPLICA IDENTITY FULL` no hace falta listar columnas --
+ya se manda la fila entera (incluido `origen`) tanto en el registro nuevo
+como en el "old record", así que sacar la lista no reintroduce el bug
+del incidente 2.
+
+**Cómo evitar que vuelva a pasar:** si una tabla tiene `REPLICA IDENTITY
+FULL`, su entrada en `supabase_realtime` (o cualquier publicación) nunca
+debe llevar una lista explícita de columnas -- ni para "arreglar" qué
+columnas manda Realtime. Ese ajuste solo tiene sentido en tablas con
+replica identity por default (primary key). Antes de tocar la
+publicación de una tabla, chequear `relreplident` en `pg_class` primero.
+
+---
+
+## 5. Notas de diseño del catálogo de productos (no son bugs, pero conviene dejarlas escritas)
 
 - **Fotos pendientes:** `productos_catalogo.imagen_url` queda `null` en
   toda la semilla cargada con la migración -- el equipo va a pasar
