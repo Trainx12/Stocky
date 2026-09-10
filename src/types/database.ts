@@ -91,8 +91,35 @@ export interface Producto {
   stock_minimo: number;
   fecha_vencimiento: string | null; // ISO date (YYYY-MM-DD), null si no aplica (RF3)
   alerta_vencimiento_habilitada: boolean;
+  // De qué fila del catálogo salió (ver migración 20260909212018_catalogo_productos.sql).
+  // Nullable: los productos cargados antes de que existiera el catálogo no
+  // tienen ninguna referencia real a la que apuntar.
+  catalogo_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Estado de una fila de productos_catalogo (ver migración
+ * 20260909212018_catalogo_productos.sql): 'pendiente' es una sugerencia de
+ * un usuario esperando que un admin la apruebe o la rechace (rechazar =
+ * borrar la fila, no queda en ningún estado "rechazado"). 'aprobado' ya
+ * aparece como opción al cargar un producto en cualquier hogar.
+ */
+export type EstadoSugerencia = 'pendiente' | 'aprobado';
+
+// Espejo de la tabla public.productos_catalogo: catálogo GLOBAL (no es por
+// hogar) de productos que se pueden cargar. Cargar un producto en un hogar
+// ya no es texto libre -- se elige una fila 'aprobado' de acá.
+export interface ProductoCatalogo {
+  id: string;
+  nombre: string;
+  categoria: string;
+  unidad: UnidadProducto;
+  imagen_url: string | null;
+  estado: EstadoSugerencia;
+  sugerido_por: string | null; // null = cargado con la app, no por un usuario puntual
+  created_at: string;
 }
 
 /**
@@ -162,6 +189,20 @@ export interface Database {
         Row: AsRecord<Producto>;
         Insert: Partial<Producto> & Pick<Producto, 'hogar_id' | 'nombre'>;
         Update: Partial<Producto>;
+        Relationships: [
+          {
+            foreignKeyName: 'productos_catalogo_id_fkey';
+            columns: ['catalogo_id'];
+            isOneToOne: false;
+            referencedRelation: 'productos_catalogo';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      productos_catalogo: {
+        Row: AsRecord<ProductoCatalogo>;
+        Insert: Partial<ProductoCatalogo> & Pick<ProductoCatalogo, 'nombre' | 'categoria'>;
+        Update: Partial<ProductoCatalogo>;
         Relationships: [];
       };
     };

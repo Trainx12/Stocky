@@ -340,6 +340,43 @@ alguien agregue un producto por afuera de ese archivo y la actividad quede
 sin registrar. Hoy solo cubre ABM de productos (lo único con ABM real);
 altas/bajas de `hogar_miembros` todavía no generan actividad.
 
+**Catálogo de productos** (ver migración
+[20260909212018_catalogo_productos.sql](../supabase/migrations/20260909212018_catalogo_productos.sql)):
+`crearProducto`/`editarProducto` ahora reciben también `catalogoId` (de
+qué fila de `productos_catalogo` salió), que se guarda en
+`productos.catalogo_id` (nullable, para no romper productos viejos de
+antes del catálogo). `nombre`/`categoria`/`unidad` siguen siendo columnas
+propias de `productos` (no un join permanente contra el catálogo) -- se
+copian del catálogo al elegir, no se referencian en vivo, así el resto
+de las queries (`listarProductos`, `ProductosScreen`, etc.) no tienen que
+cambiar.
+
+### `catalogo.ts` — catálogo global de productos (pedido directo del equipo)
+
+Cargar un producto en un hogar ya no es texto libre: se elige de un
+catálogo GLOBAL (no es por hogar, lo comparten todos) en
+`productos_catalogo`, con nombre/categoría/unidad ya cargados y espacio
+para una foto (`imagen_url`, hoy `null` en toda la semilla -- ver
+[incidentes-sprint4.md](incidentes-sprint4.md) #2). Si el producto que
+alguien busca no está, puede sugerirlo (`sugerirProducto`) en vez de
+cargarlo directo -- queda `estado = 'pendiente'` hasta que un admin lo
+apruebe (`responderSugerencia`, ver `AdminSugerenciasScreen` más abajo) o
+lo rechace (se borra la fila, sin dejar un estado "rechazado").
+
+Mismo patrón que `productos.ts`: sin RPCs, `.insert()`/`.update()`/
+`.delete()` directo contra `productos_catalogo`, porque cada operación
+toca una sola fila de una sola tabla. La policy de INSERT fuerza
+`sugerido_por = auth.uid()` y `estado = 'pendiente'` (nadie puede
+auto-aprobarse ni sugerir "a nombre de" otro usuario); las de
+UPDATE/DELETE exigen `es_administrador()`. Un índice único sobre
+`lower(nombre)` evita duplicados tipo "Leche" / "leche" si dos personas
+sugieren lo mismo o un admin aprueba sin fijarse.
+
+`categoriasDelCatalogo()`/`filtrarCatalogo()` son la misma lógica pura
+(sacada para poder testearla con Jest) que `categoriasEnUso()`/
+`filtrarProductos()` en `productos.ts`, aplicada al catálogo en vez de al
+inventario de un hogar.
+
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
 Define la **forma** de las funciones (`reconocerProductosDeTicket`,
@@ -395,7 +432,12 @@ Decide entre dos stacks completos según haya sesión o no:
 Importante: **no mira el rol** todavía para decidir nada (cualquier
 usuario logueado entra al mismo stack, sea `usuario` o
 `administrador`) — eso es explícitamente para RF9 (sprint 9), no está
-resuelto ni hace falta que lo esté ahora.
+resuelto ni hace falta que lo esté ahora. `AdminSugerencias` es la
+excepción puntual (ver sección 9): está registrada en el mismo
+`AppStack` para cualquier usuario logueado, pero `HomeScreen` no le
+ofrece el botón para llegar ahí a quien no sea admin, y la RLS del lado
+del servidor es la que de verdad importa si alguien fuerza la
+navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
 
 ---
 
@@ -413,20 +455,22 @@ resuelto ni hace falta que lo esté ahora.
   en un solo lugar, no buscar y reemplazar en cada pantalla.
 - **`ProductoFormModal.tsx`**: un solo modal para "Agregar producto" y
   "Editar producto" (mismo patrón que `HogarFormModal`): el modo se
-  infiere de si viene un `producto` seteado o no. La unidad se elige con
-  chips (`unidad`/`kg`/`g`/`l`/`ml`/`paquete`, abreviaturas en minúscula)
-  en vez de un picker nativo porque todavía no hay ninguna librería de
-  Picker instalada. La categoría también es chips: una lista fija de
-  sugeridas (`CATEGORIAS_SUGERIDAS`) combinada con las que ya estén en uso
-  en ESE hogar (prop `categoriasExistentes`, la misma lista que calcula
-  `ProductosScreen` para su filtro), más un chip "+ Personalizada" que
-  revela un input de texto libre para una categoría nueva -- si el
-  producto que se edita ya tenía una categoría que no está entre los
-  chips, el modal arranca directo en modo personalizada para no
-  esconderla. Cantidad y stock mínimo se editan como texto libre y se
-  parsean recién al submitear (acepta coma o punto como separador
-  decimal), para no romper la UI si el usuario borra el campo a mitad de
-  tipeo.
+  infiere de si viene un `producto` seteado o no. Nombre/categoría/unidad
+  ya NO se tipean (ver catálogo, abajo): en modo "crear" se eligen tocando
+  el botón "Elegí un producto" (abre `CatalogoSelectorModal`); en modo
+  "editar" quedan de solo lectura, mostrando lo que ya tenía el producto
+  -- lo único editable ahí es cantidad y stock mínimo. Ambos se editan
+  como texto libre y se parsean recién al submitear (acepta coma o punto
+  como separador decimal), para no romper la UI si el usuario borra el
+  campo a mitad de tipeo.
+- **`CatalogoSelectorModal.tsx`**: selector del catálogo global de
+  productos (ver `services/catalogo.ts`) -- búsqueda + chips de categoría
+  sobre la lista ya cargada (mismo criterio 100% client-side que
+  `ProductosScreen`), grilla de productos con foto/ícono. Si la búsqueda
+  no encuentra nada (o el usuario quiere igual), un botón abre un
+  formulario chico embebido para sugerir el producto (nombre + categoría +
+  unidad), que llama a `sugerirProducto()` y vuelve a la lista -- no hace
+  falta un modal aparte, evita otro viaje de navegación/estado.
 
 ## 9. `src/screens/` — pantallas de este sprint
 
@@ -460,6 +504,11 @@ resuelto ni hace falta que lo esté ahora.
   categorías del filtro se calculan de los productos ya cargados (no es
   una lista fija), así que un chip solo aparece si hay al menos un
   producto con esa categoría.
+- **`AdminSugerenciasScreen`**: sugerencias de productos nuevos para el
+  catálogo global (ver `services/catalogo.ts`), pendientes de aprobar o
+  rechazar. Primera pantalla de la app con acceso restringido por rol
+  (ver la nota de `RootNavigator` en la sección 7 y
+  [incidentes-sprint4.md](incidentes-sprint4.md) #2).
 
 ---
 

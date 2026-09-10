@@ -28,6 +28,11 @@ export interface DatosProducto {
   // alerta apagada a propósito (ver estadoVencimiento más abajo).
   fechaVencimiento: string | null;
   alertaVencimientoHabilitada: boolean;
+  // De qué fila de productos_catalogo salieron nombre/categoria/unidad
+  // (ver ProductoFormModal / CatalogoSelectorModal, y la migración
+  // 20260909212018_catalogo_productos.sql). Null en productos que ya
+  // existían antes del catálogo.
+  catalogoId: string | null;
 }
 
 // Parsea 'YYYY-MM-DD' como Date en hora LOCAL a medianoche. `new
@@ -120,6 +125,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
       stock_minimo: stockMinimo,
       fecha_vencimiento: fechaVencimiento,
       alerta_vencimiento_habilitada: datos.alertaVencimientoHabilitada,
+      catalogo_id: datos.catalogoId,
     })
     .select()
     .single();
@@ -131,6 +137,9 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
 // Edita un producto existente (nombre, categoría, unidad, cantidad, stock
 // mínimo). No hace falta pasar el hogar_id: la RLS ya rechaza el update si
 // el producto no pertenece a un hogar del que el usuario sea miembro.
+// `catalogoId` no se toca acá a propósito: la identidad del producto
+// (nombre/categoría/unidad/catálogo) queda fija desde que se crea, editar
+// solo cambia cantidad/stock/vencimiento (ver ProductoFormModal).
 export async function editarProducto(productoId: string, datos: DatosProducto): Promise<Producto> {
   const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento } = validar(datos);
 
