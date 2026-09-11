@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from './Button';
 import { crearHogar, editarHogar, unirseAHogar } from '../services/hogares';
 import type { Hogar } from '../types/database';
@@ -20,7 +20,7 @@ interface HogarFormModalProps {
 const COPY: Record<Mode, { title: string; placeholder: string; buttonLabel: string; autoCapitalize: 'words' | 'characters' }> = {
   crear: {
     title: 'Crear Nuevo Hogar',
-    placeholder: 'Ej: Casa de Julie',
+    placeholder: 'Ej: Casa de Nombre',
     buttonLabel: 'Crear hogar',
     autoCapitalize: 'words',
   },
@@ -84,32 +84,40 @@ export function HogarFormModal({ visible, mode, onClose, onSuccess, hogar }: Hog
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <Pressable style={styles.backdrop} onPress={handleClose}>
-        <Pressable style={styles.sheet}>
-          <View style={styles.handle} />
-          <Text style={styles.title}>{copy.title}</Text>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={styles.backdrop} onPress={handleClose}>
+          <Pressable style={styles.sheet}>
+            <View style={styles.handle} />
+            <Text style={styles.title}>{copy.title}</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder={copy.placeholder}
-            placeholderTextColor={colors.textSecondary}
-            value={valor}
-            onChangeText={setValor}
-            autoCapitalize={copy.autoCapitalize}
-            autoCorrect={false}
-            editable={!loading}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder={copy.placeholder}
+              placeholderTextColor={colors.textSecondary}
+              value={valor}
+              onChangeText={setValor}
+              autoCapitalize={copy.autoCapitalize}
+              autoCorrect={false}
+              editable={!loading}
+            />
 
-          {error && <Text style={styles.error}>{error}</Text>}
+            {error && <Text style={styles.error}>{error}</Text>}
 
-          <Button label={copy.buttonLabel} onPress={handleSubmit} loading={loading} disabled={!valor.trim()} />
+            <Button label={copy.buttonLabel} onPress={handleSubmit} loading={loading} disabled={!valor.trim()} />
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

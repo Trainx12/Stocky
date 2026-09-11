@@ -4,7 +4,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
-import { categoriasEnUso, eliminarProducto, filtrarProductos, listarProductos } from '../services/productos';
+import {
+  ajustarCantidadProducto,
+  categoriasEnUso,
+  eliminarProducto,
+  estadoVencimiento,
+  etiquetaVencimiento,
+  filtrarProductos,
+  listarProductos,
+} from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -20,7 +28,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  * tipeada, y evita mostrar un loader en cada tecla.
  */
 export function ProductosScreen({ route, navigation }: Props) {
-  const { hogarId, hogarNombre } = route.params;
+  const { hogarId, hogarNombre, abrirAgregar } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +37,10 @@ export function ProductosScreen({ route, navigation }: Props) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+  // Ids con un ajuste de +/- en vuelo (ver handleAjustarCantidad), para
+  // deshabilitar sus botones mientras se resuelve y no disparar dos veces
+  // el mismo delta con un doble toque.
+  const [ajustandoIds, setAjustandoIds] = useState<Set<string>>(new Set());
 
   // Trae el inventario completo del hogar; se vuelve a llamar después de
   // crear/editar/eliminar un producto, en vez de actualizar el array a
@@ -49,6 +61,14 @@ export function ProductosScreen({ route, navigation }: Props) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // El acceso rápido "Agregar producto" de HomeScreen navega acá con
+  // abrirAgregar: true para no obligar a un segundo toque sobre el FAB --
+  // solo al montar (no en cada render) para no reabrir el modal si se lo
+  // cierra sin guardar y la pantalla vuelve a renderizar por otro motivo.
+  useEffect(() => {
+    if (abrirAgregar) handleAgregar();
+  }, []);
 
   // Categorías realmente en uso en ESTE hogar (no una lista fija): se
   // recalculan a partir de los productos cargados, así que un chip solo
@@ -77,6 +97,34 @@ export function ProductosScreen({ route, navigation }: Props) {
     setFormVisible(false);
     setProductoEditando(null);
     await cargar();
+  }
+
+  // +/- rápido de a una unidad, sin abrir el formulario de editar.
+  // Actualiza el estado local al toque (optimista) y revierte si la RPC
+  // falla, mismo patrón que el switch de "puede editar" en
+  // HogarMiembrosModal -- se siente inmediato sin esperar el roundtrip.
+  async function handleAjustarCantidad(producto: Producto, delta: number) {
+    if (ajustandoIds.has(producto.id)) return;
+    setAjustandoIds((actuales) => new Set(actuales).add(producto.id));
+
+    const cantidadAnterior = producto.cantidad;
+    setProductos((actuales) =>
+      actuales.map((p) => (p.id === producto.id ? { ...p, cantidad: Math.max(p.cantidad + delta, 0) } : p)),
+    );
+
+    try {
+      const actualizado = await ajustarCantidadProducto(producto.id, delta);
+      setProductos((actuales) => actuales.map((p) => (p.id === producto.id ? actualizado : p)));
+    } catch (err) {
+      setProductos((actuales) => actuales.map((p) => (p.id === producto.id ? { ...p, cantidad: cantidadAnterior } : p)));
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo actualizar la cantidad.');
+    } finally {
+      setAjustandoIds((actuales) => {
+        const siguientes = new Set(actuales);
+        siguientes.delete(producto.id);
+        return siguientes;
+      });
+    }
   }
 
   // Eliminar es destructivo, no se dispara sin confirmar antes (mismo
@@ -148,16 +196,62 @@ export function ProductosScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
-          {productosFiltrados.map((producto) => (
+          {productosFiltrados.map((producto) => {
+            // RF2/RF3: badge de vencimiento (null = sin fecha, o alerta
+            // deshabilitada a propósito -- ver estadoVencimiento).
+            const estado = estadoVencimiento(producto);
+            const etiqueta = etiquetaVencimiento(producto);
+            return (
             <View key={producto.id} style={styles.productoRow}>
               <View style={styles.productoInfo}>
                 <Text style={styles.productoNombre} numberOfLines={1}>
                   {producto.nombre}
                 </Text>
+                <View style={styles.categoriaRow}>
+                  {producto.categoria ? (
+                    <Text style={styles.productoCategoria}>{producto.categoria}</Text>
+                  ) : (
+                    <View />
+                  )}
+                  {/* +/- rápido sin abrir el formulario completo (ver
+                      ajustarCantidadProducto en services/productos.ts), al
+                      lado de la categoría en vez de la cantidad. El "-" se
+                      deshabilita en 0: no tiene sentido restar más (el
+                      backend ya lo frena con greatest(...,0), esto solo
+                      evita el toque de más). */}
+                  <View style={styles.stepperGrupo}>
+                    <Pressable
+                      onPress={() => handleAjustarCantidad(producto, -1)}
+                      disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
+                      style={styles.stepperButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Restar 1 a ${producto.nombre}`}
+                    >
+                      <Ionicons
+                        name="remove-circle-outline"
+                        size={30}
+                        color={producto.cantidad <= 0 ? colors.border : colors.danger}
+                      />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleAjustarCantidad(producto, 1)}
+                      disabled={ajustandoIds.has(producto.id)}
+                      style={styles.stepperButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Sumar 1 a ${producto.nombre}`}
+                    >
+                      <Ionicons name="add-circle-outline" size={30} color={colors.success} />
+                    </Pressable>
+                  </View>
+                </View>
                 <Text style={styles.productoDetalle}>
                   {producto.cantidad} {producto.unidad}
-                  {producto.categoria ? ` · ${producto.categoria}` : ''}
                 </Text>
+                {etiqueta && (
+                  <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
+                    <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
+                  </View>
+                )}
               </View>
               <View style={styles.productoAcciones}>
                 <Pressable
@@ -178,7 +272,8 @@ export function ProductosScreen({ route, navigation }: Props) {
                 </Pressable>
               </View>
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
 
@@ -190,7 +285,6 @@ export function ProductosScreen({ route, navigation }: Props) {
         visible={formVisible}
         hogarId={hogarId}
         producto={productoEditando}
-        categoriasExistentes={categorias}
         onClose={() => {
           setFormVisible(false);
           setProductoEditando(null);
@@ -286,6 +380,42 @@ const styles = StyleSheet.create({
   productoDetalle: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  categoriaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  productoCategoria: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  stepperGrupo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: spacing.lg,
+  },
+  stepperButton: {
+    padding: spacing.xs,
+  },
+  // RF2/RF3: badge de "próximo a vencer"/"vencido". Usa colors.stockStatus
+  // (ver src/theme/colors.ts) en vez de un color a mano, para no duplicar
+  // los umbrales de color que ya definió el sistema de diseño.
+  vencimientoBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.stockStatus.critical,
+  },
+  vencimientoBadgeVencido: {
+    backgroundColor: colors.stockStatus.expired,
+  },
+  vencimientoBadgeTexto: {
+    ...typography.caption,
+    color: colors.white,
+    fontSize: 11,
   },
   productoAcciones: {
     flexDirection: 'row',
