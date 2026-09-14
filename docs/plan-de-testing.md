@@ -201,9 +201,27 @@ técnica, no de funcionalidad visible). Lo que sí conviene documentar
 como "testing":
 
 - Definir y dejar por escrito el **criterio de aceptación mínimo** del
-  OCR (ej: "reconoce nombre y cantidad en al menos el 70% de tickets de
-  supermercado estándar") — esto lo arma el equipo, no es un test
-  automatizable.
+  OCR — esto lo arma el equipo, no es un test automatizable.
+
+**Criterio de aceptación mínimo (definido):**
+- `ocr-ticket`: al menos el **70% de los tickets** del set de QA deben
+  producir por lo menos un producto con nombre y cantidad reconocidos
+  correctamente, sin que el usuario tenga que tipear todo a mano. No
+  hace falta más porque ya existe la pantalla de revisión donde el
+  usuario edita/borra antes de confirmar (Sprint 6): el objetivo del
+  OCR es ahorrar tipeo en la mayoría de los casos, no reemplazar al
+  usuario. Un 30% de fallos se corrige a mano y sigue siendo más
+  rápido que cargar todo manualmente.
+- `vencimiento-foto`: al menos el **60% de las fotos** deben devolver
+  la fecha de vencimiento correcta (coincide exactamente con lo que
+  lee una persona), Y el modelo **nunca debe devolver una fecha
+  incorrecta con confianza** cuando no está seguro — tiene que poder
+  decir "no encontré la fecha". Acá el riesgo no es la molestia de
+  tipear de nuevo (como en el ticket): una fecha de vencimiento
+  equivocada que el usuario no revisa con atención puede llevar a
+  tirar comida buena o comer algo vencido. Por eso "nunca alucinar con
+  confianza" pesa más que el porcentaje de aciertos.
+
 - QA debería juntar un set de ~10-15 fotos de tickets reales (variados:
   arrugados, con mala luz, distintos supermercados) para usar como caso
   de prueba en el Sprint 6, no esperar a tenerlas recién ahí.
