@@ -208,6 +208,26 @@ como "testing":
   arrugados, con mala luz, distintos supermercados) para usar como caso
   de prueba en el Sprint 6, no esperar a tenerlas recién ahí.
 
+**Decisión tomada (proveedores por función):**
+- `ocr-ticket` (texto de tickets) → **OCR.space**. Es texto plano con
+  buen contraste, el caso donde un OCR clásico rinde bien sin necesitar
+  "entendimiento" de la imagen. Free tier: 25.000 requests/mes.
+- `vencimiento-foto` (fecha de vencimiento en el envase) → **Gemini
+  2.5 Flash**. Un OCR clásico no distingue la fecha de vencimiento de
+  otros números impresos en el envase (lote, código de barras); un
+  modelo de visión permite pedir explícitamente "encontrá la fecha de
+  vencimiento" en vez de solo extraer texto crudo.
+
+**Límite real medido del free tier de Gemini 2.5 Flash** (cuenta de
+Google AI Studio, verificado el 2026-09-14 en
+aistudio.google.com/rate-limit): **5 RPM, ~250K TPM, 20 RPD**. El RPD
+de 20 solicitudes/día (total del proyecto, no por usuario) alcanza sin
+problema para la evaluación del Sprint 5, pero es una limitación real
+a resolver en el Sprint 6: si el uso en producción supera 20 fotos de
+vencimiento por día, va a hacer falta habilitar facturación en el
+proyecto de Google Cloud (Flash sigue siendo muy barato en el tier
+pago) o limitar el uso mientras se esté en el tier gratuito.
+
 ---
 
 ## Sprint 6 — Integración OCR, parseo, UI de revisión/confirmación (RF4)
