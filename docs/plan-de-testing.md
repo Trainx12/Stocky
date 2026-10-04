@@ -231,20 +231,28 @@ como "testing":
   buen contraste, el caso donde un OCR clásico rinde bien sin necesitar
   "entendimiento" de la imagen. Free tier: 25.000 requests/mes.
 - `vencimiento-foto` (fecha de vencimiento en el envase) → **Gemini
-  2.5 Flash**. Un OCR clásico no distingue la fecha de vencimiento de
+  Flash** (hoy `gemini-3.8-flash`; ver nota abajo). Un OCR clásico no distingue la fecha de vencimiento de
   otros números impresos en el envase (lote, código de barras); un
   modelo de visión permite pedir explícitamente "encontrá la fecha de
   vencimiento" en vez de solo extraer texto crudo.
 
-**Límite real medido del free tier de Gemini 2.5 Flash** (cuenta de
-Google AI Studio, verificado el 2026-09-14 en
-aistudio.google.com/rate-limit): **5 RPM, ~250K TPM, 20 RPD**. El RPD
+**Límite real medido del free tier de Gemini Flash** (cuenta de
+Google AI Studio, verificado en aistudio.google.com/rate-limit el
+2026-09-14 para 2.5 Flash y el 2026-10-04 para 3.8 Flash, mismos valores
+en ambos): **5 RPM, ~250K TPM, 20 RPD**. El RPD
 de 20 solicitudes/día (total del proyecto, no por usuario) alcanza sin
 problema para la evaluación del Sprint 5, pero es una limitación real
 a resolver en el Sprint 6: si el uso en producción supera 20 fotos de
 vencimiento por día, va a hacer falta habilitar facturación en el
 proyecto de Google Cloud (Flash sigue siendo muy barato en el tier
 pago) o limitar el uso mientras se esté en el tier gratuito.
+
+**Cambio de modelo (2026-10-04):** `gemini-2.5-flash` empezó a devolver 404
+("ya no está disponible para usuarios nuevos"), así que `vencimiento-foto`
+pasó a `gemini-3.8-flash`. El modelo se cambia sin tocar código con el
+secret `GEMINI_MODEL` (`supabase secrets set GEMINI_MODEL=...`): Google
+retira modelos viejos con el tiempo, así que si vuelve a fallar con 404 en
+los logs de la función, es lo primero a revisar.
 
 ---
 
