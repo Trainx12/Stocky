@@ -1,5 +1,5 @@
 // RF2 (complemento) — Foto del envase -> fecha de vencimiento detectada.
-// Proveedor: Gemini 2.5 Flash (ver decisión en docs/plan-de-testing.md,
+// Proveedor: Gemini Flash (hoy gemini-3.8-flash) (ver decisión en docs/plan-de-testing.md,
 // Sprint 5). Un OCR clásico no distingue la fecha de vencimiento de otros
 // números impresos en el envase (lote, código de barras); un modelo de
 // visión permite pedir explícitamente "encontrá la fecha de vencimiento"
@@ -32,7 +32,11 @@ async function detectarVencimientoConGemini(
   imagenBase64: string,
   apiKey: string
 ): Promise<ResultadoVencimiento> {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  // Google retira modelos viejos para cuentas nuevas (gemini-2.5-flash
+  // devolvió 404): el modelo se puede cambiar con el secret GEMINI_MODEL
+  // sin tocar el código.
+  const modelo = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
 
   const respuesta = await fetch(url, {
     method: 'POST',

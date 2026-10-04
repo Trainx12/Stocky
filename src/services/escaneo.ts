@@ -20,6 +20,10 @@ export interface CandidatoTicket {
   categoria: string;
   unidad: UnidadProducto;
   catalogo: ProductoCatalogo | null;
+  // Se guarda al confirmar. Lo que no está en el catálogo arranca en false:
+  // el usuario tiene que pedir "Agregar igual", así un renglón mal leído del
+  // ticket nunca se guarda por descuido.
+  incluir: boolean;
 }
 
 // Minúsculas y sin tildes/espacios de más: "LECHE  Entera" ~ "leche entera".
@@ -169,6 +173,7 @@ export function armarCandidatos(reconocidos: ProductoReconocido[], catalogo: Pro
       categoria: encontrado ? encontrado.categoria : 'Otros',
       unidad: encontrado ? encontrado.unidad : 'unidad',
       catalogo: encontrado,
+      incluir: encontrado !== null,
     };
   });
 }

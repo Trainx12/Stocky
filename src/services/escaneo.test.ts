@@ -89,6 +89,13 @@ describe('armarCandidatos', () => {
     expect(candidatos[1]).toMatchObject({ cantidad: '1', catalogo: null });
   });
 
+  it('solo lo que está en el catálogo arranca incluido; lo demás hay que agregarlo a propósito', () => {
+    const [conCatalogo, sinCatalogo] = armarCandidatos([{ nombre: 'ARROZ 1KG' }, { nombre: 'LA GENOVESA' }], catalogo);
+
+    expect(conCatalogo.incluir).toBe(true);
+    expect(sinCatalogo.incluir).toBe(false);
+  });
+
   it('para un producto del catálogo toma nombre/categoría/unidad de ahí y sugiere la marca', () => {
     const [fideos] = armarCandidatos([{ nombre: 'FIDEOS LUCCHETTI 500G' }], catalogo);
 

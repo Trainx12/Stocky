@@ -78,9 +78,9 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
     setCandidatos((actuales) => actuales.filter((c) => c.id !== id));
   }
 
-  // Se puede guardar todo lo que tenga nombre (los que no están en el
-  // catálogo se completan a mano antes).
-  const guardables = candidatos.filter((c) => c.nombre.trim() !== '');
+  // Se guarda lo marcado para incluir y con nombre (lo que no está en el
+  // catálogo solo si el usuario lo pidió con "Agregar igual").
+  const guardables = candidatos.filter((c) => c.incluir && c.nombre.trim() !== '');
 
   async function handleConfirmar() {
     setGuardando(true);
@@ -170,7 +170,32 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                   categoría y unidad, o descartar los que no correspondan.
                 </Text>
 
-                {candidatos.map((candidato) => (
+                {candidatos.map((candidato) =>
+                  !candidato.incluir ? (
+                    <View key={candidato.id} style={[styles.fila, styles.itemOmitido]}>
+                      <View style={styles.filaTextos}>
+                        <Text style={styles.detalle} numberOfLines={1}>
+                          No reconocido: {candidato.nombreDetectado}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => handleCambiar(candidato.id, { incluir: true })}
+                        disabled={guardando}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Agregar igual ${candidato.nombreDetectado}`}
+                      >
+                        <Text style={styles.agregarIgual}>Agregar igual</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleDescartar(candidato.id)}
+                        disabled={guardando}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Descartar ${candidato.nombreDetectado}`}
+                      >
+                        <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                      </Pressable>
+                    </View>
+                  ) : (
                   <View key={candidato.id} style={styles.item}>
                     <View style={styles.fila}>
                       <View style={styles.filaTextos}>
@@ -252,7 +277,8 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                       </>
                     )}
                   </View>
-                ))}
+                  ),
+                )}
 
                 {error && <Text style={styles.error}>{error}</Text>}
 
@@ -324,6 +350,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  itemOmitido: {
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  agregarIgual: {
+    ...typography.caption,
+    color: colors.primary,
   },
   inputNombre: {
     ...typography.bodyMedium,
