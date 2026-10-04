@@ -201,12 +201,50 @@ técnica, no de funcionalidad visible). Lo que sí conviene documentar
 como "testing":
 
 - Definir y dejar por escrito el **criterio de aceptación mínimo** del
-  OCR (ej: "reconoce nombre y cantidad en al menos el 70% de tickets de
-  supermercado estándar") — esto lo arma el equipo, no es un test
-  automatizable.
+  OCR — esto lo arma el equipo, no es un test automatizable.
+
+**Criterio de aceptación mínimo (definido):**
+- `ocr-ticket`: al menos el **70% de los tickets** del set de QA deben
+  producir por lo menos un producto con nombre y cantidad reconocidos
+  correctamente, sin que el usuario tenga que tipear todo a mano. No
+  hace falta más porque ya existe la pantalla de revisión donde el
+  usuario edita/borra antes de confirmar (Sprint 6): el objetivo del
+  OCR es ahorrar tipeo en la mayoría de los casos, no reemplazar al
+  usuario. Un 30% de fallos se corrige a mano y sigue siendo más
+  rápido que cargar todo manualmente.
+- `vencimiento-foto`: al menos el **60% de las fotos** deben devolver
+  la fecha de vencimiento correcta (coincide exactamente con lo que
+  lee una persona), Y el modelo **nunca debe devolver una fecha
+  incorrecta con confianza** cuando no está seguro — tiene que poder
+  decir "no encontré la fecha". Acá el riesgo no es la molestia de
+  tipear de nuevo (como en el ticket): una fecha de vencimiento
+  equivocada que el usuario no revisa con atención puede llevar a
+  tirar comida buena o comer algo vencido. Por eso "nunca alucinar con
+  confianza" pesa más que el porcentaje de aciertos.
+
 - QA debería juntar un set de ~10-15 fotos de tickets reales (variados:
   arrugados, con mala luz, distintos supermercados) para usar como caso
   de prueba en el Sprint 6, no esperar a tenerlas recién ahí.
+
+**Decisión tomada (proveedores por función):**
+- `ocr-ticket` (texto de tickets) → **OCR.space**. Es texto plano con
+  buen contraste, el caso donde un OCR clásico rinde bien sin necesitar
+  "entendimiento" de la imagen. Free tier: 25.000 requests/mes.
+- `vencimiento-foto` (fecha de vencimiento en el envase) → **Gemini
+  2.5 Flash**. Un OCR clásico no distingue la fecha de vencimiento de
+  otros números impresos en el envase (lote, código de barras); un
+  modelo de visión permite pedir explícitamente "encontrá la fecha de
+  vencimiento" en vez de solo extraer texto crudo.
+
+**Límite real medido del free tier de Gemini 2.5 Flash** (cuenta de
+Google AI Studio, verificado el 2026-09-14 en
+aistudio.google.com/rate-limit): **5 RPM, ~250K TPM, 20 RPD**. El RPD
+de 20 solicitudes/día (total del proyecto, no por usuario) alcanza sin
+problema para la evaluación del Sprint 5, pero es una limitación real
+a resolver en el Sprint 6: si el uso en producción supera 20 fotos de
+vencimiento por día, va a hacer falta habilitar facturación en el
+proyecto de Google Cloud (Flash sigue siendo muy barato en el tier
+pago) o limitar el uso mientras se esté en el tier gratuito.
 
 ---
 

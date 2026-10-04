@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, radius, spacing, typography } from '../theme';
 
@@ -12,6 +12,7 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 /**
@@ -20,7 +21,7 @@ interface ButtonProps {
  * sobre fondos ya cargados de color. Centralizarlo acá evita que cada
  * pantalla reimplemente su propio degradé/estado de loading.
  */
-export function Button({ label, onPress, variant = 'primary', loading, disabled, style }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', loading, disabled, style, textStyle }: ButtonProps) {
   // "outline" no lleva degradé, los otros dos sí (cada uno con su paleta).
   const isGradient = variant === 'primary' || variant === 'secondary';
   const colorsForGradient = variant === 'secondary' ? gradients.secondary : gradients.primary;
@@ -36,6 +37,7 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
           style={[
             styles.label,
             variant === 'outline' && { color: colors.primary },
+            textStyle,
           ]}
         >
           {label}
