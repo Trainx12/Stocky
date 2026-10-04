@@ -4,15 +4,11 @@ import { supabase } from '../lib/supabase';
  * Wrappers del cliente hacia las Edge Functions que procesan APIs externas
  * (OCR de tickets, detección de vencimiento por foto, voz a texto).
  *
- * Ninguna de las tres tiene lógica todavía: la evaluación de proveedores
- * es sprint 5 (OCR) y sprint 7 (voz) del plan. Lo que sí queda resuelto
- * acá es la FORMA de la interfaz — nombres de función, tipos de entrada
- * y salida — para que integrar el proveedor elegido en esos sprints sea
- * completar el cuerpo de la Edge Function correspondiente
- * (supabase/functions/<nombre>/index.ts) sin tener que tocar las pantallas
- * que ya las consuman.
+ * ocr-ticket (OCR.space) y vencimiento-foto (Gemini 2.5 Flash) ya llaman
+ * al proveedor real (ver docs/plan-de-testing.md, Sprint 5). voz-a-texto
+ * sigue pendiente de evaluación de proveedor (sprint 7).
  *
- * Las API keys de estos proveedores (Google Cloud Vision, Gemini, Google
+ * Las API keys de estos proveedores (OCR.space, Gemini, Google
  * Speech-to-Text) son secrets de las Edge Functions, nunca del cliente:
  * ver .env.example y supabase/functions/*.
  */
@@ -37,7 +33,6 @@ export async function reconocerProductosDeTicket(
   });
 
   if (error) throw error;
-  // TODO (sprint 6): mapear la respuesta real del proveedor de OCR elegido.
   return data as ProductoReconocido[];
 }
 
@@ -60,7 +55,6 @@ export async function reconocerVencimientoDeFoto(
   });
 
   if (error) throw error;
-  // TODO (sprint 6): mapear la respuesta real de Gemini Flash.
   return data as VencimientoReconocido;
 }
 
