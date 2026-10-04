@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { CalendarioPicker } from './CalendarioPicker';
 import { CatalogoSelectorModal } from './CatalogoSelectorModal';
+import { avisar } from '../lib/alert';
+import { obtenerFotoBase64 } from '../lib/fotos';
+import { fechaUtilizable } from '../services/escaneo';
+import { reconocerVencimientoDeFoto } from '../services/externalApis';
 import { crearProducto, editarProducto, formatearFechaInput, parsearNumero } from '../services/productos';
 import type { Producto, ProductoCatalogo } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
@@ -55,6 +59,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // Si el CalendarioPicker está desplegado debajo del campo de fecha (ver
   // botón de calendario).
   const [calendarioVisible, setCalendarioVisible] = useState(false);
+  // Leyendo la fecha de una foto del envase (Gemini, ver vencimiento-foto).
+  const [leyendoFecha, setLeyendoFecha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,6 +109,31 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   function handleSeleccionarFecha(fecha: string) {
     setFechaVencimiento(fecha);
     setCalendarioVisible(false);
+  }
+
+  // Foto del envase -> fecha sugerida por Gemini. Solo se vuelca al campo (que
+  // sigue siendo editable y hay que guardar a mano), nunca se guarda sola;
+  // si el modelo no está seguro, se avisa y se carga a mano. En web no hay
+  // cámara confiable, se abre el selector de archivos.
+  async function handleFotoVencimiento() {
+    setError(null);
+    setLeyendoFecha(true);
+    try {
+      const imagen = await obtenerFotoBase64(Platform.OS === 'web' ? 'galeria' : 'camara');
+      if (!imagen) return;
+
+      const fecha = fechaUtilizable(await reconocerVencimientoDeFoto(imagen));
+      if (fecha) {
+        setFechaVencimiento(fecha);
+        setCalendarioVisible(false);
+      } else {
+        avisar('No pudimos leer la fecha', 'Probá con otra foto bien enfocada de la zona donde está impresa, o ingresala a mano.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo leer la fecha de la foto.');
+    } finally {
+      setLeyendoFecha(false);
+    }
   }
 
   async function handleSubmit() {
@@ -243,6 +274,19 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 accessibilityLabel="Elegir fecha de vencimiento con el calendario"
               >
                 <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+              </Pressable>
+              <Pressable
+                onPress={handleFotoVencimiento}
+                style={styles.calendarioButton}
+                disabled={loading || leyendoFecha}
+                accessibilityRole="button"
+                accessibilityLabel="Leer la fecha de vencimiento desde una foto del envase"
+              >
+                {leyendoFecha ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Ionicons name="camera-outline" size={22} color={colors.primary} />
+                )}
               </Pressable>
             </View>
 

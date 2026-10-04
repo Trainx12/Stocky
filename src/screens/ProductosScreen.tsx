@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
+import { EscanearTicketModal } from '../components/EscanearTicketModal';
 import {
   ajustarCantidadProducto,
   categoriasEnUso,
@@ -37,6 +38,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+  const [ticketVisible, setTicketVisible] = useState(false);
   // Ids con un ajuste de +/- en vuelo (ver handleAjustarCantidad), para
   // deshabilitar sus botones mientras se resuelve y no disparar dos veces
   // el mismo delta con un doble toque.
@@ -152,6 +154,14 @@ export function ProductosScreen({ route, navigation }: Props) {
         <Text style={styles.title} numberOfLines={1}>
           {hogarNombre}
         </Text>
+        <Pressable
+          onPress={() => setTicketVisible(true)}
+          style={styles.escanearButton}
+          accessibilityRole="button"
+          accessibilityLabel="Escanear ticket de compra"
+        >
+          <Ionicons name="receipt-outline" size={22} color={colors.primary} />
+        </Pressable>
       </View>
 
       <TextInput
@@ -281,6 +291,17 @@ export function ProductosScreen({ route, navigation }: Props) {
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
 
+      <EscanearTicketModal
+        visible={ticketVisible}
+        hogarId={hogarId}
+        onClose={() => setTicketVisible(false)}
+        onSuccess={async (cantidad) => {
+          setTicketVisible(false);
+          avisar('Productos agregados', cantidad === 1 ? 'Se agregó 1 producto del ticket.' : `Se agregaron ${cantidad} productos del ticket.`);
+          await cargar();
+        }}
+      />
+
       <ProductoFormModal
         visible={formVisible}
         hogarId={hogarId}
@@ -308,6 +329,10 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.textPrimary,
     flexShrink: 1,
+    flexGrow: 1,
+  },
+  escanearButton: {
+    padding: spacing.xs,
   },
   buscador: {
     ...typography.body,

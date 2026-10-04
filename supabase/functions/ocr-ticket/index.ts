@@ -87,7 +87,7 @@ async function extraerTextoConOcrSpace(imagenBase64: string, apiKey: string): Pr
   body.set('OCREngine', '2');
   body.set('scale', 'true');
 
-  const respuesta = await fetch('https://apipro1.ocr.space/parse/image', {
+  const respuesta = await fetch('https://api.ocr.space/parse/image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
