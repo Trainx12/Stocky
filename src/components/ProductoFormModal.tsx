@@ -49,6 +49,9 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // de RN no impide pegar texto no numérico) y se parsean recién al
   // submitear -- así el usuario puede borrar el campo entero sin que
   // Number('') explote la UI a mitad de tipeo.
+  // Marca opcional en texto libre ("Lucchetti"): distingue dos paquetes del
+  // mismo producto con vencimientos distintos.
+  const [marca, setMarca] = useState('');
   const [cantidad, setCantidad] = useState('0');
   const [stockMinimo, setStockMinimo] = useState('0');
   // RF2/RF3: fecha de vencimiento cargada a mano (texto libre 'AAAA-MM-DD',
@@ -69,12 +72,14 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   useEffect(() => {
     if (!visible) return;
     if (producto) {
+      setMarca(producto.marca ?? '');
       setCantidad(String(producto.cantidad));
       setStockMinimo(String(producto.stock_minimo));
       setFechaVencimiento(producto.fecha_vencimiento ?? '');
       setAlertaVencimientoHabilitada(producto.alerta_vencimiento_habilitada);
     } else {
       setCatalogoSeleccionado(null);
+      setMarca('');
       setCantidad('0');
       setStockMinimo('0');
       setFechaVencimiento('');
@@ -154,6 +159,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             fechaVencimiento: fechaVencimiento || null,
             alertaVencimientoHabilitada,
             catalogoId: producto!.catalogo_id,
+            marca,
           }
         : {
             nombre: catalogoSeleccionado!.nombre,
@@ -164,6 +170,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             fechaVencimiento: fechaVencimiento || null,
             alertaVencimientoHabilitada,
             catalogoId: catalogoSeleccionado!.id,
+            marca,
           };
       const resultado = editando ? await editarProducto(producto!.id, datos) : await crearProducto(hogarId, datos);
       onSuccess(resultado);
@@ -225,12 +232,23 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               </Pressable>
             )}
 
+            <Text style={styles.label}>Marca (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: Lucchetti"
+              placeholderTextColor={colors.textSecondary}
+              value={marca}
+              onChangeText={setMarca}
+              maxLength={40}
+              editable={!loading}
+            />
+
             <View style={styles.fila}>
               <View style={styles.mitad}>
                 <Text style={styles.label}>Cantidad</Text>
                 <TextInput
                   style={styles.input}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   value={cantidad}
                   onChangeText={setCantidad}
                   onFocus={() => handleFocusNumerico(cantidad, setCantidad)}
@@ -242,7 +260,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 <Text style={styles.label}>Stock mínimo</Text>
                 <TextInput
                   style={styles.input}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   value={stockMinimo}
                   onChangeText={setStockMinimo}
                   onFocus={() => handleFocusNumerico(stockMinimo, setStockMinimo)}

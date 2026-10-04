@@ -33,10 +33,12 @@ jest.mock('../lib/supabase', () => ({
 import { supabase } from '../lib/supabase';
 import {
   ajustarCantidadProducto,
+  buscarDuplicado,
   categoriasEnUso,
   crearProducto,
   editarProducto,
   eliminarProducto,
+  eliminarProductosAgotados,
   estadoVencimiento,
   etiquetaVencimiento,
   filtrarProductos,
@@ -45,7 +47,9 @@ import {
   formatearFechaISO,
   listarProductos,
   listarProductosProximosAVencer,
+  nombreConMarca,
   parsearNumero,
+  productosAgotadosLimpiables,
   productosProximosAVencer,
 } from './productos';
 import type { DatosProducto } from './productos';
@@ -120,6 +124,12 @@ describe('listarProductos', () => {
 });
 
 describe('crearProducto', () => {
+  // crearProducto consulta primero los productos del hogar (para unir
+  // duplicados): por defecto el hogar está vacío.
+  beforeEach(() => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+  });
+
   it('inserta el producto recortando nombre/categoría y devuelve la fila creada', async () => {
     const producto = { id: 'p1', hogar_id: 'hogar-1', nombre: 'Leche', categoria: 'Lácteos', unidad: 'l', cantidad: 2, stock_minimo: 1 };
     mockSingle.mockResolvedValue({ data: producto, error: null });
@@ -137,6 +147,7 @@ describe('crearProducto', () => {
       fecha_vencimiento: null,
       alerta_vencimiento_habilitada: true,
       catalogo_id: 'cat-1',
+      marca: null,
     });
     expect(resultado).toEqual(producto);
   });
@@ -238,6 +249,7 @@ describe('editarProducto', () => {
       stock_minimo: 1,
       fecha_vencimiento: null,
       alerta_vencimiento_habilitada: true,
+      marca: null,
     });
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
     expect(resultado).toEqual(producto);
@@ -322,6 +334,7 @@ function producto(datos: Partial<Producto>): Producto {
     fecha_vencimiento: null,
     alerta_vencimiento_habilitada: true,
     catalogo_id: null,
+    marca: null,
     created_at: '2026-01-01',
     updated_at: '2026-01-01',
     ...datos,
@@ -632,5 +645,98 @@ describe('listarProductosProximosAVencer', () => {
     mockInOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
 
     await expect(listarProductosProximosAVencer(['hogar-1'])).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('unir duplicados al crear', () => {
+  const existente = producto({ id: 'p-existente', catalogo_id: 'cat-1', nombre: 'Leche', cantidad: 2, marca: 'La Serenísima' });
+
+  it('suma la cantidad al producto idéntico en vez de crear otra fila', async () => {
+    mockOrder.mockResolvedValue({ data: [existente], error: null });
+    rpc.mockResolvedValue({ data: { ...existente, cantidad: 5 }, error: null });
+
+    const resultado = await crearProducto('hogar-1', { ...datosValidos, cantidad: 3, marca: ' la serenisima ' });
+
+    expect(rpc).toHaveBeenCalledWith('ajustar_cantidad_producto', { p_producto_id: 'p-existente', p_delta: 3 });
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(resultado.cantidad).toBe(5);
+  });
+
+  it('crea otra fila si la marca es distinta', async () => {
+    mockOrder.mockResolvedValue({ data: [existente], error: null });
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, marca: 'Sancor' });
+
+    expect(rpc).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ marca: 'Sancor' }));
+  });
+
+  it('crea otra fila si el vencimiento es distinto', async () => {
+    mockOrder.mockResolvedValue({ data: [{ ...existente, fecha_vencimiento: '2026-12-01' }], error: null });
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, marca: 'La Serenísima', fechaVencimiento: '2026-12-15' });
+
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it('con cantidad 0 no busca duplicados', async () => {
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, cantidad: 0 });
+
+    expect(mockSelectEq).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it('rechaza una marca de más de 40 caracteres', async () => {
+    await expect(crearProducto('hogar-1', { ...datosValidos, marca: 'x'.repeat(41) })).rejects.toThrow('40 caracteres');
+  });
+});
+
+describe('buscarDuplicado', () => {
+  it('sin catálogo, compara por nombre normalizado', () => {
+    const p = producto({ id: 'a', nombre: 'Tortuguita', catalogo_id: null });
+    expect(buscarDuplicado([p], { nombre: 'tortuguita ', catalogoId: null, marca: null, fechaVencimiento: null })).toBe(p);
+  });
+
+  it('no mezcla un producto de catálogo con uno sin catálogo', () => {
+    const p = producto({ id: 'a', nombre: 'Leche', catalogo_id: null });
+    expect(buscarDuplicado([p], { nombre: 'Leche', catalogoId: 'cat-1', marca: null, fechaVencimiento: null })).toBeNull();
+  });
+});
+
+describe('nombreConMarca', () => {
+  it('agrega la marca solo si existe', () => {
+    expect(nombreConMarca({ nombre: 'Fideos', marca: 'Lucchetti' })).toBe('Fideos · Lucchetti');
+    expect(nombreConMarca({ nombre: 'Fideos', marca: null })).toBe('Fideos');
+  });
+});
+
+describe('productosAgotadosLimpiables', () => {
+  it('solo los de cantidad 0 sin stock mínimo (los que tienen mínimo son señal de reposición)', () => {
+    const lista = [
+      producto({ id: 'a', cantidad: 0, stock_minimo: 0 }),
+      producto({ id: 'b', cantidad: 0, stock_minimo: 2 }),
+      producto({ id: 'c', cantidad: 3, stock_minimo: 0 }),
+    ];
+    expect(productosAgotadosLimpiables(lista).map((p) => p.id)).toEqual(['a']);
+  });
+});
+
+describe('eliminarProductosAgotados', () => {
+  it('borra por hogar con cantidad 0 y stock mínimo 0 y devuelve cuántos borró', async () => {
+    const mockSelectIds = jest.fn().mockResolvedValue({ data: [{ id: 'a' }, { id: 'b' }], error: null });
+    const eqStock = jest.fn(() => ({ select: mockSelectIds }));
+    const eqCantidad = jest.fn(() => ({ eq: eqStock }));
+    mockDeleteEq.mockReturnValue({ eq: eqCantidad });
+
+    const borrados = await eliminarProductosAgotados('hogar-1');
+
+    expect(mockDeleteEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
+    expect(eqCantidad).toHaveBeenCalledWith('cantidad', 0);
+    expect(eqStock).toHaveBeenCalledWith('stock_minimo', 0);
+    expect(borrados).toBe(2);
   });
 });

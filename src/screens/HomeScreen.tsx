@@ -25,7 +25,7 @@ import {
 import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
 import { listarActividadReciente } from '../services/actividad';
 import type { ActividadItem } from '../services/actividad';
-import { etiquetaVencimiento, estadoVencimiento, listarProductosProximosAVencer } from '../services/productos';
+import { etiquetaVencimiento, estadoVencimiento, listarProductosProximosAVencer, nombreConMarca } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
@@ -668,7 +668,7 @@ export function HomeScreen() {
                       <Pressable key={producto.id} style={styles.hogarRow} onPress={() => handleVerProductoPorVencer(producto)}>
                         <View style={styles.hogarInfo}>
                           <Text style={styles.hogarNombre} numberOfLines={1}>
-                            {producto.nombre}
+                            {nombreConMarca(producto)}
                           </Text>
                           <Text style={styles.hogarCodigo} numberOfLines={1}>
                             {hogar?.nombre ?? ''}

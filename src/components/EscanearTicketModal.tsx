@@ -4,8 +4,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { obtenerFotoBase64 } from '../lib/fotos';
 import type { OrigenFoto } from '../lib/fotos';
-import { listarCatalogoAprobado } from '../services/catalogo';
-import { armarCandidatos } from '../services/escaneo';
+import { categoriasDelCatalogo, listarCatalogoAprobado } from '../services/catalogo';
+import { armarCandidatos, UNIDADES_DISPONIBLES } from '../services/escaneo';
 import type { CandidatoTicket } from '../services/escaneo';
 import { reconocerProductosDeTicket } from '../services/externalApis';
 import { crearProducto, parsearNumero } from '../services/productos';
@@ -27,13 +27,18 @@ type Paso = 'elegir' | 'procesando' | 'revisar' | 'vacio';
  * nada directo desde el OCR (plan de testing, Sprint 6). Si el ticket no se
  * puede leer, el paso 'vacio' deja volver a intentar o cargar a mano.
  *
- * Solo se guardan las líneas que coinciden con un producto del catálogo:
- * todo producto del hogar sale del catálogo (ver ProductoFormModal), el
- * resto se muestra aparte para que se agregue a mano.
+ * Lo que coincide con el catálogo se guarda con su identidad (nombre,
+ * categoría, unidad). Lo que no (cortes de carne, productos raros) se puede
+ * guardar igual: el usuario le pone nombre, categoría y unidad acá mismo y
+ * queda sin catálogo (catalogo_id nulo). La marca se sugiere a partir del
+ * texto del ticket y es editable. No se inventa fecha de vencimiento: sin
+ * fecha no hay alerta, que es lo correcto para lo que se va a congelar.
  */
 export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: EscanearTicketModalProps) {
   const [paso, setPaso] = useState<Paso>('elegir');
   const [candidatos, setCandidatos] = useState<CandidatoTicket[]>([]);
+  // Categorías del catálogo, para elegir la de los productos sin catálogo.
+  const [categorias, setCategorias] = useState<string[]>(['Otros']);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +60,8 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
       const [reconocidos, catalogo] = await Promise.all([reconocerProductosDeTicket(imagen), listarCatalogoAprobado()]);
       const armados = armarCandidatos(reconocidos, catalogo);
 
+      const delCatalogo = categoriasDelCatalogo(catalogo);
+      setCategorias(delCatalogo.includes('Otros') ? delCatalogo : [...delCatalogo, 'Otros']);
       setCandidatos(armados);
       setPaso(armados.length === 0 ? 'vacio' : 'revisar');
     } catch (err) {
@@ -63,16 +70,17 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
     }
   }
 
-  function handleCambiarCantidad(id: string, cantidad: string) {
-    setCandidatos((actuales) => actuales.map((c) => (c.id === id ? { ...c, cantidad } : c)));
+  function handleCambiar(id: string, cambios: Partial<CandidatoTicket>) {
+    setCandidatos((actuales) => actuales.map((c) => (c.id === id ? { ...c, ...cambios } : c)));
   }
 
   function handleDescartar(id: string) {
     setCandidatos((actuales) => actuales.filter((c) => c.id !== id));
   }
 
-  const guardables = candidatos.filter((c) => c.catalogo !== null);
-  const sinCatalogo = candidatos.filter((c) => c.catalogo === null);
+  // Se puede guardar todo lo que tenga nombre (los que no están en el
+  // catálogo se completan a mano antes).
+  const guardables = candidatos.filter((c) => c.nombre.trim() !== '');
 
   async function handleConfirmar() {
     setGuardando(true);
@@ -83,17 +91,17 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
     let ultimoError: string | null = null;
 
     for (const candidato of guardables) {
-      const catalogo = candidato.catalogo!;
       try {
         await crearProducto(hogarId, {
-          nombre: catalogo.nombre,
-          categoria: catalogo.categoria,
-          unidad: catalogo.unidad,
+          nombre: candidato.nombre,
+          categoria: candidato.categoria,
+          unidad: candidato.unidad,
           cantidad: parsearNumero(candidato.cantidad),
           stockMinimo: 0,
           fechaVencimiento: null,
           alertaVencimientoHabilitada: true,
-          catalogoId: catalogo.id,
+          catalogoId: candidato.catalogo?.id ?? null,
+          marca: candidato.marca,
         });
         guardados += 1;
       } catch (err) {
@@ -109,10 +117,9 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
       return;
     }
 
-    // Se dejan en pantalla solo los que fallaron (más los que no tenían
-    // catálogo) para poder corregirlos y reintentar sin duplicar los ya
-    // guardados.
-    setCandidatos([...fallidos, ...sinCatalogo]);
+    // Se dejan en pantalla solo los que fallaron para poder corregirlos y
+    // reintentar sin duplicar los ya guardados.
+    setCandidatos(fallidos);
     setError(`No se pudieron guardar ${fallidos.length} producto(s): ${ultimoError}`);
     if (guardados > 0) onSuccess(guardados);
   }
@@ -159,43 +166,93 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
             {paso === 'revisar' && (
               <View style={styles.bloque}>
                 <Text style={styles.texto}>
-                  Revisá los productos detectados. Podés corregir la cantidad o descartar los que no correspondan.
+                  Revisá los productos detectados. Podés corregir cantidad y marca y, si no están en el catálogo, nombre,
+                  categoría y unidad, o descartar los que no correspondan.
                 </Text>
 
-                {guardables.map((candidato) => (
-                  <View key={candidato.id} style={styles.fila}>
-                    <View style={styles.filaTextos}>
-                      <Text style={styles.nombre}>{candidato.catalogo!.nombre}</Text>
-                      <Text style={styles.detalle} numberOfLines={1}>
-                        Detectado: {candidato.nombreDetectado}
-                      </Text>
+                {candidatos.map((candidato) => (
+                  <View key={candidato.id} style={styles.item}>
+                    <View style={styles.fila}>
+                      <View style={styles.filaTextos}>
+                        {candidato.catalogo ? (
+                          <Text style={styles.nombre}>{candidato.nombre}</Text>
+                        ) : (
+                          <TextInput
+                            style={styles.inputNombre}
+                            value={candidato.nombre}
+                            onChangeText={(texto) => handleCambiar(candidato.id, { nombre: texto })}
+                            editable={!guardando}
+                            placeholder="Nombre del producto"
+                            placeholderTextColor={colors.textSecondary}
+                            accessibilityLabel="Nombre del producto sin catálogo"
+                          />
+                        )}
+                        <Text style={styles.detalle} numberOfLines={1}>
+                          Detectado: {candidato.nombreDetectado}
+                          {candidato.catalogo ? '' : ' · sin catálogo'}
+                        </Text>
+                      </View>
+                      <TextInput
+                        style={styles.cantidad}
+                        keyboardType="decimal-pad"
+                        value={candidato.cantidad}
+                        onChangeText={(texto) => handleCambiar(candidato.id, { cantidad: texto })}
+                        editable={!guardando}
+                        accessibilityLabel={`Cantidad de ${candidato.nombre}`}
+                      />
+                      <Pressable
+                        onPress={() => handleDescartar(candidato.id)}
+                        disabled={guardando}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Descartar ${candidato.nombre}`}
+                      >
+                        <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                      </Pressable>
                     </View>
+
                     <TextInput
-                      style={styles.cantidad}
-                      keyboardType="numeric"
-                      value={candidato.cantidad}
-                      onChangeText={(texto) => handleCambiarCantidad(candidato.id, texto)}
+                      style={styles.inputMarca}
+                      value={candidato.marca}
+                      onChangeText={(texto) => handleCambiar(candidato.id, { marca: texto })}
                       editable={!guardando}
-                      accessibilityLabel={`Cantidad de ${candidato.catalogo!.nombre}`}
+                      maxLength={40}
+                      placeholder="Marca (opcional)"
+                      placeholderTextColor={colors.textSecondary}
+                      accessibilityLabel={`Marca de ${candidato.nombre}`}
                     />
-                    <Pressable
-                      onPress={() => handleDescartar(candidato.id)}
-                      disabled={guardando}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Descartar ${candidato.catalogo!.nombre}`}
-                    >
-                      <Ionicons name="trash-outline" size={20} color={colors.danger} />
-                    </Pressable>
+
+                    {!candidato.catalogo && (
+                      <>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                          {categorias.map((categoria) => (
+                            <Pressable
+                              key={categoria}
+                              onPress={() => handleCambiar(candidato.id, { categoria })}
+                              style={[styles.chip, candidato.categoria === categoria && styles.chipSeleccionado]}
+                            >
+                              <Text style={[styles.chipTexto, candidato.categoria === categoria && styles.chipTextoSeleccionado]}>
+                                {categoria}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                          {UNIDADES_DISPONIBLES.map((unidad) => (
+                            <Pressable
+                              key={unidad}
+                              onPress={() => handleCambiar(candidato.id, { unidad })}
+                              style={[styles.chip, candidato.unidad === unidad && styles.chipSeleccionado]}
+                            >
+                              <Text style={[styles.chipTexto, candidato.unidad === unidad && styles.chipTextoSeleccionado]}>
+                                {unidad}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      </>
+                    )}
                   </View>
                 ))}
-
-                {sinCatalogo.length > 0 && (
-                  <View style={styles.sinCatalogo}>
-                    <Text style={styles.detalle}>
-                      No están en el catálogo (agregalos a mano si los necesitás): {sinCatalogo.map((c) => c.nombreDetectado).join(', ')}
-                    </Text>
-                  </View>
-                )}
 
                 {error && <Text style={styles.error}>{error}</Text>}
 
@@ -257,13 +314,56 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
   },
+  item: {
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
   fila: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  inputNombre: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  },
+  inputMarca: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  chips: {
+    gap: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  chipSeleccionado: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipTexto: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  chipTextoSeleccionado: {
+    color: colors.white,
   },
   filaTextos: {
     flex: 1,
@@ -287,9 +387,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     minWidth: 56,
     textAlign: 'center',
-  },
-  sinCatalogo: {
-    paddingVertical: spacing.xs,
   },
   error: {
     ...typography.caption,

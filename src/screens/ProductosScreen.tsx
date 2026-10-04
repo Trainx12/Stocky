@@ -12,7 +12,10 @@ import {
   estadoVencimiento,
   etiquetaVencimiento,
   filtrarProductos,
+  eliminarProductosAgotados,
   listarProductos,
+  nombreConMarca,
+  productosAgotadosLimpiables,
 } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
@@ -84,6 +87,28 @@ export function ProductosScreen({ route, navigation }: Props) {
     () => filtrarProductos(productos, busqueda, categoriaSeleccionada),
     [productos, busqueda, categoriaSeleccionada],
   );
+
+  // Agotados sin stock mínimo: se pueden limpiar de una (los que tienen
+  // mínimo se dejan, ese 0 es la señal de "hay que reponer").
+  const agotados = useMemo(() => productosAgotadosLimpiables(productos), [productos]);
+
+  async function handleLimpiarAgotados() {
+    const confirmado = await confirmar(
+      'Limpiar agotados',
+      agotados.length === 1
+        ? '¿Eliminar 1 producto agotado? Los que tienen stock mínimo no se tocan.'
+        : `¿Eliminar ${agotados.length} productos agotados? Los que tienen stock mínimo no se tocan.`,
+      'Eliminar',
+    );
+    if (!confirmado) return;
+
+    try {
+      await eliminarProductosAgotados(hogarId);
+      await cargar();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudieron limpiar los agotados.');
+    }
+  }
 
   function handleAgregar() {
     setProductoEditando(null);
@@ -195,6 +220,13 @@ export function ProductosScreen({ route, navigation }: Props) {
         </ScrollView>
       )}
 
+      {agotados.length > 0 && (
+        <Pressable onPress={handleLimpiarAgotados} style={styles.limpiarButton} accessibilityRole="button">
+          <Ionicons name="trash-bin-outline" size={16} color={colors.textSecondary} />
+          <Text style={styles.limpiarTexto}>Limpiar agotados ({agotados.length})</Text>
+        </Pressable>
+      )}
+
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : productosFiltrados.length === 0 ? (
@@ -215,7 +247,7 @@ export function ProductosScreen({ route, navigation }: Props) {
             <View key={producto.id} style={styles.productoRow}>
               <View style={styles.productoInfo}>
                 <Text style={styles.productoNombre} numberOfLines={1}>
-                  {producto.nombre}
+                  {nombreConMarca(producto)}
                 </Text>
                 <View style={styles.categoriaRow}>
                   {producto.categoria ? (
@@ -330,6 +362,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flexShrink: 1,
     flexGrow: 1,
+  },
+  limpiarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  limpiarTexto: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   escanearButton: {
     padding: spacing.xs,
