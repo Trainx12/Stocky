@@ -62,3 +62,21 @@ describe('interpretarComandoDeVoz', () => {
     expect(invoke).toHaveBeenCalledWith('voz-a-texto', { body: { audio: 'audio-en-base64' } });
   });
 });
+
+describe('mensaje de error de las Edge Functions', () => {
+  it('muestra el mensaje del body de la función en vez del genérico non-2xx', async () => {
+    const error = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: { json: async () => ({ error: 'No pudimos leer la fecha en este momento. Ingresala a mano.' }) },
+    });
+    invoke.mockResolvedValue({ data: null, error });
+
+    await expect(reconocerVencimientoDeFoto('x')).rejects.toThrow('No pudimos leer la fecha en este momento');
+  });
+
+  it('si el body no se puede leer, propaga el error original', async () => {
+    const error = Object.assign(new Error('non-2xx'), { context: { json: async () => { throw new Error('no json'); } } });
+    invoke.mockResolvedValue({ data: null, error });
+
+    await expect(reconocerProductosDeTicket('x')).rejects.toThrow('non-2xx');
+  });
+});

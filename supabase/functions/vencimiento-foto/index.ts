@@ -32,11 +32,13 @@ async function detectarVencimientoConGemini(
   imagenBase64: string,
   apiKey: string
 ): Promise<ResultadoVencimiento> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
   const respuesta = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // La key va en header (no en la URL): así no queda en ningún log y
+    // funciona con todos los formatos de key de AI Studio.
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       contents: [
         {
@@ -104,8 +106,11 @@ Deno.serve(async (req: Request) => {
   try {
     resultado = await detectarVencimientoConGemini(imagen, apiKey);
   } catch (error) {
+    // El detalle técnico queda en los logs de la función; al usuario le
+    // llega un mensaje entendible (y la salida es cargar la fecha a mano).
+    console.error('[vencimiento-foto]', error instanceof Error ? error.message : error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Error de Gemini' }),
+      JSON.stringify({ error: 'No pudimos leer la fecha en este momento. Ingresala a mano.' }),
       { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

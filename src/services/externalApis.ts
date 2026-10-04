@@ -13,6 +13,25 @@ import { supabase } from '../lib/supabase';
  * ver .env.example y supabase/functions/*.
  */
 
+// supabase-js reporta cualquier respuesta no-2xx de una Edge Function como el
+// genérico "Edge Function returned a non-2xx status code", escondiendo el
+// mensaje real que devolvió la función en su body. Se lo rescata para que la
+// pantalla pueda mostrar algo útil.
+async function lanzarErrorDeFuncion(error: unknown): Promise<never> {
+  const respuesta = (error as { context?: Response } | null)?.context;
+  let mensaje: string | null = null;
+  if (respuesta && typeof respuesta.json === 'function') {
+    try {
+      const cuerpo = await respuesta.json();
+      mensaje = typeof cuerpo?.error === 'string' ? cuerpo.error : null;
+    } catch {
+      mensaje = null;
+    }
+  }
+  if (mensaje) throw new Error(mensaje);
+  throw error;
+}
+
 // Un producto "candidato" detectado por OCR o por voz, todavía sin guardar.
 export interface ProductoReconocido {
   nombre: string;
@@ -32,7 +51,7 @@ export async function reconocerProductosDeTicket(
     body: { imagen: _imagenBase64 },
   });
 
-  if (error) throw error;
+  if (error) return lanzarErrorDeFuncion(error);
   return data as ProductoReconocido[];
 }
 
@@ -54,7 +73,7 @@ export async function reconocerVencimientoDeFoto(
     body: { imagen: _imagenBase64 },
   });
 
-  if (error) throw error;
+  if (error) return lanzarErrorDeFuncion(error);
   return data as VencimientoReconocido;
 }
 
