@@ -77,10 +77,10 @@ Deno.serve(async (req: Request) => {
   // anulaciones, y descarta lo que claramente no es comida.
   const productosDetectados = parsearTicket(textoDetectado).filter((producto) => esProbablementeAlimento(producto.nombre));
 
-  // Diagnóstico: si no salió ningún producto, queda en los logs de la función
-  // (solo del proyecto) lo que leyó el OCR para poder ajustar el parser.
-  if (productosDetectados.length === 0) {
-    console.log('[ocr-ticket] sin productos. Texto del OCR:', textoDetectado.slice(0, 2000));
+  // Diagnóstico: si salieron pocos productos, queda en los logs de la
+  // función (solo del proyecto) lo que leyó el OCR para poder ajustar el parser.
+  if (productosDetectados.length < 2) {
+    console.log('[ocr-ticket] pocos productos. Texto del OCR:', textoDetectado.slice(0, 2000));
   }
 
   return new Response(JSON.stringify(productosDetectados), {

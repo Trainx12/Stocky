@@ -21,8 +21,8 @@ export interface ProductoDetectado {
   unidad?: string;
 }
 
-const INICIO_DE_COMPRA = /^(caja|oper|fecha|hora|p\.?\s?v\.?\b|n[o°º]\.?\s?t\b|ticket|factura|comprobante|n[uú]mero)/i;
-const FIN_DE_COMPRA = /^(sub\s*-?\s*tot|total|importe\s+total)/i;
+const INICIO_DE_COMPRA = /^(cant\b|descripci[oó]n|caja|oper|fecha|hora|p\.?\s?v\.?\b|n[o°º]\.?\s?t\b|ticket|factura|comprobante|n[uú]mero)/i;
+const FIN_DE_COMPRA = /^(sub\s*-?\s*tot|total|el\s+importe|importe\s+total)/i;
 
 const LINEAS_A_IGNORAR = [
   /c\.?\s?u\.?\s?i\.?\s?t/i,
@@ -103,6 +103,17 @@ export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
     if (porPrecio) {
       cantidad = numero(porPrecio[1]);
       resto = resto.replace(porPrecio[0], ' ');
+    }
+
+    // Columna CANT al comienzo ("1.0 MILANESA", "2 CERVEZA"): el OCR a veces
+    // lee el 0 como O/J/D ("1.J"), así que se acepta cualquier caracter de
+    // esos tras el punto.
+    if (cantidad === undefined) {
+      const cantAlInicio = resto.match(/^(\d{1,3})(?:[.,][\dOoIlJjDQ])?\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/);
+      if (cantAlInicio) {
+        cantidad = parseInt(cantAlInicio[1], 10);
+        resto = resto.slice(cantAlInicio[0].length);
+      }
     }
 
     // IVA entre paréntesis "(21.00)" y precio al final de la línea.

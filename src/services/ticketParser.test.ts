@@ -148,3 +148,54 @@ TOTAL 5000.00`;
     expect(nombres.some((n) => /cerveza/i.test(n))).toBe(true);
   });
 });
+
+describe('parsearTicket: ticket de restaurante (CANT / DESCRIPCION / PRECIO)', () => {
+  const TICKET_RESTO = `ESTIMADO CLIENTE:
+Por favor, avise si necesita Factura A ó B
+Hágamos saber si abona c/Tarjeta de Créd.
+A continuación, verifique su consumo...
+=========================================
+CANT DESCRIPCION PRECIO
+=========================================
+1.0 MILANESA
+1.0 PAPAS FRITAS
+1.J CORONA
+1.0 GASEOSA GR
+1.0 ADICIONAL LIMON
+1.0 TOSTADO
+1.0 CAFE JARRITO
+950.00
+400.00
+600.00
+500.00
+100.00
+450.00
+140.00
+...........................................
+El Importe Total es de (pesos)... 3140.00
+N.D.M. 29
+¡Muchas gracias por su visita!`;
+
+  it('detecta los renglones aunque los precios vengan en columna aparte', () => {
+    const nombres = parsearTicket(TICKET_RESTO).map((p) => p.nombre);
+
+    expect(nombres).toEqual(['MILANESA', 'PAPAS FRITAS', 'CORONA', 'GASEOSA GR', 'ADICIONAL LIMON', 'TOSTADO', 'CAFE JARRITO']);
+  });
+
+  it('toma la columna CANT como cantidad y no deja el total como producto', () => {
+    const productos = parsearTicket(TICKET_RESTO);
+
+    expect(productos.every((p) => p.cantidad === 1)).toBe(true);
+    expect(productos.some((p) => /importe|total|gracias/i.test(p.nombre))).toBe(false);
+  });
+
+  it('también con el precio en la misma línea', () => {
+    const texto = TICKET_RESTO.split('\n')
+      .filter((l) => !/^\d+\.00$/.test(l))
+      .join('\n')
+      .replace('1.0 MILANESA', '1.0 MILANESA 950.00');
+    const nombres = parsearTicket(texto).map((p) => p.nombre);
+
+    expect(nombres[0]).toBe('MILANESA');
+  });
+});
