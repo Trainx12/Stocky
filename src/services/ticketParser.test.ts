@@ -131,3 +131,20 @@ TOTAL 25.50`;
     expect(parsearTicket('')).toEqual([]);
   });
 });
+
+describe('parsearTicket: direcciones y rótulos de sección', () => {
+  it('no toma como producto la dirección del local ni rótulos como "Bebidas"', () => {
+    const texto = `Fecha: 03/10/26
+MINES CESAR
+AY. SAN JUAN 3145 3 C
+Bebidas
+GASEOSA COLA REGULAR COCA COLA LATA X 05
+CERVEZA DUNKEL MECKLENBURGER X 500 DO
+TOTAL 5000.00`;
+    const nombres = parsearTicket(texto).map((p) => p.nombre);
+
+    expect(nombres.some((n) => /san juan|bebidas/i.test(n))).toBe(false);
+    expect(nombres).toContain('GASEOSA COLA REGULAR COCA COLA LATA X 05');
+    expect(nombres.some((n) => /cerveza/i.test(n))).toBe(true);
+  });
+});

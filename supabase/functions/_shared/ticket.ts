@@ -31,6 +31,11 @@ const LINEAS_A_IGNORAR = [
   /responsable|inscripto|monotribut|consumidor|orientaci[oó]n|defensa/i,
   /\b(s\.?\s?a\.?|s\.?\s?r\.?\s?l\.?|s\.?\s?a\.?\s?s\.?)\s*$/i,
   /^anula/i,
+  // Dirección: prefijo de calle + número ("AV. SAN JUAN 3145 3 C"; el OCR a
+  // veces lee la V como Y).
+  /\b(av|ay|avda|avenida|calle|bv|blvd|ruta|pasaje|pje)\b\.?\s+.*\d{2,}/i,
+  // Rótulos de sección que algunos tickets imprimen entre los productos.
+  /^(bebidas|almac[eé]n|l[aá]cteos|limpieza|perfumer[ií]a|verduler[ií]a|carnicer[ií]a|fiambrer[ií]a|panader[ií]a|congelados|frutas\s*y\s*verduras|varios|otros|descuentos?|promo(ci[oó]n)?(es)?)\.?$/i,
   /(www\.|https?:|@)/i,
   /\btel[eé]?f?\.?\b/i,
   /^[\*\-=_.\s]+$/,
