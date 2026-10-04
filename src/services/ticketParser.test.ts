@@ -108,6 +108,25 @@ TOTAL 25.50`;
     expect(parsearTicket(texto).map((p) => p.nombre)).toEqual(['FIDEOS TALLARIN']);
   });
 
+  it('encuentra los productos aunque el OCR deje precios e IVA fuera de la línea del nombre', () => {
+    const texto = TICKET_GENOVESA.split('\n')
+      .map((linea) => linea.replace(/\s*\(\d+\.\d+\)\s*-?\d+\.\d{2}$/, ''))
+      .join('\n');
+    const por = Object.fromEntries(parsearTicket(texto).map((p) => [p.nombre, p.cantidad]));
+
+    expect(Object.keys(por)).toEqual([
+      'MANZANA RED PREMIUN',
+      'FLAN CASERO LIGHT DO',
+      'JUGO CITRIC NARANJA',
+      'YOGUR SER C/CEREAL M',
+      'SUNCH TURRON ARCOR',
+      'BIMBO FIT SALVADO ST',
+      'POLLO ENTRER.L.CAMEL',
+    ]);
+    expect(por['YOGUR SER C/CEREAL M']).toBe(6);
+    expect(por['FLAN CASERO LIGHT DO']).toBe(2);
+  });
+
   it('devuelve vacío para texto vacío', () => {
     expect(parsearTicket('')).toEqual([]);
   });

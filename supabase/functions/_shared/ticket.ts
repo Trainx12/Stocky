@@ -51,18 +51,24 @@ function clave(nombre: string): string {
     .trim();
 }
 
-// Recorta encabezado y pie y devuelve solo las líneas del cuerpo.
-function cuerpoDelTicket(lineas: string[]): string[] {
+// Recorta encabezado y pie y devuelve solo las líneas del cuerpo, y si se
+// encontró el marcador de inicio de la compra (sin él no se puede confiar en
+// que lo que queda sea solo el cuerpo).
+function cuerpoDelTicket(lineas: string[]): { cuerpo: string[]; zonaDetectada: boolean } {
   // El marcador de inicio se busca solo en la primera parte: más adelante
   // una palabra como "fecha" ya no es encabezado.
   const limite = Math.ceil(lineas.length * 0.6);
   let inicio = 0;
+  let zonaDetectada = false;
   lineas.slice(0, limite).forEach((linea, indice) => {
-    if (INICIO_DE_COMPRA.test(linea)) inicio = indice + 1;
+    if (INICIO_DE_COMPRA.test(linea)) {
+      inicio = indice + 1;
+      zonaDetectada = true;
+    }
   });
 
   const fin = lineas.findIndex((linea, indice) => indice >= inicio && FIN_DE_COMPRA.test(linea));
-  return lineas.slice(inicio, fin === -1 ? lineas.length : fin);
+  return { cuerpo: lineas.slice(inicio, fin === -1 ? lineas.length : fin), zonaDetectada };
 }
 
 export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
@@ -70,7 +76,7 @@ export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
     .split(/\r?\n/)
     .map((linea) => linea.trim())
     .filter(Boolean);
-  const cuerpo = cuerpoDelTicket(lineas);
+  const { cuerpo, zonaDetectada } = cuerpoDelTicket(lineas);
 
   const acumulado = new Map<string, ProductoDetectado>();
   let cantidadPendiente: number | undefined;
@@ -108,11 +114,14 @@ export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
       continue;
     }
 
-    // Un nombre sin precio ni IVA en su línea solo vale si el precio viene
-    // solo en la línea siguiente; si no, es texto suelto (dirección, nombre
-    // del local, etc.).
+    // El OCR no siempre deja el precio en la misma línea que el nombre (a
+    // veces va en columna aparte). Si ya se aisló el cuerpo del ticket
+    // (encabezado y pie recortados), un renglón con letras es un producto
+    // aunque no traiga precio; sin esa zona, un nombre sin precio ni IVA solo
+    // vale si el precio viene solo en la línea siguiente (si no, es texto
+    // suelto: dirección, nombre del local, etc.).
     const precioEnLineaSiguiente = /^-?\d+[.,]\d{2}$/.test(cuerpo[i + 1] ?? '');
-    if (!precioFinal && !teniaIva && !precioEnLineaSiguiente) continue;
+    if (!zonaDetectada && !precioFinal && !teniaIva && !precioEnLineaSiguiente) continue;
 
     // OCR a veces pega una "x" minúscula al final de nombres en mayúscula
     // ("NARANJAx"), y "ARCORx5" es el tamaño del pack, no una cantidad.
