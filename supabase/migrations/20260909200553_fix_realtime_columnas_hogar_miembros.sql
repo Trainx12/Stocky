@@ -1,0 +1,23 @@
+-- Bug encontrado al reportar "cancelar una solicitud dice que me sacaron
+-- del hogar": HomeScreen usa `anterior.origen` (el "old record" que manda
+-- Realtime) para distinguir, en el DELETE de hogar_miembros, si una fila
+-- 'pendiente' que se borró era una invitación (origen='invitacion', la
+-- rechacé yo mismo) o una solicitud (origen='solicitud', la rechazó el
+-- dueño o la cancelé yo).
+--
+-- La migración 20260828120000_permisos_editar_hogar.sql habilitó Realtime
+-- con `alter publication supabase_realtime add table public.hogar_miembros;`
+-- (sin lista de columnas) -- en teoría eso debería publicar todas las
+-- columnas, incluidas las que se agreguen después. En la práctica, la
+-- publicación quedó con una lista de columnas fija (confirmado por SQL
+-- contra el proyecto real: pg_publication_tables.attnames = {hogar_id,
+-- usuario_id, created_at, rol, puede_editar, estado}), congelada en el
+-- estado de la tabla ANTES de que 20260908120000_invitar_por_email.sql
+-- agregara la columna `origen` -- esa columna nunca se sumó a la lista.
+-- Resultado: `payload.old.origen` le llega siempre `undefined` al
+-- cliente, sin importar qué tenga la fila real.
+--
+-- Se corrige explicitando TODAS las columnas actuales de la tabla
+-- (incluida `origen`), para que Realtime vuelva a mandarlas todas.
+alter publication supabase_realtime set table public.hogar_miembros
+  (hogar_id, usuario_id, created_at, rol, puede_editar, estado, origen);

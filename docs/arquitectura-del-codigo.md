@@ -215,6 +215,37 @@ anterior 'pendiente') o "me expulsaron" (DELETE con estado anterior
 'aprobado') -- son tres mensajes distintos para el mismo evento de
 Realtime, y sin el estado anterior no se podían diferenciar.
 
+**El hogar nunca queda sin dueño** (ver
+[20260907120000_ceder_dueno_y_cancelar_solicitud.sql](../supabase/migrations/20260907120000_ceder_dueno_y_cancelar_solicitud.sql)):
+antes, si el dueño se iba (`salirDeHogar`), el hogar se quedaba sin ningún
+miembro con `rol = 'dueno'` y, como `responderSolicitud`/`expulsarMiembro`/
+`permitirEditarHogar` exigen serlo, las solicitudes pendientes de ese hogar
+quedaban trabadas para siempre y nadie podía volver a unirse. Ahora
+`salir_de_hogar()` promueve a otro miembro ANTES de borrar la fila del que se
+va: primero al invitado aprobado más antiguo; si no queda ninguno, a la
+solicitud pendiente más antigua (aprobándola de paso). `cederDueno(hogarId,
+usuarioId)` es la versión voluntaria de lo mismo -- el dueño elige a quién
+pasarle el rol sin tener que irse del hogar -- con la misma guarda que
+`expulsarMiembro` (solo el dueño puede llamarla, del lado de la RPC).
+
+**Cancelar una solicitud propia no necesita RPC**: `cancelarSolicitud(hogarId)`
+hace un `.delete()` directo sobre la propia fila en estado `'pendiente'` --
+alcanza con la policy `hogar_miembros_delete_propio_o_admin` que ya existía
+(deja borrar cualquier fila propia sin importar el estado, ver migración
+20260826130000_hogares_multi_membresia.sql), así que no hace falta una
+función nueva del lado de Postgres solo para esto.
+
+**No se puede "volver a unir" a un hogar del que ya se es miembro** (mismo
+archivo de migración): `unirse_a_hogar()` solo tenía un `on conflict (hogar_id,
+usuario_id) do nothing` para evitar duplicar la fila, pero no avisaba nada --
+alguien ya aprobado (o con una solicitud pendiente) en ese hogar podía volver
+a mandar el código y la función devolvía éxito igual, mostrando "Solicitud
+enviada" sin haber pasado nada de verdad. Ahora valida el estado actual ANTES
+de intentar el insert y rechaza con un mensaje explícito (`Ya sos miembro de
+este hogar` / `Ya tenés una solicitud pendiente para este hogar`); el `on
+conflict do nothing` queda solo como red de seguridad ante una carrera entre
+dos llamadas simultáneas.
+
 ### `productos.ts` — ABM de productos de un hogar (RF7)
 
 A diferencia de `hogares.ts`, acá no hay ninguna RPC: `crearProducto`,
@@ -243,9 +274,108 @@ por categoría de `ProductosScreen` pierde sentido -- aunque la columna
 `productos.categoria` en la base sigue siendo nullable (hay una fila
 vieja, de antes de esta regla, sin categoría cargada).
 
-`fecha_vencimiento`/`alerta_vencimiento_habilitada` (RF2/RF3, Sprint 4)
-todavía no se tocan desde acá -- quedan con su default de la base hasta
-ese sprint.
+**Vencimiento de productos** (RF2/RF3, Sprint 4): `fecha_vencimiento`
+(texto libre `AAAA-MM-DD`, cargado a mano o con el calendario -- ver
+`CalendarioPicker` abajo -- desde `ProductoFormModal`) y
+`alerta_vencimiento_habilitada` (switch en el mismo modal, default `true`
+como la columna) ya se mandan desde `crearProducto`/`editarProducto`;
+`validar()` rechaza una fecha con formato o valor inválido
+(`esFechaValida` compara contra los componentes numéricos, no contra el
+string, porque `Date` "corrige" fechas imposibles como el 30 de febrero
+en vez de rechazarlas) antes de pegarle a Supabase, mismo criterio que
+nombre/categoría/cantidad. `formatearFechaInput()` es la lógica del
+auto-guionado (el usuario solo tipea dígitos, los `-` se insertan solos,
+incluso al borrar) que usa el campo de texto; `formatearFechaISO()` es la
+inversa (`Date` → `'YYYY-MM-DD'`, con componentes LOCALES, no
+`toISOString()`) que usa `CalendarioPicker` para volcar el día tocado al
+mismo campo.
+
+**`src/components/CalendarioPicker.tsx`**: calendario en grilla (mes +
+flechas para navegar + cuadrícula de días, con el día de hoy resaltado)
+construido a mano con componentes de React Native -- no una librería de
+date picker (se probó `@react-native-community/datetimepicker`, pero esa
+librería **no soporta web**, dibuja el selector nativo del sistema
+operativo en vez de algo estilable, y en este caso puntual el equipo pidió
+justamente que se viera como una grilla igual en cualquier plataforma). Se
+embebe inline debajo del campo de fecha en `ProductoFormModal` (se
+expande/colapsa con el botón de calendario, mismo patrón que
+"categoriaPersonalizada" del propio modal) en vez de ser un popup
+flotante, más simple de armar dentro de un modal que ya scrollea.
+`diasDelMesCalendario(anio, mesIndiceCero)` (en `productos.ts`) arma la
+grilla de 42 días (6 semanas, arrancando el lunes, con relleno de los
+meses lindantes) como lógica pura testeable, separada del componente.
+
+`estadoVencimiento(producto, hoy?)` es la única fuente de verdad de "está
+por vencer" (`'ok' | 'proximo' | 'vencido' | null`, con `null` cuando no
+corresponde alertar: sin fecha cargada, o alerta deshabilitada a
+propósito): la usan tanto `ProductosScreen` (badge por fila) como
+`HomeScreen` (dashboard). `DIAS_PROXIMO_A_VENCER` (7 días) vive ahí como
+único umbral, para no tener que sincronizarlo entre pantallas si cambia.
+`etiquetaVencimiento()` arma el texto legible ("Vence hoy"/"Vence en N
+días"/"Vencido hace N días") a partir del mismo estado, pero por separado
+-- el color del badge lo decide cada pantalla con `colors.stockStatus`
+(ver `src/theme/colors.ts`), este servicio no importa nada de theme.
+
+`listarProductosProximosAVencer(hogarIds)` trae los candidatos de varios
+hogares a la vez (los del usuario logueado, pasados explícitos por
+`HomeScreen` desde `listarMisHogares()`) y les aplica
+`productosProximosAVencer()` -- mismo patrón de "filtrar explícito en vez
+de confiar solo en la RLS" que `listarProductos`, porque un admin ve todos
+los hogares vía `es_administrador()`.
+
+### `actividad.ts` — "Actividad reciente" de HomeScreen
+
+`listarActividadReciente(hogarId, limite)` es la única función acá, y va
+por RPC (`listar_actividad_reciente`, ver
+[20260907130000_actividad_hogar.sql](../supabase/migrations/20260907130000_actividad_hogar.sql))
+en vez de un select directo a `actividad_hogar` porque el autor de una fila
+(`usuario_id`) puede ser `null` (cuenta borrada) y ese join opcional
+usuario/actividad es más simple de resolver del lado de Postgres que con el
+select anidado de PostgREST. Las filas de `actividad_hogar` no las inserta
+nada del cliente: las genera un trigger `AFTER INSERT OR UPDATE OR DELETE`
+sobre `productos` (`registrar_actividad_producto()`, `SECURITY DEFINER` por
+el mismo motivo que los helpers de RLS) -- así ninguna función de
+`productos.ts` tiene que acordarse de loguear a mano, ni hay riesgo de que
+alguien agregue un producto por afuera de ese archivo y la actividad quede
+sin registrar. Hoy solo cubre ABM de productos (lo único con ABM real);
+altas/bajas de `hogar_miembros` todavía no generan actividad.
+
+**Catálogo de productos** (ver migración
+[20260909212018_catalogo_productos.sql](../supabase/migrations/20260909212018_catalogo_productos.sql)):
+`crearProducto`/`editarProducto` ahora reciben también `catalogoId` (de
+qué fila de `productos_catalogo` salió), que se guarda en
+`productos.catalogo_id` (nullable, para no romper productos viejos de
+antes del catálogo). `nombre`/`categoria`/`unidad` siguen siendo columnas
+propias de `productos` (no un join permanente contra el catálogo) -- se
+copian del catálogo al elegir, no se referencian en vivo, así el resto
+de las queries (`listarProductos`, `ProductosScreen`, etc.) no tienen que
+cambiar.
+
+### `catalogo.ts` — catálogo global de productos (pedido directo del equipo)
+
+Cargar un producto en un hogar ya no es texto libre: se elige de un
+catálogo GLOBAL (no es por hogar, lo comparten todos) en
+`productos_catalogo`, con nombre/categoría/unidad ya cargados y espacio
+para una foto (`imagen_url`, hoy `null` en toda la semilla -- ver
+[incidentes-sprint4.md](incidentes-sprint4.md) #2). Si el producto que
+alguien busca no está, puede sugerirlo (`sugerirProducto`) en vez de
+cargarlo directo -- queda `estado = 'pendiente'` hasta que un admin lo
+apruebe (`responderSugerencia`, ver `AdminSugerenciasScreen` más abajo) o
+lo rechace (se borra la fila, sin dejar un estado "rechazado").
+
+Mismo patrón que `productos.ts`: sin RPCs, `.insert()`/`.update()`/
+`.delete()` directo contra `productos_catalogo`, porque cada operación
+toca una sola fila de una sola tabla. La policy de INSERT fuerza
+`sugerido_por = auth.uid()` y `estado = 'pendiente'` (nadie puede
+auto-aprobarse ni sugerir "a nombre de" otro usuario); las de
+UPDATE/DELETE exigen `es_administrador()`. Un índice único sobre
+`lower(nombre)` evita duplicados tipo "Leche" / "leche" si dos personas
+sugieren lo mismo o un admin aprueba sin fijarse.
+
+`categoriasDelCatalogo()`/`filtrarCatalogo()` son la misma lógica pura
+(sacada para poder testearla con Jest) que `categoriasEnUso()`/
+`filtrarProductos()` en `productos.ts`, aplicada al catálogo en vez de al
+inventario de un hogar.
 
 ### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
 
@@ -302,7 +432,12 @@ Decide entre dos stacks completos según haya sesión o no:
 Importante: **no mira el rol** todavía para decidir nada (cualquier
 usuario logueado entra al mismo stack, sea `usuario` o
 `administrador`) — eso es explícitamente para RF9 (sprint 9), no está
-resuelto ni hace falta que lo esté ahora.
+resuelto ni hace falta que lo esté ahora. `AdminSugerencias` es la
+excepción puntual (ver sección 9): está registrada en el mismo
+`AppStack` para cualquier usuario logueado, pero `HomeScreen` no le
+ofrece el botón para llegar ahí a quien no sea admin, y la RLS del lado
+del servidor es la que de verdad importa si alguien fuerza la
+navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
 
 ---
 
@@ -320,20 +455,22 @@ resuelto ni hace falta que lo esté ahora.
   en un solo lugar, no buscar y reemplazar en cada pantalla.
 - **`ProductoFormModal.tsx`**: un solo modal para "Agregar producto" y
   "Editar producto" (mismo patrón que `HogarFormModal`): el modo se
-  infiere de si viene un `producto` seteado o no. La unidad se elige con
-  chips (`unidad`/`kg`/`g`/`l`/`ml`/`paquete`, abreviaturas en minúscula)
-  en vez de un picker nativo porque todavía no hay ninguna librería de
-  Picker instalada. La categoría también es chips: una lista fija de
-  sugeridas (`CATEGORIAS_SUGERIDAS`) combinada con las que ya estén en uso
-  en ESE hogar (prop `categoriasExistentes`, la misma lista que calcula
-  `ProductosScreen` para su filtro), más un chip "+ Personalizada" que
-  revela un input de texto libre para una categoría nueva -- si el
-  producto que se edita ya tenía una categoría que no está entre los
-  chips, el modal arranca directo en modo personalizada para no
-  esconderla. Cantidad y stock mínimo se editan como texto libre y se
-  parsean recién al submitear (acepta coma o punto como separador
-  decimal), para no romper la UI si el usuario borra el campo a mitad de
-  tipeo.
+  infiere de si viene un `producto` seteado o no. Nombre/categoría/unidad
+  ya NO se tipean (ver catálogo, abajo): en modo "crear" se eligen tocando
+  el botón "Elegí un producto" (abre `CatalogoSelectorModal`); en modo
+  "editar" quedan de solo lectura, mostrando lo que ya tenía el producto
+  -- lo único editable ahí es cantidad y stock mínimo. Ambos se editan
+  como texto libre y se parsean recién al submitear (acepta coma o punto
+  como separador decimal), para no romper la UI si el usuario borra el
+  campo a mitad de tipeo.
+- **`CatalogoSelectorModal.tsx`**: selector del catálogo global de
+  productos (ver `services/catalogo.ts`) -- búsqueda + chips de categoría
+  sobre la lista ya cargada (mismo criterio 100% client-side que
+  `ProductosScreen`), grilla de productos con foto/ícono. Si la búsqueda
+  no encuentra nada (o el usuario quiere igual), un botón abre un
+  formulario chico embebido para sugerir el producto (nombre + categoría +
+  unidad), que llama a `sugerirProducto()` y vuelve a la lista -- no hace
+  falta un modal aparte, evita otro viaje de navegación/estado.
 
 ## 9. `src/screens/` — pantallas de este sprint
 
@@ -345,11 +482,20 @@ resuelto ni hace falta que lo esté ahora.
 - **`HomeScreen`**: dashboard post-login. Muestra loading /
   error-con-reintentar / datos reales según el estado de `usuario` en
   `AuthContext` (ver la nota del punto 6 y el incidente 8) — a
-  propósito **no** asume un rol por default. Cada fila de "Tus hogares
-  activos" tiene un ícono de canasta que navega a `Productos` de ESE
-  hogar; los accesos rápidos "Agregar producto"/"Ver despensa" navegan
-  directo si el usuario tiene un solo hogar, o le piden elegir uno desde
-  la lista si tiene más de uno (RF6).
+  propósito **no** asume un rol por default. Todo el dashboard gira
+  alrededor de un `hogarSeleccionado` (estado local, elegido con el botón
+  "Cambiar hogar" dentro de "Tus hogares activos", que solo se muestra si
+  hay más de uno entre qué elegir) -- distinto de `usuarios.hogar_id` (el
+  "hogar activo" real que usa el resto de la app/RLS), que no se toca desde
+  acá. "Tus hogares activos" ahora muestra solo ESE hogar (no la lista
+  completa); sus accesos rápidos "Agregar producto"/"Ver despensa" navegan
+  directo a `Productos` de ese mismo hogar ("Agregar producto" además le
+  pide a `ProductosScreen` que abra el modal de carga apenas llega, vía
+  `abrirAgregar: true`). "Actividad reciente" trae datos reales de
+  `listarActividadReciente` (`src/services/actividad.ts`), generados por un
+  trigger sobre `productos` (ver
+  [20260907130000_actividad_hogar.sql](../supabase/migrations/20260907130000_actividad_hogar.sql))
+  -- hoy es lo único con ABM real, así que es lo único que se registra.
 - **`ProductosScreen`** (RF7): listado + ABM de productos de un hogar
   puntual. Búsqueda por nombre y filtro por categoría son 100%
   client-side sobre la lista ya cargada (`listarProductos`) -- a la
@@ -358,6 +504,11 @@ resuelto ni hace falta que lo esté ahora.
   categorías del filtro se calculan de los productos ya cargados (no es
   una lista fija), así que un chip solo aparece si hay al menos un
   producto con esa categoría.
+- **`AdminSugerenciasScreen`**: sugerencias de productos nuevos para el
+  catálogo global (ver `services/catalogo.ts`), pendientes de aprobar o
+  rechazar. Primera pantalla de la app con acceso restringido por rol
+  (ver la nota de `RootNavigator` en la sección 7 y
+  [incidentes-sprint4.md](incidentes-sprint4.md) #2).
 
 ---
 
@@ -423,9 +574,16 @@ comentario `TODO` apuntando a qué sprint le toca la lógica real.
   `android.package` (identidad del proyecto/app para EAS Build, no se
   deberían cambiar una vez que existan builds subidas).
 - **`eas.json`**: perfiles de build de EAS (`development`, `preview`,
-  `production`). El que usa el equipo hoy es `development`
-  (`developmentClient: true`), para el dev client que reemplaza a Expo
-  Go y no depende de la red (ver incidente 9).
+  `production`). Quedó armado como solución definitiva al bug de IP de
+  Expo Go (ver incidente 9), pero **hoy el equipo prueba con Expo Go**
+  (la app que se instala desde [expo.dev/go](https://expo.dev/go), ver
+  incidente 1), no con ese dev client -- ojo si se agrega una librería
+  con código nativo nuevo (no aplica hoy: `CalendarioPicker`, ver más
+  arriba, se armó justamente sin ninguna, a propósito): Expo Go trae
+  incluidas las más comunes y no hace falta rebuild, pero un dev client
+  de EAS sí necesitaría reconstruirse para levantarla. Si el equipo
+  vuelve a depender del dev client en algún momento, actualizar esta
+  nota.
 - **`tsconfig.json`**: config de TypeScript, extiende la base de Expo.
   Excluye `supabase/functions` por el tema de Deno mencionado arriba, y
   fija `"types": ["jest"]` para que los archivos `*.test.ts` compilen

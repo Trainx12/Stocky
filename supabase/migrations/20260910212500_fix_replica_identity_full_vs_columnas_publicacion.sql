@@ -1,0 +1,21 @@
+-- Bug encontrado en QA: "No se pudo responder la solicitud" al aceptar/
+-- rechazar una solicitud de un invitado. Reproducido directo en SQL:
+-- responder_solicitud() falla con 42P10 "cannot update table
+-- hogar_miembros / Column list used by the publication does not cover the
+-- replica identity" en el UPDATE interno.
+--
+-- Causa: 20260909200553_fix_realtime_columnas_hogar_miembros.sql le puso
+-- una lista explícita de columnas a la publicación de hogar_miembros para
+-- solucionar otro bug (Realtime no mandaba `origen` en el old record). Pero
+-- 20260903120000_solicitudes_hogar.sql ya había puesto esa tabla en
+-- REPLICA IDENTITY FULL -- y Postgres no permite combinar REPLICA IDENTITY
+-- FULL con una lista de columnas en la publicación (aunque la lista
+-- incluya TODAS las columnas), sea cual sea el motivo original de esa
+-- lista. Cualquier UPDATE sobre la tabla pasó a fallar desde que se aplicó
+-- esa migración.
+--
+-- Con REPLICA IDENTITY FULL no hace falta ninguna lista de columnas: ya
+-- manda la fila completa (incluido `origen`) tanto en el nuevo como en el
+-- "old record", así que sacar la lista no reintroduce el bug original que
+-- esa migración quiso arreglar.
+alter publication supabase_realtime set table public.hogar_miembros;

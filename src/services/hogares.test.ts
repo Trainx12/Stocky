@@ -22,27 +22,43 @@ const mockOrder = jest.fn();
 const mockSingle = jest.fn();
 const mockUpdateEq = jest.fn(() => ({ select: jest.fn(() => ({ single: mockSingle })) }));
 const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
-const mockEq = jest.fn(() => ({ order: mockOrder }));
+// listarMisHogares hace una segunda consulta (select('hogar_id').eq('estado',
+// 'pendiente').in('hogar_id', hogaresPropios)) para contar solicitudes
+// pendientes en los hogares donde el usuario es dueño -- por eso el mismo
+// mockEq tiene que resolver tanto .order() como .in().
+const mockIn = jest.fn();
+const mockEq = jest.fn(() => ({ order: mockOrder, in: mockIn }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
+// cancelarSolicitud encadena tres .eq() (hogar_id, usuario_id, estado); el
+// último resuelve la promesa con { error }.
+const mockDeleteThirdEq = jest.fn();
+const mockDeleteSecondEq = jest.fn(() => ({ eq: mockDeleteThirdEq }));
+const mockDeleteFirstEq = jest.fn(() => ({ eq: mockDeleteSecondEq }));
+const mockDelete = jest.fn(() => ({ eq: mockDeleteFirstEq }));
 
 jest.mock('../lib/supabase', () => ({
   supabase: {
     rpc: jest.fn(),
     auth: { getUser: jest.fn() },
-    from: jest.fn(() => ({ select: mockSelect, update: mockUpdate })),
+    from: jest.fn(() => ({ select: mockSelect, update: mockUpdate, delete: mockDelete })),
   },
 }));
 
 import { supabase } from '../lib/supabase';
 import {
+  cancelarSolicitud,
+  cederDueno,
   crearHogar,
   editarHogar,
   expulsarMiembro,
+  invitarAHogar,
   listarMiembrosDeHogar,
   listarMisHogares,
+  listarMisInvitacionesPendientes,
   listarMisSolicitudesPendientes,
   listarSolicitudesPendientes,
   permitirEditarHogar,
+  responderInvitacion,
   responderSolicitud,
   salirDeHogar,
   unirseAHogar,
@@ -59,9 +75,14 @@ beforeEach(() => {
   mockSelect.mockClear();
   mockEq.mockClear();
   mockOrder.mockReset();
+  mockIn.mockReset();
   mockUpdate.mockClear();
   mockUpdateEq.mockClear();
   mockSingle.mockReset();
+  mockDelete.mockClear();
+  mockDeleteFirstEq.mockClear();
+  mockDeleteSecondEq.mockClear();
+  mockDeleteThirdEq.mockReset();
 });
 
 describe('crearHogar', () => {
@@ -163,12 +184,15 @@ describe('listarMisHogares', () => {
       ],
       error: null,
     });
+    // Soy dueño de hogarA -> listarMisHogares hace la segunda consulta
+    // (conteo de solicitudes pendientes) solo para ese hogar.
+    mockIn.mockResolvedValue({ data: [], error: null });
 
     const resultado = await listarMisHogares();
 
     expect(resultado).toEqual([
-      { ...hogarA, miRol: 'dueno', puedoEditar: true },
-      { ...hogarB, miRol: 'invitado', puedoEditar: false },
+      { ...hogarA, miRol: 'dueno', puedoEditar: true, solicitudesPendientes: 0 },
+      { ...hogarB, miRol: 'invitado', puedoEditar: false, solicitudesPendientes: 0 },
     ]);
   });
 
@@ -182,7 +206,7 @@ describe('listarMisHogares', () => {
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([{ ...hogarA, miRol: 'invitado', puedoEditar: true }]);
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'invitado', puedoEditar: true, solicitudesPendientes: 0 }]);
   });
 
   it('descarta filas con hogares en null en vez de romper', async () => {
@@ -195,16 +219,18 @@ describe('listarMisHogares', () => {
       ],
       error: null,
     });
+    mockIn.mockResolvedValue({ data: [], error: null });
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true }]);
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true, solicitudesPendientes: 0 }]);
   });
 
   it('descarta hogares con una solicitud pendiente (todavía no es miembro de verdad)', async () => {
     const hogarA = { id: '1', nombre: 'Casa A', codigo_invitacion: 'AAA111', created_at: '2026-01-01' };
     const hogarPendiente = { id: '2', nombre: 'Casa B', codigo_invitacion: 'BBB222', created_at: '2026-01-02' };
     getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockIn.mockResolvedValue({ data: [], error: null });
     mockOrder.mockResolvedValue({
       data: [
         { rol: 'dueno', puede_editar: false, estado: 'aprobado', hogares: hogarA },
@@ -215,7 +241,7 @@ describe('listarMisHogares', () => {
 
     const resultado = await listarMisHogares();
 
-    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true }]);
+    expect(resultado).toEqual([{ ...hogarA, miRol: 'dueno', puedoEditar: true, solicitudesPendientes: 0 }]);
   });
 
   it('devuelve un array vacío si no hay usuario logueado, sin consultar la tabla', async () => {
@@ -317,6 +343,7 @@ describe('listarSolicitudesPendientes', () => {
           rol: 'invitado',
           puede_editar: false,
           estado: 'pendiente',
+          origen: 'solicitud',
           usuarios: { nombre: null, email: 'nuevo@test.com' },
         },
       ],
@@ -328,6 +355,26 @@ describe('listarSolicitudesPendientes', () => {
     expect(from).toHaveBeenCalledWith('hogar_miembros');
     expect(mockEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
     expect(resultado).toEqual([{ usuarioId: 'u-2', nombre: null, email: 'nuevo@test.com' }]);
+  });
+
+  it('no incluye una invitación pendiente que el propio dueño mandó por mail (origen "invitacion")', async () => {
+    mockOrder.mockResolvedValue({
+      data: [
+        {
+          usuario_id: 'u-2',
+          rol: 'invitado',
+          puede_editar: false,
+          estado: 'pendiente',
+          origen: 'invitacion',
+          usuarios: { nombre: null, email: 'invitado@test.com' },
+        },
+      ],
+      error: null,
+    });
+
+    const resultado = await listarSolicitudesPendientes('hogar-1');
+
+    expect(resultado).toEqual([]);
   });
 
   it('devuelve un array vacío si no hay solicitudes pendientes', async () => {
@@ -439,5 +486,103 @@ describe('expulsarMiembro', () => {
     rpc.mockResolvedValue({ data: null, error: new Error('Solo el dueño del hogar puede expulsar miembros') });
 
     await expect(expulsarMiembro('hogar-1', 'u-2')).rejects.toThrow('Solo el dueño del hogar puede expulsar miembros');
+  });
+});
+
+describe('invitarAHogar', () => {
+  it('llama a la RPC invitar_a_hogar con el hogar y el mail', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await invitarAHogar('hogar-1', 'nuevo@test.com');
+
+    expect(rpc).toHaveBeenCalledWith('invitar_a_hogar', { p_hogar_id: 'hogar-1', p_email: 'nuevo@test.com' });
+  });
+
+  it('propaga el error si la RPC rechaza (ej: mail sin cuenta en Stocky)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('No hay ninguna cuenta de Stocky registrada con ese mail') });
+
+    await expect(invitarAHogar('hogar-1', 'nadie@test.com')).rejects.toThrow(
+      'No hay ninguna cuenta de Stocky registrada con ese mail',
+    );
+  });
+});
+
+describe('listarMisInvitacionesPendientes', () => {
+  it('llama a la RPC y mapea { hogar_id, nombre } a MiInvitacionPendiente[]', async () => {
+    rpc.mockResolvedValue({
+      data: [{ hogar_id: 'hogar-1', nombre: 'Casa A', created_at: '2026-01-01' }],
+      error: null,
+    });
+
+    const resultado = await listarMisInvitacionesPendientes();
+
+    expect(rpc).toHaveBeenCalledWith('listar_mis_invitaciones_pendientes');
+    expect(resultado).toEqual([{ hogarId: 'hogar-1', nombreHogar: 'Casa A' }]);
+  });
+
+  it('propaga el error si la RPC falla', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(listarMisInvitacionesPendientes()).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('responderInvitacion', () => {
+  it('llama a la RPC responder_invitacion con el hogar y si se aprueba o no', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await responderInvitacion('hogar-1', true);
+
+    expect(rpc).toHaveBeenCalledWith('responder_invitacion', { p_hogar_id: 'hogar-1', p_aprobar: true });
+  });
+
+  it('propaga el error si la RPC falla', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+
+    await expect(responderInvitacion('hogar-1', false)).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('cederDueno', () => {
+  it('llama a la RPC ceder_dueno con el hogar y el nuevo dueño', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await cederDueno('hogar-1', 'u-2');
+
+    expect(rpc).toHaveBeenCalledWith('ceder_dueno', { p_hogar_id: 'hogar-1', p_nuevo_dueno_id: 'u-2' });
+  });
+
+  it('propaga el error si la RPC rechaza (ej: quien llama no es el dueño, o el target no es miembro)', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('Ese usuario no es miembro de este hogar') });
+
+    await expect(cederDueno('hogar-1', 'u-2')).rejects.toThrow('Ese usuario no es miembro de este hogar');
+  });
+});
+
+describe('cancelarSolicitud', () => {
+  it('borra la propia fila pendiente (hogar_id, usuario_id logueado, estado=pendiente)', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockDeleteThirdEq.mockResolvedValue({ error: null });
+
+    await cancelarSolicitud('hogar-1');
+
+    expect(from).toHaveBeenCalledWith('hogar_miembros');
+    expect(mockDeleteFirstEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
+    expect(mockDeleteSecondEq).toHaveBeenCalledWith('usuario_id', 'user-123');
+    expect(mockDeleteThirdEq).toHaveBeenCalledWith('estado', 'pendiente');
+  });
+
+  it('propaga el error si falla el delete', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockDeleteThirdEq.mockResolvedValue({ error: new Error('fallo de red') });
+
+    await expect(cancelarSolicitud('hogar-1')).rejects.toThrow('fallo de red');
+  });
+
+  it('falla sin consultar la tabla si no hay usuario logueado', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(cancelarSolicitud('hogar-1')).rejects.toThrow('No se pudo identificar al usuario logueado');
+    expect(from).not.toHaveBeenCalled();
   });
 });

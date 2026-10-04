@@ -28,8 +28,8 @@ en Supabase). Trabajo integrador — Seminario Integrador 2026, UTN.
 src/
   screens/      Pantallas (una por archivo, agrupan su propia lógica de UI)
   components/   Piezas de UI reutilizables (Button, ScreenContainer, Logo,
-                 Header, BottomNavBar, ManageHomesSheet, HogarFormModal,
-                 ManageHomesListModal, SectionCard)
+                 Header, BottomNavBar, HogarFormModal, HogarMiembrosModal,
+                 SectionCard)
   navigation/    RootNavigator: decide stack de auth vs. stack principal
   context/       AuthContext: sesión de Supabase + perfil/rol del usuario
   services/      Llamadas a Supabase Auth, hogares (crear/unirse/salir) y
@@ -138,15 +138,19 @@ conviene sumarle su test al lado, en el mismo commit.
 ## Home y hogares (RF5/RF6)
 
 Al loguearse, la pantalla principal (`src/screens/HomeScreen.tsx`) muestra
-un header con saludo + logo, accesos rápidos, y una barra de navegación
-inferior fija (Inicio/Búsqueda/Notificaciones/Perfil). Un long-press sobre
-el ícono de Perfil abre el bottom sheet "Gestionar Mis Hogares"
-(`src/components/ManageHomesSheet.tsx`), con dos opciones:
+un header con saludo + logo, la sección "Tus hogares activos", y una barra
+de navegación inferior fija (Inicio/Búsqueda/Notificaciones/Perfil) sin
+comportamiento propio todavía (Búsqueda/Notificaciones/Perfil son
+placeholders). Debajo de "Tus hogares activos" hay dos botones directos, de
+un solo toque:
 
-- **Crear Nuevo Hogar** → `HogarFormModal` (modo `crear`).
-- **Administrar Mis Hogares** → `ManageHomesListModal`: lista los hogares
-  del usuario con opción de salir de cada uno, y desde ahí también se
-  puede unir a otro por código de invitación.
+- **Crear hogar** → `HogarFormModal` (modo `crear`).
+- **Unirme a un hogar** → `HogarFormModal` (modo `unirse`), a partir de un
+  código de invitación; queda como solicitud pendiente hasta que el dueño
+  la acepte o la rechace (ver `supabase/migrations/20260903120000_solicitudes_hogar.sql`).
+
+Editar/salir de cada hogar y ver sus miembros están directo en cada fila de
+"Tus hogares activos" (íconos de lápiz/salir/personas).
 
 Un usuario puede pertenecer a **más de un hogar** a la vez (RF6): la
 relación real vive en la tabla `hogar_miembros` (N a N), mientras que
