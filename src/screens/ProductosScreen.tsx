@@ -585,8 +585,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     borderRadius: radius.md,
   },
   grupoTotal: {
