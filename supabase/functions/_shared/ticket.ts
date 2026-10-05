@@ -23,7 +23,8 @@ export interface ProductoDetectado {
 
 // "Cnt Descripción" (a veces leído "Ont Descripción") marca el comienzo de la
 // lista en tickets con columnas.
-const INICIO_DE_COMPRA = /^([a-z]{2,4}\s+descripci[oó]n|cant\b|descripci[oó]n|caja|oper|fecha|hora|p\.?\s?v\.?\b|n[o°º]\.?\s?t\b|ticket|factura|comprobante|n[uú]mero)/i;
+// "desc[a-z]{3,8}n" tolera errores del OCR en la palabra ("DESCHIPCION").
+const INICIO_DE_COMPRA = /^([a-z]{2,4}\s+descripci[oó]n|desc[a-z]{3,8}n\b|cant\b|descripci[oó]n|caja|oper|fecha|hora|p\.?\s?v\.?\b|n[o°º]\.?\s?t\b|ticket|factura|comprobante|n[uú]mero)/i;
 const FIN_DE_COMPRA = /^(sub\s*-?\s*tot|total|el\s+importe|importe\s+total)/i;
 
 const LINEAS_A_IGNORAR = [
@@ -38,7 +39,10 @@ const LINEAS_A_IGNORAR = [
   /^(ahorro|descuento|dto\b)/i,
   /tiquete|contingencia/i,
   // Encabezados de columna sueltos cuando el OCR separa las columnas.
-  /^(unitario|total|precio|importe|cnt|cant|descripci[oó]n|p\.?\s?unit\.?)$/i,
+  /^(unitario|total|precio|importe|cnt|cant|descripci[oó]n|p\.?\s?unit\.?|itbis|valor|desc[a-z]{3,8}n)$/i,
+  // Subtotales por sección ("Subtotal 277.44" bajo "CARNES ROJAS"): no son un
+  // producto.
+  /^sub\s*-?\s*tot/i,
   // Códigos de transacción/terminal ("MXL31604CT"): una sola palabra larga que
   // mezcla letras mayúsculas y dígitos.
   /\b(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{9,}\b/,
@@ -89,10 +93,23 @@ function cuerpoDelTicket(lineas: string[]): { cuerpo: string[]; zonaDetectada: b
   const esRenglonDeProducto = (linea: string) => /[A-Za-zÁÉÍÓÚÑáéíóúñ]{3,}/.test(linea) && /\d[.,]\d{2}/.test(linea);
   const fin = lineas.findIndex((linea, indice) => {
     if (indice < inicio || !FIN_DE_COMPRA.test(linea)) return false;
+    // Algunos tickets imprimen un subtotal por sección justo debajo del
+    // título ("CARNES ROJAS" / "Subtotal 277.44"): no cierra el ticket.
+    if (/^sub\s*-?\s*tot/i.test(linea) && /^[A-Za-zÁÉÍÓÚÑáéíóúñ ]{3,}$/.test((lineas[indice - 1] ?? '').trim())) return false;
     const soloLaPalabra = !/\d/.test(linea) && linea.trim().split(/\s+/).length === 1;
     return !soloLaPalabra || lineas.slice(inicio, indice).some(esRenglonDeProducto);
   });
   return { cuerpo: lineas.slice(inicio, fin === -1 ? lineas.length : fin), zonaDetectada };
+}
+
+// Texto de la próxima línea con contenido, sin códigos de barras (una línea de
+// solo código no dice nada). '' si no hay más.
+function siguienteContenido(cuerpo: string[], desde: number): string {
+  for (let j = desde + 1; j < cuerpo.length; j++) {
+    const texto = cuerpo[j].replace(/\b\d{6,}\b/g, ' ').trim();
+    if (texto) return texto;
+  }
+  return '';
 }
 
 export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
@@ -104,6 +121,7 @@ export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
 
   const acumulado = new Map<string, ProductoDetectado>();
   let cantidadPendiente: number | undefined;
+  let ultimo: ProductoDetectado | undefined;
 
   for (let i = 0; i < cuerpo.length; i++) {
     const original = cuerpo[i];
@@ -144,7 +162,9 @@ export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
     // OCR a veces pega una letra de código de impuesto ("844.75m").
     let precioFinal: RegExpMatchArray | null = null;
     for (;;) {
-      const precio = resto.match(/(-?)\s*\d[\d.,]*[.,]\d{2}[a-zA-Z]?\s*$/);
+      // Tras el precio puede ir el código de impuesto: pegado ("844.75m") o
+      // separado ("277.44 E", "134.00 I2").
+      const precio = resto.match(/(-?)\s*\d[\d.,]*[.,]\d{2}(?:[a-zA-Z]|\s+[A-Z]\d?)?\s*$/);
       if (!precio || precio.index === undefined) break;
       precioFinal ??= precio;
       resto = resto.slice(0, precio.index).trimEnd();
@@ -154,9 +174,23 @@ export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
     // Sin letras = línea de solo cantidad/códigos: su cantidad es para el
     // próximo producto.
     if (!/[a-záéíóúñ]{3,}/i.test(resto)) {
-      if (cantidad !== undefined) cantidadPendiente = cantidad;
+      if (cantidad !== undefined) {
+        // Según el ticket, la cantidad va ANTES del nombre ("6.000 X 12.49" /
+        // "YOGUR...") o DESPUÉS ("BRAVO CANELA SOBRE" / "4 x 49.00" / "0.00
+        // 196.00 E"). Si lo que sigue son solo precios, es del producto anterior.
+        const siguiente = siguienteContenido(cuerpo, i);
+        if (ultimo && siguiente !== '' && !/[a-záéíóúñ]{3,}/i.test(siguiente)) {
+          ultimo.cantidad = (ultimo.cantidad ?? 1) - 1 + cantidad;
+        } else {
+          cantidadPendiente = cantidad;
+        }
+      }
       continue;
     }
+
+    // Título de sección ("CARNES ROJAS") seguido de su subtotal: no es un
+    // producto.
+    if (!precioFinal && /^sub\s*-?\s*tot/i.test(cuerpo[i + 1] ?? '')) continue;
 
     // El OCR no siempre deja el precio en la misma línea que el nombre (a
     // veces va en columna aparte). Si ya se aisló el cuerpo del ticket
@@ -183,8 +217,10 @@ export function parsearTicket(textoCrudo: string): ProductoDetectado[] {
     const previo = acumulado.get(k);
     if (previo) {
       previo.cantidad = (previo.cantidad ?? 0) + cantidadLinea;
+      ultimo = previo;
     } else {
-      acumulado.set(k, { nombre, cantidad: cantidadLinea, unidad: unidadEnNombre?.[1].toLowerCase() });
+      ultimo = { nombre, cantidad: cantidadLinea, unidad: unidadEnNombre?.[1].toLowerCase() };
+      acumulado.set(k, ultimo);
     }
   }
 

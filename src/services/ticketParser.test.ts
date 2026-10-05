@@ -282,3 +282,68 @@ ${PIE}`;
     expect(nombres).toEqual(['PAN BAGUETTE CON QUESO']);
   });
 });
+
+describe('parsearTicket: factura con secciones y subtotales (Bravo)', () => {
+  const ENCABEZADO = `Ave.Hipica, Zona Oriental
+Res DGII: 02-2009 DEL 02/02/2009
+BRAVO, S.A.
+RNC 101602465
+Res DGII: 23-2009 DEL 06/ABRIL/2009
+COMPROBANTE AUTORIZADO POR DGII
+31/03/2022 06:13:06
+NIF: 1448640000090989
+NCF: B0272811011000000000
+FACTURA PARA CONSUMIDOR FINAL`;
+
+  const CUERPO = `CARNES ROJAS
+Subtotal 277.44
+1.36 x 204.00
+RES MOLIDA SUPERSE 0.00 277.44 E
+COMESTIBLES
+Subtotal 2,387.00
+3 PACK POPCORN ACT 20.44 134.00 I2
+AUNT JEMIMA PANCAK 39.51 259.00 I2
+BRAVO ACEITE OLIVA 34.93 229.00 I2
+BRAVO CANELA SOBRE
+4 x 49.00
+0.00 196.00 E
+BRAVO LECHE EV 315 0.00 324.00 E
+BRAVO LECHE UHT D 7.47 49.00 E
+BRAVO SAL REFINADA
+2 x 99.00
+0.00 198.00 E`;
+
+  const FIN = `TOTAL 2,664.44
+EFECTIVO 3,000.00`;
+
+  const ESPERADOS: Array<[string, number]> = [
+    ['RES MOLIDA SUPERSE', 1.36],
+    ['PACK POPCORN ACT', 3],
+    ['AUNT JEMIMA PANCAK', 1],
+    ['BRAVO ACEITE OLIVA', 1],
+    ['BRAVO CANELA SOBRE', 4],
+    ['BRAVO LECHE EV 315', 1],
+    ['BRAVO LECHE UHT D', 1],
+    ['BRAVO SAL REFINADA', 2],
+  ];
+
+  it('con el encabezado de columnas en un renglón', () => {
+    const productos = parsearTicket(`${ENCABEZADO}\nDESCRIPCION ITBIS VALOR\n${CUERPO}\n${FIN}`);
+
+    expect(productos.map((p) => [p.nombre, p.cantidad])).toEqual(ESPERADOS);
+  });
+
+  it('con las columnas separadas y mal leídas por el OCR ("DESCHIPCION")', () => {
+    const productos = parsearTicket(`${ENCABEZADO}\nITBIS\nVALOR\nDESCHIPCION\n${CUERPO}\n${FIN}`);
+
+    expect(productos.map((p) => [p.nombre, p.cantidad])).toEqual(ESPERADOS);
+  });
+
+  it('no toma títulos de sección ni subtotales por sección como productos ni como fin del ticket', () => {
+    const nombres = parsearTicket(`${ENCABEZADO}\nITBIS\nVALOR\nDESCHIPCION\n${CUERPO}\n${FIN}`).map((p) => p.nombre.toLowerCase());
+
+    for (const basura of ['carnes rojas', 'comestibles', 'subtotal', 'itbis', 'valor', 'deschipcion', 'total', 'efectivo']) {
+      expect(nombres.some((n) => n.includes(basura))).toBe(false);
+    }
+  });
+});
