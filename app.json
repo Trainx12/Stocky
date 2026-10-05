@@ -33,6 +33,13 @@
           "photosPermission": "Stocky necesita acceder a tus fotos para leer tickets y fechas de vencimiento.",
           "cameraPermission": "Stocky necesita la cámara para fotografiar tickets y fechas de vencimiento."
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Stocky necesita el micrófono para cargar productos y fechas de vencimiento por voz.",
+          "recordAudioAndroid": true
+        }
       ]
     ],
     "extra": {

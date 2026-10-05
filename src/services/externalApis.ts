@@ -4,12 +4,11 @@ import { supabase } from '../lib/supabase';
  * Wrappers del cliente hacia las Edge Functions que procesan APIs externas
  * (OCR de tickets, detección de vencimiento por foto, voz a texto).
  *
- * ocr-ticket (OCR.space) y vencimiento-foto (Gemini 2.5 Flash) ya llaman
- * al proveedor real (ver docs/plan-de-testing.md, Sprint 5). voz-a-texto
- * sigue pendiente de evaluación de proveedor (sprint 7).
+ * ocr-ticket (OCR.space), vencimiento-foto y voz-a-texto (Gemini) llaman
+ * al proveedor real (ver docs/plan-de-testing.md, Sprints 5 y 8).
  *
- * Las API keys de estos proveedores (OCR.space, Gemini, Google
- * Speech-to-Text) son secrets de las Edge Functions, nunca del cliente:
+ * Las API keys de estos proveedores (OCR.space, Gemini) son secrets de las
+ * Edge Functions, nunca del cliente:
  * ver .env.example y supabase/functions/*.
  */
 
@@ -77,25 +76,83 @@ export async function reconocerVencimientoDeFoto(
   return data as VencimientoReconocido;
 }
 
-// Qué acción pidió el usuario por voz, y sobre qué producto.
-export interface ComandoDeVozInterpretado {
+// Audio grabado listo para mandar (ver src/lib/grabacion.ts).
+export interface AudioGrabado {
+  base64: string;
+  mimeType: string;
+}
+
+// Lo mínimo de cada producto del hogar que necesita el modelo para saber a
+// cuál se refiere una baja o modificación dicha por voz.
+export interface ProductoParaVoz {
+  id: string;
+  nombre: string;
+  marca: string | null;
+  cantidad: number;
+  unidad: string;
+  fecha_vencimiento: string | null;
+}
+
+// Una acción tal como la interpretó Gemini, todavía sin validar (ver
+// services/voz.ts, que la cruza con el inventario y el catálogo).
+export interface AccionDeVozInterpretada {
   accion: 'alta' | 'baja' | 'modificacion';
-  producto: ProductoReconocido;
+  producto_id?: string | null;
+  nombre: string;
+  marca?: string | null;
+  cantidad?: number | null;
+  unidad?: string | null;
+  operacion_cantidad?: 'fijar' | 'sumar' | 'restar' | null;
+  fecha_vencimiento?: string | null;
+}
+
+// Qué dijo el usuario y qué acciones de ABM se entendieron.
+export interface ComandoDeVozInterpretado {
+  transcripcion: string;
+  acciones: AccionDeVozInterpretada[];
 }
 
 /**
- * RF8 — Audio grabado por el usuario -> comando de ABM de productos ya
- * interpretado (sin persistir todavía: la pantalla que llama a esto es
- * responsable de confirmar y aplicar el cambio sobre `productos`).
+ * RF8 — Audio grabado por el usuario -> comandos de ABM de productos ya
+ * interpretados (sin persistir todavía: la pantalla que llama a esto es
+ * responsable de mostrarlos, dejar confirmarlos y recién ahí aplicarlos).
+ * `hoy` es la fecha local del dispositivo, para resolver "mañana", "el
+ * viernes", etc.
  */
 export async function interpretarComandoDeVoz(
-  _audioBase64: string
+  audio: AudioGrabado,
+  productos: ProductoParaVoz[],
+  hoy: string
 ): Promise<ComandoDeVozInterpretado> {
   const { data, error } = await supabase.functions.invoke('voz-a-texto', {
-    body: { audio: _audioBase64 },
+    body: { audio: audio.base64, mimeType: audio.mimeType, modo: 'comando', productos, hoy },
   });
 
-  if (error) throw error;
-  // TODO (sprint 7): mapear la respuesta real de Google Speech-to-Text + IA.
-  return data as ComandoDeVozInterpretado;
+  if (error) return lanzarErrorDeFuncion(error);
+  return {
+    transcripcion: data?.transcripcion ?? '',
+    acciones: Array.isArray(data?.acciones) ? data.acciones : [],
+  };
+}
+
+// Resultado de dictar una fecha de vencimiento.
+export interface FechaDictada extends VencimientoReconocido {
+  transcripcion: string;
+}
+
+/**
+ * Sprint 8 — fecha de vencimiento dictada por voz para el formulario de
+ * producto. Igual que la foto del envase: solo sugiere, el usuario guarda.
+ */
+export async function reconocerFechaPorVoz(audio: AudioGrabado, hoy: string): Promise<FechaDictada> {
+  const { data, error } = await supabase.functions.invoke('voz-a-texto', {
+    body: { audio: audio.base64, mimeType: audio.mimeType, modo: 'fecha', hoy },
+  });
+
+  if (error) return lanzarErrorDeFuncion(error);
+  return {
+    transcripcion: data?.transcripcion ?? '',
+    fecha_vencimiento: data?.fecha_vencimiento ?? null,
+    confianza: data?.confianza,
+  };
 }

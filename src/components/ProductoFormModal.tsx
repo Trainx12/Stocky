@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
@@ -6,8 +6,11 @@ import { CalendarioPicker } from './CalendarioPicker';
 import { CatalogoSelectorModal } from './CatalogoSelectorModal';
 import { avisar } from '../lib/alert';
 import { obtenerFotoBase64 } from '../lib/fotos';
+import { useGrabadorDeVoz } from '../lib/grabacion';
 import { fechaUtilizable } from '../services/escaneo';
-import { reconocerVencimientoDeFoto } from '../services/externalApis';
+import { reconocerFechaPorVoz, reconocerVencimientoDeFoto } from '../services/externalApis';
+import type { AudioGrabado } from '../services/externalApis';
+import { fechaDeHoy } from '../services/voz';
 import { crearProducto, editarProducto, formatearFechaInput, parsearNumero } from '../services/productos';
 import type { Producto, ProductoCatalogo } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
@@ -64,6 +67,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   const [calendarioVisible, setCalendarioVisible] = useState(false);
   // Leyendo la fecha de una foto del envase (Gemini, ver vencimiento-foto).
   const [leyendoFecha, setLeyendoFecha] = useState(false);
+  // Entendiendo una fecha dictada por voz (Gemini, ver voz-a-texto).
+  const [escuchandoFecha, setEscuchandoFecha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,6 +96,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   }, [visible, producto]);
 
   function handleClose() {
+    grabadorFecha.cancelar();
     setError(null);
     onClose();
   }
@@ -139,6 +145,40 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     } finally {
       setLeyendoFecha(false);
     }
+  }
+
+  // Sprint 8 — fecha dictada por voz: mismo criterio que la foto, solo se
+  // vuelca al campo si es una fecha válida y el modelo está seguro.
+  const procesarFechaDictada = useCallback(async (audio: AudioGrabado) => {
+    setEscuchandoFecha(true);
+    try {
+      const resultado = await reconocerFechaPorVoz(audio, fechaDeHoy());
+      const fecha = fechaUtilizable(resultado);
+      if (fecha) {
+        setFechaVencimiento(fecha);
+        setCalendarioVisible(false);
+      } else {
+        avisar(
+          'No entendimos la fecha',
+          resultado.transcripcion
+            ? `Escuchamos: "${resultado.transcripcion}". Probá decirla de nuevo (por ejemplo "15 de noviembre") o ingresala a mano.`
+            : 'Probá decirla de nuevo (por ejemplo "15 de noviembre") o ingresala a mano.',
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo entender la fecha dictada.');
+    } finally {
+      setEscuchandoFecha(false);
+    }
+  }, []);
+
+  const alFallarGrabacion = useCallback((mensaje: string) => setError(mensaje), []);
+  const grabadorFecha = useGrabadorDeVoz(procesarFechaDictada, alFallarGrabacion);
+
+  function handleVozFecha() {
+    setError(null);
+    if (grabadorFecha.grabando) grabadorFecha.detener();
+    else grabadorFecha.iniciar();
   }
 
   async function handleSubmit() {
@@ -306,7 +346,29 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                   <Ionicons name="camera-outline" size={22} color={colors.primary} />
                 )}
               </Pressable>
+              <Pressable
+                onPress={handleVozFecha}
+                style={styles.calendarioButton}
+                disabled={loading || escuchandoFecha}
+                accessibilityRole="button"
+                accessibilityLabel={grabadorFecha.grabando ? 'Terminar de dictar la fecha' : 'Dictar la fecha de vencimiento por voz'}
+              >
+                {escuchandoFecha ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Ionicons
+                    name={grabadorFecha.grabando ? 'stop-circle' : 'mic-outline'}
+                    size={22}
+                    color={grabadorFecha.grabando ? colors.danger : colors.primary}
+                  />
+                )}
+              </Pressable>
             </View>
+            {grabadorFecha.grabando && (
+              <Text style={styles.grabandoTexto}>
+                Decí la fecha (por ejemplo "15 de noviembre") y tocá de nuevo para terminar · {grabadorFecha.segundos} s
+              </Text>
+            )}
 
             {calendarioVisible && (
               <CalendarioPicker valor={fechaVencimiento || null} onSeleccionar={handleSeleccionarFecha} />
@@ -348,6 +410,10 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
 }
 
 const styles = StyleSheet.create({
+  grabandoTexto: {
+    ...typography.caption,
+    color: colors.danger,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

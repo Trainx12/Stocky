@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
 import { EscanearTicketModal } from '../components/EscanearTicketModal';
+import { ComandoVozModal } from '../components/ComandoVozModal';
 import {
   ajustarCantidadProducto,
   categoriasEnUso,
@@ -32,7 +33,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  * tipeada, y evita mostrar un loader en cada tecla.
  */
 export function ProductosScreen({ route, navigation }: Props) {
-  const { hogarId, hogarNombre, abrirAgregar } = route.params;
+  const { hogarId, hogarNombre, abrirAgregar, abrirVoz } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +43,8 @@ export function ProductosScreen({ route, navigation }: Props) {
   const [formVisible, setFormVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [ticketVisible, setTicketVisible] = useState(false);
+  // RF8: ABM por voz (ver ComandoVozModal).
+  const [vozVisible, setVozVisible] = useState(false);
   // Ids con un ajuste de +/- en vuelo (ver handleAjustarCantidad), para
   // deshabilitar sus botones mientras se resuelve y no disparar dos veces
   // el mismo delta con un doble toque.
@@ -73,6 +76,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   // cierra sin guardar y la pantalla vuelve a renderizar por otro motivo.
   useEffect(() => {
     if (abrirAgregar) handleAgregar();
+    else if (abrirVoz) setVozVisible(true);
   }, []);
 
   // Categorías realmente en uso en ESTE hogar (no una lista fija): se
@@ -179,6 +183,14 @@ export function ProductosScreen({ route, navigation }: Props) {
         <Text style={styles.title} numberOfLines={1}>
           {hogarNombre}
         </Text>
+        <Pressable
+          onPress={() => setVozVisible(true)}
+          style={styles.escanearButton}
+          accessibilityRole="button"
+          accessibilityLabel="Cargar productos por voz"
+        >
+          <Ionicons name="mic-outline" size={22} color={colors.primary} />
+        </Pressable>
         <Pressable
           onPress={() => setTicketVisible(true)}
           style={styles.escanearButton}
@@ -319,9 +331,32 @@ export function ProductosScreen({ route, navigation }: Props) {
         </ScrollView>
       )}
 
+      {/* Voz arriba del "+": es la vía rápida para cargar varias cosas de una
+          ("compré leche, huevos y pan") o cambiar vencimientos sin abrir el
+          formulario. */}
+      <Pressable
+        style={[styles.fab, styles.fabVoz]}
+        onPress={() => setVozVisible(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Cargar productos por voz"
+      >
+        <Ionicons name="mic" size={24} color={colors.primary} />
+      </Pressable>
       <Pressable style={styles.fab} onPress={handleAgregar} accessibilityRole="button" accessibilityLabel="Agregar producto">
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
+
+      <ComandoVozModal
+        visible={vozVisible}
+        hogarId={hogarId}
+        productos={productos}
+        onClose={() => setVozVisible(false)}
+        onSuccess={async (cantidad) => {
+          setVozVisible(false);
+          avisar('Listo', cantidad === 1 ? 'Se aplicó 1 cambio.' : `Se aplicaron ${cantidad} cambios.`);
+          await cargar();
+        }}
+      />
 
       <EscanearTicketModal
         visible={ticketVisible}
@@ -506,5 +541,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+  },
+  fabVoz: {
+    bottom: spacing.lg + 56 + spacing.md,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    right: spacing.lg + 4,
+    backgroundColor: colors.primaryLight,
   },
 });

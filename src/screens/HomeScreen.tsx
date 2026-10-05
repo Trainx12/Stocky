@@ -396,12 +396,17 @@ export function HomeScreen() {
   // uno (RF6), para eso está el selector. "Agregar producto" además le pide
   // a ProductosScreen que abra el modal de carga apenas llega, para no
   // obligar a un segundo toque sobre el FAB.
-  function handleIrAProductos(abrirAgregar: boolean) {
+  function handleIrAProductos(abrirAgregar: boolean, abrirVoz = false) {
     if (!hogarSeleccionado) {
       avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
       return;
     }
-    navigation.navigate('Productos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre, abrirAgregar });
+    navigation.navigate('Productos', {
+      hogarId: hogarSeleccionado.id,
+      hogarNombre: hogarSeleccionado.nombre,
+      abrirAgregar,
+      abrirVoz,
+    });
   }
 
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
@@ -729,6 +734,7 @@ export function HomeScreen() {
             <SectionCard title="Accesos rápidos">
               <View style={styles.quickAccessRow}>
                 <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos(true)} />
+                <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos(false, true)} />
                 <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos(false)} />
                 {/* Primer acceso gateado por rol de la app (ver comentario
                     en AdminSugerenciasScreen): un usuario común ni ve el

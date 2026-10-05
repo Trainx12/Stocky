@@ -95,12 +95,13 @@ const LARGO_MINIMO_COINCIDENCIA = 3;
 //      POLVO SANCOR" -> "Leche en polvo" antes que "Leche"; el más específico).
 //   2. Si no hay ninguno, vale que lo escrito sea parte de un nombre del
 //      catálogo ("PAN" -> "Pan Francés"), prefiriendo el nombre más corto.
-// No intenta ser perfecto: el usuario revisa antes de guardar.
-export function buscarEnCatalogo(nombreDetectado: string, catalogo: ProductoCatalogo[]): ProductoCatalogo | null {
+// No intenta ser perfecto: el usuario revisa antes de guardar. Genérica
+// porque el ABM por voz la usa también contra los productos del hogar.
+export function buscarEnCatalogo<T extends { nombre: string }>(nombreDetectado: string, catalogo: T[]): T | null {
   const detectado = clavesSignificativas(nombreDetectado);
   if (normalizarNombre(nombreDetectado).length < LARGO_MINIMO_COINCIDENCIA || detectado.length === 0) return null;
 
-  let mejor: ProductoCatalogo | null = null;
+  let mejor: T | null = null;
   let mejorPuntaje = 0;
 
   for (const item of catalogo) {
@@ -115,7 +116,7 @@ export function buscarEnCatalogo(nombreDetectado: string, catalogo: ProductoCata
   }
   if (mejor) return mejor;
 
-  let masCorto: ProductoCatalogo | null = null;
+  let masCorto: T | null = null;
   let largoMasCorto = Infinity;
   for (const item of catalogo) {
     const claves = clavesSignificativas(item.nombre);
