@@ -1,9 +1,11 @@
 # Créditos de las fotos del catálogo
 
 Las fotos de `assets/catalogo/` se guardan en el repositorio para que la app no dependa de ningún sitio externo.
-Provienen de [Open Food Facts](https://world.openfoodfacts.org) (fotos de productos, licencia CC BY-SA 3.0) y de
-[Wikimedia Commons](https://commons.wikimedia.org) (cada archivo con su licencia y autor). Si se reutilizan fuera de la app,
-hay que respetar esas licencias (atribución y, en los CC BY-SA, compartir igual).
+Provienen de [Open Food Facts](https://world.openfoodfacts.org) (fotos de productos, licencia CC BY-SA 3.0), de
+[Wikimedia Commons](https://commons.wikimedia.org) (cada archivo con su licencia y autor) y de fotos aportadas por el equipo.
+Si se reutilizan fuera de la app hay que respetar esas licencias (atribución y, en los CC BY-SA, compartir igual).
+
+Esta tabla se genera con `node scripts/generar-imagenes-catalogo.mjs` a partir de `creditos.json`.
 
 | Producto | Archivo | Fuente | Autor | Licencia | Enlace |
 |---|---|---|---|---|---|
@@ -12,17 +14,17 @@ hay que respetar esas licencias (atribución y, en los CC BY-SA, compartir igual
 | Aceite de Oliva | aceite-de-oliva.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7792180005182 |
 | Aceitunas | aceitunas.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798080521722 |
 | Acelga | acelga.jpg | Wikimedia Commons | Grendelkhan | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Rainbow_chard_for_sale_at_the_Campbell_farmers_market.jpg |
-| Agua con Gas | agua-con-gas.jpg | Wikimedia Commons | Jabbyjobber | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:San_Pellegrino_bottle_for_sparkling_water_.jpg |
+| Agua con Gas | agua-con-gas.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Agua Mineral | agua-mineral.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/031/500/0446/front_es.8.400.jpg |
 | Agua Saborizada | agua-saborizada.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790639002478 |
-| Ajo | ajo.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/840/200/102/7550/front_es.8.400.jpg |
 | Ají Molido | aji-molido.jpg | Wikimedia Commons | Takeaway | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Chilli_flakes.jpg |
+| Ajo | ajo.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/840/200/102/7550/front_es.8.400.jpg |
 | Alfajor | alfajor.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/000/007/797/6307/front_es.22.400.jpg |
 | Ananá | anana.jpg | Wikimedia Commons | Wilfredor | CC0 | https://commons.wikimedia.org/wiki/File:Pineapple_fruit_2.jpg |
 | Apio | apio.jpg | Wikimedia Commons | Chuck Spidell | CC BY 3.0 | https://commons.wikimedia.org/wiki/File:Celery_(177029685).jpeg |
+| Arándanos | arandanos.jpg | Wikimedia Commons | Petar Milošević | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Dish_of_blueberries.jpg |
 | Arroz | arroz.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/050/319/9099/front_fr.9.400.jpg |
 | Arvejas | arvejas.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7792290279206 |
-| Arándanos | arandanos.jpg | Wikimedia Commons | Petar Milošević | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Dish_of_blueberries.jpg |
 | Avena | avena.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/019/960/4587/front_es.9.400.jpg |
 | Azúcar | azucar.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/817/497/0016/front_fr.3.400.jpg |
 | Banana | banana.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/356/470/714/1710/front_en.46.400.jpg |
@@ -32,7 +34,7 @@ hay que respetar esas licencias (atribución y, en los CC BY-SA, compartir igual
 | Bizcochos | bizcochos.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7791720037003 |
 | Brócoli | brocoli.jpg | Wikimedia Commons | Fir0002 | GFDL 1.2 | https://commons.wikimedia.org/wiki/File:Broccoli_and_cross_section_edit.jpg |
 | Cacao en Polvo | cacao-en-polvo.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7793323004802 |
-| Café | cafe.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/007/093/6479/front_en.3.400.jpg |
+| Café | cafe.jpg | Wikimedia Commons | Alorin | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Coarsely_grounded_coffee_beans_in_white_bowl_with_intact_roasted_bean.png |
 | Café Instantáneo | cafe-instantaneo.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/015/015/0252/front_es.3.400.jpg |
 | Caldo en Cubos | caldo-en-cubos.jpg | Wikimedia Commons | Rainer Z ... | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Br%C3%BChw%C3%BCrfel-1.jpg |
 | Canela | canela.jpg | Wikimedia Commons | Luc Viatour | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Canelle_Cinnamomum_burmanni_Luc_Viatour.jpg |
@@ -96,11 +98,11 @@ hay que respetar esas licencias (atribución y, en los CC BY-SA, compartir igual
 | Limón | limon.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/841/419/613/2360/front_es.52.400.jpg |
 | Maicena | maicena.jpg | Wikimedia Commons | Picasa author kalaya | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Cornstarch_mixed_with_water.jpg |
 | Mandarina | mandarina.jpg | Wikimedia Commons | Joe Ravi | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Mandarin_Oranges_(Citrus_Reticulata).jpg |
+| Maní | mani.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/815/195/3360/front_es.4.400.jpg |
 | Manteca | manteca.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/394/005/4006/front_es.42.400.jpg |
 | Mantecol | mantecol.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7622201816414 |
 | Manzana | manzana.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/826/202/0036/front_es.3.400.jpg |
 | Manzanilla | manzanilla.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/015/033/0135/front_es.9.400.jpg |
-| Maní | mani.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/815/195/3360/front_es.4.400.jpg |
 | Mate Cocido | mate-cocido.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/038/700/0849/front_es.5.400.jpg |
 | Mayonesa | mayonesa.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/400/000/6065/front_es.22.400.jpg |
 | Medialunas | medialunas.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/325/654/000/0339/front_en.66.400.jpg |
@@ -110,6 +112,7 @@ hay que respetar esas licencias (atribución y, en los CC BY-SA, compartir igual
 | Miel | miel.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/8480000154361 |
 | Mostaza | mostaza.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/400/000/6485/front_es.34.400.jpg |
 | Naranja | naranja.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/811/330/1772/front_es.4.400.jpg |
+| Ñoquis Secos | noquis-secos.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7792180006769 |
 | Orégano | oregano.jpg | Wikimedia Commons | Revital Salomon | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Dried_Oregano.JPG |
 | Palitos Salados | palitos-salados.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/8480017047687 |
 | Palta | palta.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/000/002/022/9030/front_en.71.400.jpg |
@@ -138,6 +141,7 @@ derivative work: — raeky | CC BY-SA 2.5 | https://commons.wikimedia.org/wiki/
 | Porotos | porotos.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798048720150 |
 | Postre Lácteo | postre-lacteo.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7791337002005 |
 | Premezcla para Bizcochuelo | premezcla-para-bizcochuelo.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790070432964 |
+| Premezcla para Panqueques | premezcla-para-panqueques.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Prepizza | prepizza.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798273190254 |
 | Puerro | puerro.jpg | Wikimedia Commons | Amada44 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Leek_on_white_background_-_0947.jpg |
 | Puré de Tomate | pure-de-tomate.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/079/001/9063/front_es.3.400.jpg |
@@ -150,6 +154,7 @@ derivative work: — raeky | CC BY-SA 2.5 | https://commons.wikimedia.org/wiki/
 | Remolacha | remolacha.jpg | Wikimedia Commons | Quadell | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Beets_produce-1.jpg |
 | Repollo | repollo.jpg | Wikimedia Commons | Deborah Tjituka | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Cabbage_heads.jpg |
 | Ricota | ricota.jpg | Wikimedia Commons | Paoletta S. | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Ricotta.jpeg |
+| Rúcula | rucula.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Sal | sal.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/007/200/1014/front_es.27.400.jpg |
 | Salsa de Soja | salsa-de-soja.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790127789447 |
 | Salsa de Tomate | salsa-de-tomate.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7794000598881 |
@@ -160,12 +165,12 @@ derivative work: — raeky | CC BY-SA 2.5 | https://commons.wikimedia.org/wiki/
 | Sopa Instantánea | sopa-instantanea.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7794000598539 |
 | Tapas de Empanadas | tapas-de-empanadas.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798158705429 |
 | Tapas de Tarta | tapas-de-tarta.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790236001270 |
+| Té | te.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/015/036/0200/front_en.6.400.jpg |
+| Té Verde | te-verde.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790150355084 |
 | Tomate | tomate.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/058/056/7903/front_es.4.400.jpg |
 | Tomate Triturado | tomate-triturado.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798011770021 |
 | Tostadas | tostadas.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/007/662/521/2074/front_es.11.400.jpg |
 | Turrón | turron.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/842/169/100/6393/front_es.20.400.jpg |
-| Té | te.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/015/036/0200/front_en.6.400.jpg |
-| Té Verde | te-verde.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790150355084 |
 | Uva | uva.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/843/701/378/3880/front_es.3.400.jpg |
 | Vainillas | vainillas.jpg | Wikimedia Commons | Papouten | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Bizcochos_de_soletilla.jpg |
 | Vinagre | vinagre.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/013/000/0058/front_es.6.400.jpg |
@@ -175,5 +180,5 @@ derivative work: — raeky | CC BY-SA 2.5 | https://commons.wikimedia.org/wiki/
 | Yogur | yogur.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/391/301/3993/front_en.26.400.jpg |
 | Yogur Bebible | yogur-bebible.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790742662026 |
 | Zanahoria | zanahoria.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/325/039/047/3275/front_fr.74.400.jpg |
+| Zapallito | zapallito.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Zapallo | zapallo.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/859/516/014/4845/front_en.3.400.jpg |
-| Ñoquis Secos | noquis-secos.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7792180006769 |

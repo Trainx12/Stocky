@@ -135,6 +135,7 @@ export const IMAGENES_LOCALES: Record<string, ImageSourcePropType> = {
   'porotos': require('../../assets/catalogo/porotos.jpg'),
   'postre-lacteo': require('../../assets/catalogo/postre-lacteo.jpg'),
   'premezcla-para-bizcochuelo': require('../../assets/catalogo/premezcla-para-bizcochuelo.jpg'),
+  'premezcla-para-panqueques': require('../../assets/catalogo/premezcla-para-panqueques.jpg'),
   'prepizza': require('../../assets/catalogo/prepizza.jpg'),
   'puerro': require('../../assets/catalogo/puerro.jpg'),
   'pure-de-tomate': require('../../assets/catalogo/pure-de-tomate.jpg'),
@@ -147,6 +148,7 @@ export const IMAGENES_LOCALES: Record<string, ImageSourcePropType> = {
   'remolacha': require('../../assets/catalogo/remolacha.jpg'),
   'repollo': require('../../assets/catalogo/repollo.jpg'),
   'ricota': require('../../assets/catalogo/ricota.jpg'),
+  'rucula': require('../../assets/catalogo/rucula.jpg'),
   'sal': require('../../assets/catalogo/sal.jpg'),
   'salsa-de-soja': require('../../assets/catalogo/salsa-de-soja.jpg'),
   'salsa-de-tomate': require('../../assets/catalogo/salsa-de-tomate.jpg'),
@@ -172,5 +174,6 @@ export const IMAGENES_LOCALES: Record<string, ImageSourcePropType> = {
   'yogur-bebible': require('../../assets/catalogo/yogur-bebible.jpg'),
   'yogur': require('../../assets/catalogo/yogur.jpg'),
   'zanahoria': require('../../assets/catalogo/zanahoria.jpg'),
+  'zapallito': require('../../assets/catalogo/zapallito.jpg'),
   'zapallo': require('../../assets/catalogo/zapallo.jpg'),
 };

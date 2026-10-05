@@ -223,7 +223,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                   >
                     <View style={styles.itemFoto}>
                       {imagenDeCatalogo(item) ? (
-                        <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="cover" />
+                        <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="contain" />
                       ) : (
                         <Ionicons name="basket-outline" size={28} color={colors.primary} />
                       )}
@@ -336,11 +336,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
   },
+  // "contain" (no "cover"): el producto tiene que verse ENTERO. Con "cover" una
+  // botella alta quedaba recortada al medio y no se reconocía.
   itemFoto: {
-    width: 56,
-    height: 56,
+    width: 64,
+    height: 64,
     borderRadius: radius.md,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
