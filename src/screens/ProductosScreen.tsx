@@ -570,21 +570,24 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 11,
   },
-  // El producto que engloba a sus lotes va en un recuadro con borde suave,
-  // para que se lea como una sola cosa separada del resto de la lista.
   grupo: {
-    marginVertical: spacing.xs,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
     gap: spacing.xs,
   },
+  // Solo el producto que engloba a los lotes lleva un borde suave, para
+  // distinguirlo de los lotes que tiene abajo.
   grupoEncabezado: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    borderRadius: radius.md,
   },
   grupoTotal: {
     ...typography.bodyMedium,
