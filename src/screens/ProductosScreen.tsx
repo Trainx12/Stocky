@@ -329,56 +329,44 @@ export function ProductosScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
-          {grupos.map((grupo) =>
-            grupo.lotes.length === 1 ? (
-              <View key={grupo.clave} style={styles.productoRow}>
+          {/* Todos los productos con el mismo formato: arriba el producto con
+              su total, abajo cada lote (marca y vencimiento). Con varios lotes
+              queda un solo "Manzana" en vez de filas sueltas (ver
+              agruparProductos en services/productos.ts). */}
+          {grupos.map((grupo) => (
+            <View key={grupo.clave} style={styles.grupo}>
+              <View style={styles.grupoEncabezado}>
                 <View style={styles.productoInfo}>
-                  <Text style={styles.productoNombre} numberOfLines={1}>
-                    {nombreConMarca(grupo.lotes[0])}
+                  <Text style={styles.grupoNombre} numberOfLines={1}>
+                    {grupo.nombre}
                   </Text>
-                  <View style={styles.categoriaRow}>
-                    {grupo.categoria ? <Text style={styles.productoCategoria}>{grupo.categoria}</Text> : <View />}
-                    {renderStepper(grupo.lotes[0])}
-                  </View>
-                  <Text style={styles.productoDetalle}>{detalleLote(grupo.lotes[0])}</Text>
-                  {renderBadgeVencimiento(grupo.lotes[0])}
-                </View>
-                {renderAcciones(grupo.lotes[0])}
-              </View>
-            ) : (
-              // Mismo producto con distintas marcas o vencimientos: un solo
-              // "Manzana" con el total, y adentro cada lote identificado por
-              // marca y fecha (ver agruparProductos en services/productos.ts).
-              <View key={grupo.clave} style={styles.grupo}>
-                <View style={styles.grupoEncabezado}>
-                  <View style={styles.productoInfo}>
-                    <Text style={styles.grupoNombre} numberOfLines={1}>
-                      {grupo.nombre}
-                    </Text>
+                  {(grupo.categoria || grupo.lotes.length > 1) && (
                     <Text style={styles.grupoDetalle}>
-                      {[grupo.categoria, `${grupo.lotes.length} lotes`].filter(Boolean).join(' · ')}
+                      {[grupo.categoria, grupo.lotes.length > 1 ? `${grupo.lotes.length} lotes` : null]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </Text>
-                  </View>
-                  <Text style={styles.grupoTotal}>
-                    {grupo.cantidadTotal} {grupo.unidad}
-                  </Text>
+                  )}
                 </View>
-                {grupo.lotes.map((lote, indice) => (
-                  <View key={lote.id} style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
-                    <View style={styles.productoInfo}>
-                      <Text style={styles.loteMarca} numberOfLines={1}>
-                        {lote.marca ?? 'Sin marca'}
-                      </Text>
-                      <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
-                      {renderBadgeVencimiento(lote)}
-                    </View>
-                    {renderStepper(lote)}
-                    {renderAcciones(lote)}
-                  </View>
-                ))}
+                <Text style={styles.grupoTotal}>
+                  {grupo.cantidadTotal} {grupo.unidad}
+                </Text>
               </View>
-            ),
-          )}
+              {grupo.lotes.map((lote, indice) => (
+                <View key={lote.id} style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
+                  <View style={styles.productoInfo}>
+                    <Text style={styles.loteMarca} numberOfLines={1}>
+                      {lote.marca ?? 'Sin marca'}
+                    </Text>
+                    <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
+                    {renderBadgeVencimiento(lote)}
+                  </View>
+                  {renderStepper(lote)}
+                  {renderAcciones(lote)}
+                </View>
+              ))}
+            </View>
+          ))}
         </ScrollView>
       )}
 
@@ -513,33 +501,11 @@ const styles = StyleSheet.create({
   lista: {
     flex: 1,
   },
-  productoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
   productoInfo: {
     flexShrink: 1,
     gap: 2,
   },
-  productoNombre: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-  },
   productoDetalle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  categoriaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  productoCategoria: {
     ...typography.caption,
     color: colors.textSecondary,
   },
@@ -570,12 +536,11 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 11,
   },
-  // Recuadro con el borde violeta de la app que encierra al producto y sus
-  // lotes: arriba una franja violeta clara con el producto general, abajo
-  // cada lote separado por una línea.
+  // Cada producto es una tarjeta con el borde violeta de la app: arriba una
+  // franja violeta clara con el producto y su total, abajo sus lotes.
   grupo: {
     marginVertical: spacing.xs,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: radius.md,
     overflow: 'hidden',
@@ -588,7 +553,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: colors.primaryLight,
-    borderBottomWidth: 1.5,
+    borderBottomWidth: 1,
     borderBottomColor: colors.primary,
   },
   grupoNombre: {
