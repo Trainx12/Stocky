@@ -22,7 +22,7 @@ import {
 } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, fontFamily, fontSize, radius, spacing, typography } from '../theme';
 import type { AppStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
@@ -352,7 +352,7 @@ export function ProductosScreen({ route, navigation }: Props) {
               <View key={grupo.clave} style={styles.grupo}>
                 <View style={styles.grupoEncabezado}>
                   <View style={styles.productoInfo}>
-                    <Text style={styles.productoNombre} numberOfLines={1}>
+                    <Text style={styles.grupoNombre} numberOfLines={1}>
                       {grupo.nombre}
                     </Text>
                     <Text style={styles.productoCategoria}>
@@ -582,8 +582,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
+  // El producto que engloba a los lotes va en negrita y un poco más grande,
+  // para que se lea como el título de lo que tiene abajo.
+  grupoNombre: {
+    ...typography.bodyMedium,
+    fontFamily: fontFamily.bodyBold,
+    fontSize: fontSize.lg,
+    color: colors.textPrimary,
+  },
   grupoTotal: {
     ...typography.bodyMedium,
+    fontFamily: fontFamily.bodyBold,
     color: colors.textPrimary,
   },
   // Cada lote del grupo, con sangría y una barra a la izquierda para que se
