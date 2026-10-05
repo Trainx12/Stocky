@@ -34,6 +34,9 @@ confianza baja. Nunca inventes una fecha.`;
 // GEMINI_MODEL (lista separada por comas, ej: "gemini-3.8-flash,gemini-3.5-flash").
 const MODELOS_POR_DEFECTO = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 const ESTADOS_REINTENTABLES = [404, 429, 500, 503];
+// Tiempo máximo por intento: un modelo lento o saturado no puede colgar la
+// pantalla (en pruebas llegó a tardar ~80 s en un modelo de respaldo).
+const TIMEOUT_POR_INTENTO_MS = 15_000;
 
 class ErrorGemini extends Error {
   constructor(public estado: number, detalle: string) {
@@ -41,11 +44,17 @@ class ErrorGemini extends Error {
   }
 }
 
-async function consultarGemini(modelo: string, imagenBase64: string, apiKey: string): Promise<ResultadoVencimiento> {
+async function consultarGemini(
+  modelo: string,
+  imagenBase64: string,
+  apiKey: string,
+  pensamientoMinimo: boolean
+): Promise<ResultadoVencimiento> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
 
   const respuesta = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(TIMEOUT_POR_INTENTO_MS),
     // La key va en header (no en la URL): así no queda en ningún log y
     // funciona con todos los formatos de key de AI Studio.
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -59,6 +68,9 @@ async function consultarGemini(modelo: string, imagenBase64: string, apiKey: str
         },
       ],
       generationConfig: {
+        // Leer una fecha no necesita razonar: con el nivel por defecto
+        // ("medium") los modelos 3.x tardaban decenas de segundos.
+        ...(pensamientoMinimo ? { thinkingConfig: { thinkingLevel: 'minimal' } } : {}),
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
@@ -89,25 +101,32 @@ async function consultarGemini(modelo: string, imagenBase64: string, apiKey: str
   };
 }
 
-const esperar = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms));
-
 async function detectarVencimientoConGemini(imagenBase64: string, apiKey: string): Promise<ResultadoVencimiento> {
   const configurados = (Deno.env.get('GEMINI_MODEL') ?? '').split(',').map((m) => m.trim()).filter(Boolean);
   const modelos = configurados.length > 0 ? configurados : MODELOS_POR_DEFECTO;
 
   let ultimoError: unknown = new Error('No hay modelos configurados.');
   for (const modelo of modelos) {
-    // Un reintento corto por modelo: los 503 suelen ser picos de segundos.
-    for (let intento = 0; intento < 2; intento++) {
+    try {
       try {
-        return await consultarGemini(modelo, imagenBase64, apiKey);
+        return await consultarGemini(modelo, imagenBase64, apiKey, true);
       } catch (error) {
-        ultimoError = error;
-        console.error(`[vencimiento-foto] ${modelo} (intento ${intento + 1}):`, error instanceof Error ? error.message : error);
-        if (!(error instanceof ErrorGemini) || !ESTADOS_REINTENTABLES.includes(error.estado)) throw error;
-        if (error.estado !== 503) break; // 404/429/500: no tiene sentido reintentar el mismo modelo
-        await esperar(1000);
+        // Si el modelo no acepta el nivel de pensamiento (400), se prueba el
+        // mismo modelo con su configuración por defecto.
+        if (error instanceof ErrorGemini && error.estado === 400) {
+          return await consultarGemini(modelo, imagenBase64, apiKey, false);
+        }
+        throw error;
       }
+    } catch (error) {
+      ultimoError = error;
+      console.error(`[vencimiento-foto] ${modelo}:`, error instanceof Error ? error.message : error);
+      const esTimeout = error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError');
+      const esReintentable = error instanceof ErrorGemini && ESTADOS_REINTENTABLES.includes(error.estado);
+      // Saturado, sin cuota, retirado o lento: no se insiste con el mismo
+      // modelo (un 503 ya tarda varios segundos en responder), se pasa al
+      // siguiente. Cualquier otro error es real y se corta acá.
+      if (!esTimeout && !esReintentable) throw error;
     }
   }
   throw ultimoError;
