@@ -155,18 +155,28 @@ describe('armarAccionesDeVoz: baja y modificación', () => {
     expect(accion).toMatchObject({ cantidad: '3', fecha: '2026-12-01' });
   });
 
-  it('varios productos posibles: deja elegir y no aplica hasta elegir', () => {
+  it('varios lotes y "usé": descuenta del que vence primero, se puede cambiar', () => {
     const otraLeche = producto('p-leche-2', 'Leche', { marca: 'Sancor', cantidad: 1 });
     const [accion] = armar(
       [{ accion: 'modificacion', nombre: 'Leche', cantidad: 1, operacion_cantidad: 'restar' }],
-      [leche, otraLeche],
+      [otraLeche, leche],
     );
-    expect(accion.opciones.map((p) => p.id)).toEqual(['p-leche', 'p-leche-2']);
-    expect(accionAplicable(accion)).toBe(false);
+    expect(accion.producto?.id).toBe('p-leche');
+    expect(accion.cantidad).toBe('2');
+    expect(accion.opciones.map((p) => p.id)).toEqual(['p-leche-2', 'p-leche']);
+    expect(accionAplicable(accion)).toBe(true);
 
     const elegida = elegirProducto(accion, otraLeche);
     expect(elegida).toMatchObject({ cantidad: '0', marca: 'Sancor', incluir: true });
-    expect(accionAplicable(elegida)).toBe(true);
+  });
+
+  it('varios lotes y una baja: deja elegir y no aplica hasta elegir', () => {
+    const otraLeche = producto('p-leche-2', 'Leche', { marca: 'Sancor' });
+    const [accion] = armar([{ accion: 'baja', nombre: 'Leche' }], [leche, otraLeche]);
+    expect(accion.producto).toBeNull();
+    expect(accion.opciones).toHaveLength(2);
+    expect(accionAplicable(accion)).toBe(false);
+    expect(accionAplicable(elegirProducto(accion, otraLeche))).toBe(true);
   });
 
   it('si dijo la marca, desempata por marca', () => {

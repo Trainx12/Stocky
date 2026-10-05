@@ -7,12 +7,14 @@ import { ProductoFormModal } from '../components/ProductoFormModal';
 import { EscanearTicketModal } from '../components/EscanearTicketModal';
 import { ComandoVozModal } from '../components/ComandoVozModal';
 import {
+  agruparProductos,
   ajustarCantidadProducto,
   categoriasEnUso,
   eliminarProducto,
   estadoVencimiento,
   etiquetaVencimiento,
   filtrarProductos,
+  formatearFechaCorta,
   eliminarProductosAgotados,
   listarProductos,
   nombreConMarca,
@@ -92,6 +94,10 @@ export function ProductosScreen({ route, navigation }: Props) {
     [productos, busqueda, categoriaSeleccionada],
   );
 
+  // Lo que se ve en la lista: las filas del mismo producto (distinta marca o
+  // vencimiento) juntas bajo un solo nombre.
+  const grupos = useMemo(() => agruparProductos(productosFiltrados), [productosFiltrados]);
+
   // Agotados sin stock mínimo: se pueden limpiar de una (los que tienen
   // mínimo se dejan, ese 0 es la señal de "hay que reponer").
   const agotados = useMemo(() => productosAgotadosLimpiables(productos), [productos]);
@@ -163,7 +169,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   // confirmar()/avisar() de src/lib/alert.ts en vez de Alert.alert directo,
   // que en react-native-web es un no-op (ver docs/incidentes-sprint3.md).
   async function handleEliminar(producto: Producto) {
-    const confirmado = await confirmar('Eliminar producto', `¿Seguro que querés eliminar "${producto.nombre}"?`, 'Eliminar');
+    const confirmado = await confirmar('Eliminar producto', `¿Seguro que querés eliminar "${nombreConMarca(producto)}"?`, 'Eliminar');
     if (!confirmado) return;
 
     try {
@@ -172,6 +178,79 @@ export function ProductosScreen({ route, navigation }: Props) {
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo eliminar el producto.');
     }
+  }
+
+  // "3 unidad · vence 07/10/2026": la fecha siempre a la vista, así dos lotes
+  // del mismo producto se distinguen sin abrirlos.
+  function detalleLote(producto: Producto): string {
+    const vence = producto.fecha_vencimiento ? ` · vence ${formatearFechaCorta(producto.fecha_vencimiento)}` : '';
+    return `${producto.cantidad} ${producto.unidad}${vence}`;
+  }
+
+  // RF2/RF3: badge de vencimiento (null = sin fecha, o alerta deshabilitada a
+  // propósito -- ver estadoVencimiento).
+  function renderBadgeVencimiento(producto: Producto) {
+    const etiqueta = etiquetaVencimiento(producto);
+    if (!etiqueta) return null;
+    return (
+      <View style={[styles.vencimientoBadge, estadoVencimiento(producto) === 'vencido' && styles.vencimientoBadgeVencido]}>
+        <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
+      </View>
+    );
+  }
+
+  // +/- rápido sin abrir el formulario completo (ver ajustarCantidadProducto
+  // en services/productos.ts). El "-" se deshabilita en 0: no tiene sentido
+  // restar más (el backend ya lo frena con greatest(...,0), esto solo evita
+  // el toque de más).
+  function renderStepper(producto: Producto) {
+    const descripcion = nombreConMarca(producto);
+    return (
+      <View style={styles.stepperGrupo}>
+        <Pressable
+          onPress={() => handleAjustarCantidad(producto, -1)}
+          disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
+          style={styles.stepperButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Restar 1 a ${descripcion}`}
+        >
+          <Ionicons name="remove-circle-outline" size={30} color={producto.cantidad <= 0 ? colors.border : colors.danger} />
+        </Pressable>
+        <Pressable
+          onPress={() => handleAjustarCantidad(producto, 1)}
+          disabled={ajustandoIds.has(producto.id)}
+          style={styles.stepperButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Sumar 1 a ${descripcion}`}
+        >
+          <Ionicons name="add-circle-outline" size={30} color={colors.success} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  function renderAcciones(producto: Producto) {
+    const descripcion = nombreConMarca(producto);
+    return (
+      <View style={styles.productoAcciones}>
+        <Pressable
+          onPress={() => handleEditar(producto)}
+          style={styles.accionButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Editar ${descripcion}`}
+        >
+          <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
+        </Pressable>
+        <Pressable
+          onPress={() => handleEliminar(producto)}
+          style={styles.accionButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Eliminar ${descripcion}`}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -250,84 +329,56 @@ export function ProductosScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
-          {productosFiltrados.map((producto) => {
-            // RF2/RF3: badge de vencimiento (null = sin fecha, o alerta
-            // deshabilitada a propósito -- ver estadoVencimiento).
-            const estado = estadoVencimiento(producto);
-            const etiqueta = etiquetaVencimiento(producto);
-            return (
-            <View key={producto.id} style={styles.productoRow}>
-              <View style={styles.productoInfo}>
-                <Text style={styles.productoNombre} numberOfLines={1}>
-                  {nombreConMarca(producto)}
-                </Text>
-                <View style={styles.categoriaRow}>
-                  {producto.categoria ? (
-                    <Text style={styles.productoCategoria}>{producto.categoria}</Text>
-                  ) : (
-                    <View />
-                  )}
-                  {/* +/- rápido sin abrir el formulario completo (ver
-                      ajustarCantidadProducto en services/productos.ts), al
-                      lado de la categoría en vez de la cantidad. El "-" se
-                      deshabilita en 0: no tiene sentido restar más (el
-                      backend ya lo frena con greatest(...,0), esto solo
-                      evita el toque de más). */}
-                  <View style={styles.stepperGrupo}>
-                    <Pressable
-                      onPress={() => handleAjustarCantidad(producto, -1)}
-                      disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
-                      style={styles.stepperButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Restar 1 a ${producto.nombre}`}
-                    >
-                      <Ionicons
-                        name="remove-circle-outline"
-                        size={30}
-                        color={producto.cantidad <= 0 ? colors.border : colors.danger}
-                      />
-                    </Pressable>
-                    <Pressable
-                      onPress={() => handleAjustarCantidad(producto, 1)}
-                      disabled={ajustandoIds.has(producto.id)}
-                      style={styles.stepperButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Sumar 1 a ${producto.nombre}`}
-                    >
-                      <Ionicons name="add-circle-outline" size={30} color={colors.success} />
-                    </Pressable>
+          {grupos.map((grupo) =>
+            grupo.lotes.length === 1 ? (
+              <View key={grupo.clave} style={styles.productoRow}>
+                <View style={styles.productoInfo}>
+                  <Text style={styles.productoNombre} numberOfLines={1}>
+                    {nombreConMarca(grupo.lotes[0])}
+                  </Text>
+                  <View style={styles.categoriaRow}>
+                    {grupo.categoria ? <Text style={styles.productoCategoria}>{grupo.categoria}</Text> : <View />}
+                    {renderStepper(grupo.lotes[0])}
                   </View>
+                  <Text style={styles.productoDetalle}>{detalleLote(grupo.lotes[0])}</Text>
+                  {renderBadgeVencimiento(grupo.lotes[0])}
                 </View>
-                <Text style={styles.productoDetalle}>
-                  {producto.cantidad} {producto.unidad}
-                </Text>
-                {etiqueta && (
-                  <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
-                    <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
+                {renderAcciones(grupo.lotes[0])}
+              </View>
+            ) : (
+              // Mismo producto con distintas marcas o vencimientos: un solo
+              // "Manzana" con el total, y adentro cada lote identificado por
+              // marca y fecha (ver agruparProductos en services/productos.ts).
+              <View key={grupo.clave} style={styles.grupo}>
+                <View style={styles.grupoEncabezado}>
+                  <View style={styles.productoInfo}>
+                    <Text style={styles.productoNombre} numberOfLines={1}>
+                      {grupo.nombre}
+                    </Text>
+                    <Text style={styles.productoCategoria}>
+                      {[grupo.categoria, `${grupo.lotes.length} lotes`].filter(Boolean).join(' · ')}
+                    </Text>
                   </View>
-                )}
+                  <Text style={styles.grupoTotal}>
+                    {grupo.cantidadTotal} {grupo.unidad}
+                  </Text>
+                </View>
+                {grupo.lotes.map((lote) => (
+                  <View key={lote.id} style={styles.loteRow}>
+                    <View style={styles.productoInfo}>
+                      <Text style={styles.loteMarca} numberOfLines={1}>
+                        {lote.marca ?? 'Sin marca'}
+                      </Text>
+                      <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
+                      {renderBadgeVencimiento(lote)}
+                    </View>
+                    {renderStepper(lote)}
+                    {renderAcciones(lote)}
+                  </View>
+                ))}
               </View>
-              <View style={styles.productoAcciones}>
-                <Pressable
-                  onPress={() => handleEditar(producto)}
-                  style={styles.accionButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Editar ${producto.nombre}`}
-                >
-                  <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
-                </Pressable>
-                <Pressable
-                  onPress={() => handleEliminar(producto)}
-                  style={styles.accionButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Eliminar ${producto.nombre}`}
-                >
-                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                </Pressable>
-              </View>
-            </View>
-            );
-          })}
+            ),
+          )}
         </ScrollView>
       )}
 
@@ -518,6 +569,38 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.white,
     fontSize: 11,
+  },
+  grupo: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.xs,
+  },
+  grupoEncabezado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  grupoTotal: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  // Cada lote del grupo, con sangría y una barra a la izquierda para que se
+  // lea como "parte de" el producto de arriba.
+  loteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+    marginLeft: spacing.sm,
+    paddingLeft: spacing.sm,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.primaryLight,
+  },
+  loteMarca: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   productoAcciones: {
     flexDirection: 'row',

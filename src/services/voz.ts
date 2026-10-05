@@ -1,7 +1,14 @@
 import type { Producto, ProductoCatalogo, UnidadProducto } from '../types/database';
 import { buscarEnCatalogo, fechaDetectadaValida, normalizarNombre, UNIDADES_DISPONIBLES } from './escaneo';
 import type { AccionDeVozInterpretada, ComandoDeVozInterpretado, ProductoParaVoz } from './externalApis';
-import { crearProducto, editarProducto, eliminarProducto, formatearFechaISO, parsearNumero } from './productos';
+import {
+  crearProducto,
+  editarProducto,
+  eliminarProducto,
+  formatearFechaISO,
+  ordenarLotes,
+  parsearNumero,
+} from './productos';
 
 /**
  * RF8 (Sprints 7/8) — ABM de productos por voz. Gemini devuelve qué entendió
@@ -179,6 +186,17 @@ function armarAccion(interpretada: AccionDeVozInterpretada, indice: number, prod
     return { ...elegirProducto(base, encontrados[0]), aviso: avisoFecha };
   }
   if (encontrados.length > 1) {
+    // "Usé 2 manzanas" con varios lotes: se consume primero lo que vence
+    // antes (lo lógico en una despensa). Se dejan las opciones por si era otro.
+    if (interpretada.accion === 'modificacion' && base.operacionCantidad === 'restar') {
+      const [primero] = ordenarLotes(encontrados);
+      return {
+        ...elegirProducto({ ...base, opciones: encontrados }, primero),
+        aviso: primero.fecha_vencimiento
+          ? `Hay ${encontrados.length} lotes: descontamos del que vence primero. Podés elegir otro.`
+          : `Hay ${encontrados.length} lotes: elegimos uno, podés cambiarlo.`,
+      };
+    }
     return {
       ...base,
       opciones: encontrados,

@@ -6,7 +6,7 @@ import { SEGUNDOS_MAXIMOS, useGrabadorDeVoz } from '../lib/grabacion';
 import { listarCatalogoAprobado } from '../services/catalogo';
 import { interpretarComandoDeVoz } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
-import { formatearFechaInput, nombreConMarca } from '../services/productos';
+import { formatearFechaCorta, formatearFechaInput, nombreConMarca } from '../services/productos';
 import {
   accionAplicable,
   aplicarAccionDeVoz,
@@ -49,9 +49,9 @@ function formatearSegundos(segundos: number): string {
   return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
 }
 
-// "Leche · Sancor — 2 l, vence 2026-10-20", para distinguir opciones parecidas.
+// "Leche · Sancor — 2 l, vence 20/10/2026", para distinguir opciones parecidas.
 function describirProducto(producto: Producto): string {
-  const vence = producto.fecha_vencimiento ? `, vence ${producto.fecha_vencimiento}` : '';
+  const vence = producto.fecha_vencimiento ? `, vence ${formatearFechaCorta(producto.fecha_vencimiento)}` : '';
   return `${nombreConMarca(producto)} — ${producto.cantidad} ${producto.unidad}${vence}`;
 }
 

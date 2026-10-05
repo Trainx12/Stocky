@@ -32,6 +32,7 @@ jest.mock('../lib/supabase', () => ({
 
 import { supabase } from '../lib/supabase';
 import {
+  agruparProductos,
   ajustarCantidadProducto,
   buscarDuplicado,
   categoriasEnUso,
@@ -44,6 +45,7 @@ import {
   filtrarProductos,
   diasDelMesCalendario,
   formatearFechaInput,
+  formatearFechaCorta,
   formatearFechaISO,
   listarProductos,
   listarProductosProximosAVencer,
@@ -364,6 +366,55 @@ describe('categoriasEnUso', () => {
   });
 });
 
+describe('agruparProductos', () => {
+  it('junta los lotes del mismo producto y suma la cantidad', () => {
+    const grupos = agruparProductos([
+      producto({ id: 'm1', nombre: 'Manzana', unidad: 'unidad', cantidad: 3, marca: 'Red Premium', fecha_vencimiento: '2026-10-07' }),
+      producto({ id: 'm2', nombre: 'manzana', unidad: 'unidad', cantidad: 3, marca: null, fecha_vencimiento: '2026-10-20' }),
+      producto({ id: 'y1', nombre: 'Yogur', unidad: 'unidad', cantidad: 1 }),
+    ]);
+
+    expect(grupos.map((g) => [g.nombre, g.cantidadTotal, g.lotes.map((l) => l.id)])).toEqual([
+      ['Manzana', 6, ['m1', 'm2']],
+      ['Yogur', 1, ['y1']],
+    ]);
+  });
+
+  it('ordena los lotes por vencimiento, los sin fecha al final', () => {
+    const [grupo] = agruparProductos([
+      producto({ id: 'sin-fecha', nombre: 'Leche', fecha_vencimiento: null }),
+      producto({ id: 'tarde', nombre: 'Leche', fecha_vencimiento: '2026-12-01' }),
+      producto({ id: 'pronto', nombre: 'Leche', fecha_vencimiento: '2026-10-10' }),
+    ]);
+
+    expect(grupo.lotes.map((l) => l.id)).toEqual(['pronto', 'tarde', 'sin-fecha']);
+  });
+
+  it('no mezcla el mismo producto en unidades distintas', () => {
+    const grupos = agruparProductos([
+      producto({ nombre: 'Papa', unidad: 'kg', cantidad: 2 }),
+      producto({ nombre: 'Papa', unidad: 'paquete', cantidad: 1 }),
+    ]);
+
+    expect(grupos).toHaveLength(2);
+  });
+
+  it('suma decimales sin errores de coma flotante', () => {
+    const [grupo] = agruparProductos([
+      producto({ nombre: 'Agua', unidad: 'l', cantidad: 0.1 }),
+      producto({ nombre: 'Agua', unidad: 'l', cantidad: 0.2 }),
+    ]);
+
+    expect(grupo.cantidadTotal).toBe(0.3);
+  });
+});
+
+describe('formatearFechaCorta', () => {
+  it('muestra la fecha como DD/MM/AAAA', () => {
+    expect(formatearFechaCorta('2026-10-07')).toBe('07/10/2026');
+  });
+});
+
 describe('filtrarProductos', () => {
   const productos = [
     producto({ id: 'p1', nombre: 'Leche', categoria: 'Lácteos' }),
@@ -394,6 +445,11 @@ describe('filtrarProductos', () => {
   it('combina búsqueda y categoría a la vez', () => {
     expect(filtrarProductos(productos, 'yogur', 'Lácteos')).toEqual([productos[1]]);
     expect(filtrarProductos(productos, 'yogur', 'Verduras y frutas')).toEqual([]);
+  });
+
+  it('también busca por marca', () => {
+    const conMarca = [...productos, producto({ id: 'p4', nombre: 'Manzana', marca: 'Red Premium' })];
+    expect(filtrarProductos(conMarca, 'red prem', null).map((p) => p.id)).toEqual(['p4']);
   });
 
   it('devuelve un array vacío si ningún producto coincide', () => {

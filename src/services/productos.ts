@@ -294,7 +294,11 @@ export function categoriasEnUso(productos: Producto[]): string[] {
 export function filtrarProductos(productos: Producto[], busqueda: string, categoria: string | null): Producto[] {
   const busquedaNormalizada = busqueda.trim().toLowerCase();
   return productos.filter((p) => {
-    const coincideBusqueda = !busquedaNormalizada || p.nombre.toLowerCase().includes(busquedaNormalizada);
+    // También por marca: "red premium" encuentra las manzanas de esa marca.
+    const coincideBusqueda =
+      !busquedaNormalizada ||
+      p.nombre.toLowerCase().includes(busquedaNormalizada) ||
+      (p.marca ?? '').toLowerCase().includes(busquedaNormalizada);
     const coincideCategoria = !categoria || p.categoria === categoria;
     return coincideBusqueda && coincideCategoria;
   });
@@ -309,6 +313,69 @@ export function filtrarProductos(productos: Producto[], busqueda: string, catego
 export function parsearNumero(texto: string): number {
   const valor = Number(texto.replace(',', '.'));
   return Number.isFinite(valor) ? valor : 0;
+}
+
+// Un producto tal como se muestra en la lista: todas las filas del mismo
+// producto (misma identidad y unidad) juntas. Cada fila es un "lote" con su
+// propia marca, cantidad y vencimiento -- en la base siguen separadas para que
+// la alerta de vencimiento de cada una sea exacta, pero en pantalla se ven
+// bajo un solo "Manzana" en vez de desparramadas por la lista.
+export interface GrupoProductos {
+  clave: string;
+  nombre: string;
+  categoria: string | null;
+  unidad: UnidadProducto;
+  cantidadTotal: number;
+  lotes: Producto[];
+}
+
+// Lo más urgente primero: por fecha de vencimiento (los sin fecha al final),
+// y a igual fecha por marca (los sin marca al final).
+function compararLotes(a: Producto, b: Producto): number {
+  if (a.fecha_vencimiento !== b.fecha_vencimiento) {
+    if (!a.fecha_vencimiento) return 1;
+    if (!b.fecha_vencimiento) return -1;
+    return a.fecha_vencimiento.localeCompare(b.fecha_vencimiento);
+  }
+  if (!a.marca !== !b.marca) return a.marca ? -1 : 1;
+  return (a.marca ?? '').localeCompare(b.marca ?? '');
+}
+
+// Agrupa por nombre (sin distinguir mayúsculas/tildes) y unidad: "3 kg de
+// papa" y "2 paquetes de papa" no se suman, quedan como grupos distintos.
+// Respeta el orden en que vienen los productos (alfabético desde la base).
+export function agruparProductos(productos: Producto[]): GrupoProductos[] {
+  const grupos = new Map<string, GrupoProductos>();
+  for (const producto of productos) {
+    const clave = `${normalizarTexto(producto.nombre)}|${producto.unidad}`;
+    const grupo = grupos.get(clave);
+    if (grupo) {
+      grupo.lotes.push(producto);
+      grupo.cantidadTotal = Math.round((grupo.cantidadTotal + producto.cantidad) * 1000) / 1000;
+    } else {
+      grupos.set(clave, {
+        clave,
+        nombre: producto.nombre,
+        categoria: producto.categoria,
+        unidad: producto.unidad,
+        cantidadTotal: producto.cantidad,
+        lotes: [producto],
+      });
+    }
+  }
+  return Array.from(grupos.values()).map((grupo) => ({ ...grupo, lotes: ordenarLotes(grupo.lotes) }));
+}
+
+// Copia ordenada con lo más urgente primero (ver compararLotes). La usa
+// también el ABM por voz para descontar del lote que vence antes.
+export function ordenarLotes(lotes: Producto[]): Producto[] {
+  return [...lotes].sort(compararLotes);
+}
+
+// 'AAAA-MM-DD' -> 'DD/MM/AAAA', como se lee una fecha en Argentina.
+export function formatearFechaCorta(fecha: string): string {
+  const [anio, mes, dia] = fecha.split('-');
+  return `${dia}/${mes}/${anio}`;
 }
 
 /**
