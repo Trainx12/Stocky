@@ -8,6 +8,7 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProductosScreen } from '../screens/ProductosScreen';
+import { AdminSugerenciasScreen } from '../screens/AdminSugerenciasScreen';
 import { colors } from '../theme';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
 
@@ -31,6 +32,12 @@ function AppNavigator() {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home" component={HomeScreen} />
       <AppStack.Screen name="Productos" component={ProductosScreen} />
+      {/* Sin gateo de rol acá a propósito: RootNavigator no mira el rol
+          todavía (ver su propio comentario abajo) -- el gateo real es la
+          RLS del lado del servidor (nadie que no sea admin ve ninguna
+          sugerencia pendiente ajena) + que HomeScreen ni siquiera ofrece
+          el botón para entrar acá si el usuario no es admin. */}
+      <AppStack.Screen name="AdminSugerencias" component={AdminSugerenciasScreen} />
     </AppStack.Navigator>
   );
 }

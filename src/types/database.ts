@@ -34,6 +34,15 @@ export type RolHogar = 'dueno' | 'invitado';
 export type EstadoSolicitud = 'pendiente' | 'aprobado';
 
 /**
+ * Quién inició una fila 'pendiente' de hogar_miembros (ver migración
+ * 20260908120000_invitar_por_email.sql): 'solicitud' es alguien pidiendo
+ * unirse por código (responde el DUEÑO); 'invitacion' es el dueño
+ * invitando a alguien por mail (responde la PERSONA invitada). Default
+ * 'solicitud' para no romper el flujo de código ya existente.
+ */
+export type OrigenMembresia = 'solicitud' | 'invitacion';
+
+/**
  * Espejo de la tabla public.hogar_miembros: relación N a N entre
  * usuarios y hogares (un usuario puede pertenecer a más de un hogar).
  * `usuarios.hogar_id` sigue existiendo aparte como "hogar activo" (el que
@@ -49,6 +58,7 @@ export interface HogarMiembro {
   // puede editar sin importar este valor.
   puede_editar: boolean;
   estado: EstadoSolicitud;
+  origen: OrigenMembresia;
   created_at: string;
 }
 
@@ -81,8 +91,35 @@ export interface Producto {
   stock_minimo: number;
   fecha_vencimiento: string | null; // ISO date (YYYY-MM-DD), null si no aplica (RF3)
   alerta_vencimiento_habilitada: boolean;
+  // De qué fila del catálogo salió (ver migración 20260909212018_catalogo_productos.sql).
+  // Nullable: los productos cargados antes de que existiera el catálogo no
+  // tienen ninguna referencia real a la que apuntar.
+  catalogo_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Estado de una fila de productos_catalogo (ver migración
+ * 20260909212018_catalogo_productos.sql): 'pendiente' es una sugerencia de
+ * un usuario esperando que un admin la apruebe o la rechace (rechazar =
+ * borrar la fila, no queda en ningún estado "rechazado"). 'aprobado' ya
+ * aparece como opción al cargar un producto en cualquier hogar.
+ */
+export type EstadoSugerencia = 'pendiente' | 'aprobado';
+
+// Espejo de la tabla public.productos_catalogo: catálogo GLOBAL (no es por
+// hogar) de productos que se pueden cargar. Cargar un producto en un hogar
+// ya no es texto libre -- se elige una fila 'aprobado' de acá.
+export interface ProductoCatalogo {
+  id: string;
+  nombre: string;
+  categoria: string;
+  unidad: UnidadProducto;
+  imagen_url: string | null;
+  estado: EstadoSugerencia;
+  sugerido_por: string | null; // null = cargado con la app, no por un usuario puntual
+  created_at: string;
 }
 
 /**
@@ -152,6 +189,20 @@ export interface Database {
         Row: AsRecord<Producto>;
         Insert: Partial<Producto> & Pick<Producto, 'hogar_id' | 'nombre'>;
         Update: Partial<Producto>;
+        Relationships: [
+          {
+            foreignKeyName: 'productos_catalogo_id_fkey';
+            columns: ['catalogo_id'];
+            isOneToOne: false;
+            referencedRelation: 'productos_catalogo';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      productos_catalogo: {
+        Row: AsRecord<ProductoCatalogo>;
+        Insert: Partial<ProductoCatalogo> & Pick<ProductoCatalogo, 'nombre' | 'categoria'>;
+        Update: Partial<ProductoCatalogo>;
         Relationships: [];
       };
     };
@@ -176,6 +227,10 @@ export interface Database {
         Args: { p_hogar_id: string; p_usuario_id: string };
         Returns: void;
       };
+      ceder_dueno: {
+        Args: { p_hogar_id: string; p_nuevo_dueno_id: string };
+        Returns: void;
+      };
       permitir_editar_hogar: {
         Args: { p_hogar_id: string; p_usuario_id: string; p_permitir: boolean };
         Returns: void;
@@ -187,6 +242,39 @@ export interface Database {
       listar_mis_solicitudes_pendientes: {
         Args: Record<string, never>;
         Returns: AsRecord<{ hogar_id: string; nombre: string; created_at: string }>[];
+      };
+      // RPCs de invitar por mail (ver migración
+      // 20260908120000_invitar_por_email.sql).
+      invitar_a_hogar: {
+        Args: { p_hogar_id: string; p_email: string };
+        Returns: void;
+      };
+      responder_invitacion: {
+        Args: { p_hogar_id: string; p_aprobar: boolean };
+        Returns: void;
+      };
+      listar_mis_invitaciones_pendientes: {
+        Args: Record<string, never>;
+        Returns: AsRecord<{ hogar_id: string; nombre: string; created_at: string }>[];
+      };
+      listar_actividad_reciente: {
+        Args: { p_hogar_id: string; p_limite?: number };
+        Returns: AsRecord<{
+          id: string;
+          tipo: string;
+          descripcion: string;
+          usuario_nombre: string | null;
+          usuario_email: string | null;
+          created_at: string;
+          // Ver migración 20260909010000_actividad_cantidad_visual.sql.
+          producto_nombre: string | null;
+          cantidad: number | null;
+        }>[];
+      };
+      // Ver migración 20260909020000_ajuste_rapido_y_delta_actividad.sql.
+      ajustar_cantidad_producto: {
+        Args: { p_producto_id: string; p_delta: number };
+        Returns: AsRecord<Producto>;
       };
     };
   };
