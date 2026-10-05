@@ -6,6 +6,7 @@ import { categoriasDelCatalogo, filtrarCatalogo, listarCatalogoAprobado, sugerir
 import type { ProductoCatalogo } from '../types/database';
 import type { UnidadProducto } from '../types/database';
 import { avisar } from '../lib/alert';
+import { imagenDeCatalogo } from '../lib/catalogoImagenes';
 import { colors, radius, spacing, typography } from '../theme';
 
 interface CatalogoSelectorModalProps {
@@ -221,8 +222,8 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                     accessibilityLabel={`Elegir ${item.nombre}`}
                   >
                     <View style={styles.itemFoto}>
-                      {item.imagen_url ? (
-                        <Image source={{ uri: item.imagen_url }} style={styles.itemImagen} resizeMode="cover" />
+                      {imagenDeCatalogo(item) ? (
+                        <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="cover" />
                       ) : (
                         <Ionicons name="basket-outline" size={28} color={colors.primary} />
                       )}
