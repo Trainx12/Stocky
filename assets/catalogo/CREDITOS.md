@@ -80,7 +80,7 @@ Esta tabla se genera con `node scripts/generar-imagenes-catalogo.mjs` a partir d
 | Gelatina | gelatina.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790070432490 |
 | Gomitas | gomitas.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790380029793 |
 | Granola | granola.jpg | Wikimedia Commons | No machine-readable author provided. Miskatonic assumed (based on copyright clai | CC BY 2.5 | https://commons.wikimedia.org/wiki/File:Granola03242006.JPG |
-| Grisines | grisines.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/376/007/753/7249/front_fr.11.400.jpg |
+| Grisines | grisines.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Harina | harina.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/259/000/0159/front_es.4.400.jpg |
 | Huevos | huevos.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/205/207/2809/front_es.4.400.jpg |
 | Jugo en Polvo | jugo-en-polvo.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7622201814946 |
