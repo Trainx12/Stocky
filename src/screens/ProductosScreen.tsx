@@ -352,10 +352,10 @@ export function ProductosScreen({ route, navigation }: Props) {
               <View key={grupo.clave} style={styles.grupo}>
                 <View style={styles.grupoEncabezado}>
                   <View style={styles.productoInfo}>
-                    <Text style={styles.productoNombre} numberOfLines={1}>
+                    <Text style={styles.grupoNombre} numberOfLines={1}>
                       {grupo.nombre}
                     </Text>
-                    <Text style={styles.productoCategoria}>
+                    <Text style={styles.grupoDetalle}>
                       {[grupo.categoria, `${grupo.lotes.length} lotes`].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
@@ -363,8 +363,8 @@ export function ProductosScreen({ route, navigation }: Props) {
                     {grupo.cantidadTotal} {grupo.unidad}
                   </Text>
                 </View>
-                {grupo.lotes.map((lote) => (
-                  <View key={lote.id} style={styles.loteRow}>
+                {grupo.lotes.map((lote, indice) => (
+                  <View key={lote.id} style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
                     <View style={styles.productoInfo}>
                       <Text style={styles.loteMarca} numberOfLines={1}>
                         {lote.marca ?? 'Sin marca'}
@@ -570,40 +570,51 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 11,
   },
+  // Recuadro con el borde violeta de la app que encierra al producto y sus
+  // lotes: arriba una franja violeta clara con el producto general, abajo
+  // cada lote separado por una línea.
   grupo: {
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: spacing.xs,
+    marginVertical: spacing.xs,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    overflow: 'hidden',
   },
-  // Solo el producto que engloba a los lotes lleva un borde suave, para
-  // distinguirlo de los lotes que tiene abajo.
   grupoEncabezado: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.primary,
+  },
+  grupoNombre: {
+    ...typography.bodyMedium,
+    color: colors.primaryDark,
+  },
+  grupoDetalle: {
+    ...typography.caption,
+    color: colors.primaryDark,
   },
   grupoTotal: {
     ...typography.bodyMedium,
-    color: colors.textPrimary,
+    color: colors.primaryDark,
   },
-  // Cada lote del grupo, con sangría y una barra a la izquierda para que se
-  // lea como "parte de" el producto de arriba.
   loteRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.xs,
-    marginLeft: spacing.sm,
-    paddingLeft: spacing.sm,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.primaryLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surface,
+  },
+  loteSeparado: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   loteMarca: {
     ...typography.body,
