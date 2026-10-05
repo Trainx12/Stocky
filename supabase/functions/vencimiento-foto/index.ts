@@ -1,5 +1,5 @@
 // RF2 (complemento) — Foto del envase -> fecha de vencimiento detectada.
-// Proveedor: Gemini Flash (hoy gemini-3.8-flash) (ver decisión en docs/plan-de-testing.md,
+// Proveedor: Gemini Flash (varios modelos con respaldo, ver MODELOS_POR_DEFECTO) (ver decisión en docs/plan-de-testing.md,
 // Sprint 5). Un OCR clásico no distingue la fecha de vencimiento de otros
 // números impresos en el envase (lote, código de barras); un modelo de
 // visión permite pedir explícitamente "encontrá la fecha de vencimiento"
@@ -28,14 +28,20 @@ Si no encontrás una fecha de vencimiento o no estás razonablemente
 seguro de haberla leído bien, devolvé fecha_vencimiento: null y
 confianza baja. Nunca inventes una fecha.`;
 
-async function detectarVencimientoConGemini(
-  imagenBase64: string,
-  apiKey: string
-): Promise<ResultadoVencimiento> {
-  // Google retira modelos viejos para cuentas nuevas (gemini-2.5-flash
-  // devolvió 404): el modelo se puede cambiar con el secret GEMINI_MODEL
-  // sin tocar el código.
-  const modelo = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
+// Modelos a probar en orden. Google satura o retira modelos Flash seguido
+// (503 "high demand", 404 "ya no disponible"), así que si el primero falla por
+// eso se pasa al siguiente. Se puede cambiar sin tocar código con el secret
+// GEMINI_MODEL (lista separada por comas, ej: "gemini-3.8-flash,gemini-3.5-flash").
+const MODELOS_POR_DEFECTO = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+const ESTADOS_REINTENTABLES = [404, 429, 500, 503];
+
+class ErrorGemini extends Error {
+  constructor(public estado: number, detalle: string) {
+    super(`Gemini respondió ${estado}: ${detalle}`);
+  }
+}
+
+async function consultarGemini(modelo: string, imagenBase64: string, apiKey: string): Promise<ResultadoVencimiento> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
 
   const respuesta = await fetch(url, {
@@ -67,8 +73,7 @@ async function detectarVencimientoConGemini(
   });
 
   if (!respuesta.ok) {
-    const detalle = await respuesta.text();
-    throw new Error(`Gemini respondió ${respuesta.status}: ${detalle}`);
+    throw new ErrorGemini(respuesta.status, await respuesta.text());
   }
 
   const data = await respuesta.json();
@@ -82,6 +87,30 @@ async function detectarVencimientoConGemini(
     fecha_vencimiento: parseado.fecha_vencimiento ?? null,
     confianza: parseado.confianza,
   };
+}
+
+const esperar = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms));
+
+async function detectarVencimientoConGemini(imagenBase64: string, apiKey: string): Promise<ResultadoVencimiento> {
+  const configurados = (Deno.env.get('GEMINI_MODEL') ?? '').split(',').map((m) => m.trim()).filter(Boolean);
+  const modelos = configurados.length > 0 ? configurados : MODELOS_POR_DEFECTO;
+
+  let ultimoError: unknown = new Error('No hay modelos configurados.');
+  for (const modelo of modelos) {
+    // Un reintento corto por modelo: los 503 suelen ser picos de segundos.
+    for (let intento = 0; intento < 2; intento++) {
+      try {
+        return await consultarGemini(modelo, imagenBase64, apiKey);
+      } catch (error) {
+        ultimoError = error;
+        console.error(`[vencimiento-foto] ${modelo} (intento ${intento + 1}):`, error instanceof Error ? error.message : error);
+        if (!(error instanceof ErrorGemini) || !ESTADOS_REINTENTABLES.includes(error.estado)) throw error;
+        if (error.estado !== 503) break; // 404/429/500: no tiene sentido reintentar el mismo modelo
+        await esperar(1000);
+      }
+    }
+  }
+  throw ultimoError;
 }
 
 Deno.serve(async (req: Request) => {
