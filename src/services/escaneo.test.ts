@@ -148,3 +148,36 @@ describe('extraerMarca', () => {
     expect(extraerMarca('ARROZ 1KG', 'Arroz')).toBe('');
   });
 });
+
+describe('buscarEnCatalogo con alimentos agregados desde tickets reales', () => {
+  const ampliado = [
+    ...catalogo,
+    item('Aceite'),
+    item('Aceite de Oliva'),
+    item('Pimiento'),
+    item('Pimienta Negra'),
+    item('Pasta para Sopa'),
+    item('Flan'),
+    item('Choclo'),
+    item('Choclo en Lata'),
+    item('Té'),
+    item('Té Verde'),
+  ];
+
+  it('elige el nombre más específico entre uno general y uno con aclaración', () => {
+    expect(buscarEnCatalogo('BRAVO ACEITE OLIVA', ampliado)?.nombre).toBe('Aceite de Oliva');
+    expect(buscarEnCatalogo('ACEITE VEGETAL COMES', ampliado)?.nombre).toBe('Aceite');
+    expect(buscarEnCatalogo('CHOCLO EN LATA 300G', ampliado)?.nombre).toBe('Choclo en Lata');
+    expect(buscarEnCatalogo('TE VERDE 20 SAQUITOS', ampliado)?.nombre).toBe('Té Verde');
+  });
+
+  it('no confunde pimiento (verdura) con pimienta (especia)', () => {
+    expect(buscarEnCatalogo('PIMIENTO ROJO', ampliado)?.nombre).toBe('Pimiento');
+    expect(buscarEnCatalogo('PIMIENTA NEGRA MOLIDA 50G', ampliado)?.nombre).toBe('Pimienta Negra');
+  });
+
+  it('reconoce los productos que antes quedaban sin catálogo', () => {
+    expect(buscarEnCatalogo('PASTAS PARA SOPA SPA', ampliado)?.nombre).toBe('Pasta para Sopa');
+    expect(buscarEnCatalogo('FLAN CASERO LIGHT DO', ampliado)?.nombre).toBe('Flan');
+  });
+});
