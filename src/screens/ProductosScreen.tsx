@@ -194,7 +194,9 @@ export function ProductosScreen({ route, navigation }: Props) {
     if (!etiqueta) return null;
     return (
       <View style={[styles.vencimientoBadge, estadoVencimiento(producto) === 'vencido' && styles.vencimientoBadgeVencido]}>
-        <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
+        <Text style={styles.vencimientoBadgeTexto} numberOfLines={1}>
+          {etiqueta}
+        </Text>
       </View>
     );
   }
@@ -214,7 +216,7 @@ export function ProductosScreen({ route, navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel={`Restar 1 a ${descripcion}`}
         >
-          <Ionicons name="remove-circle-outline" size={30} color={producto.cantidad <= 0 ? colors.border : colors.danger} />
+          <Ionicons name="remove-circle-outline" size={26} color={producto.cantidad <= 0 ? colors.border : colors.danger} />
         </Pressable>
         <Pressable
           onPress={() => handleAjustarCantidad(producto, 1)}
@@ -223,7 +225,7 @@ export function ProductosScreen({ route, navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel={`Sumar 1 a ${descripcion}`}
         >
-          <Ionicons name="add-circle-outline" size={30} color={colors.success} />
+          <Ionicons name="add-circle-outline" size={26} color={colors.success} />
         </Pressable>
       </View>
     );
@@ -239,7 +241,7 @@ export function ProductosScreen({ route, navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel={`Editar ${descripcion}`}
         >
-          <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
+          <Ionicons name="pencil-outline" size={16} color={colors.textSecondary} />
         </Pressable>
         <Pressable
           onPress={() => handleEliminar(producto)}
@@ -247,7 +249,7 @@ export function ProductosScreen({ route, navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel={`Eliminar ${descripcion}`}
         >
-          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+          <Ionicons name="trash-outline" size={16} color={colors.danger} />
         </Pressable>
       </View>
     );
@@ -502,20 +504,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   productoInfo: {
-    flexShrink: 1,
+    flex: 1,
     gap: 2,
   },
   productoDetalle: {
     ...typography.caption,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.textSecondary,
   },
+  // Botones compactos: en un celular angosto tienen que entrar al lado del
+  // texto del lote sin partirlo en varias líneas.
   stepperGrupo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: spacing.lg,
   },
   stepperButton: {
-    padding: spacing.xs,
+    padding: 2,
   },
   // RF2/RF3: badge de "próximo a vencer"/"vencido". Usa colors.stockStatus
   // (ver src/theme/colors.ts) en vez de un color a mano, para no duplicar
@@ -534,7 +539,8 @@ const styles = StyleSheet.create({
   vencimientoBadgeTexto: {
     ...typography.caption,
     color: colors.white,
-    fontSize: 11,
+    fontSize: 10,
+    lineHeight: 14,
   },
   // Cada producto es una tarjeta con el borde violeta de la app: arriba una
   // franja violeta clara con el producto y su total, abajo sus lotes.
@@ -550,7 +556,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     backgroundColor: colors.primaryLight,
     borderBottomWidth: 1,
@@ -572,8 +578,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    gap: 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     backgroundColor: colors.surface,
   },
@@ -582,12 +588,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   loteMarca: {
-    ...typography.body,
+    ...typography.caption,
     color: colors.textPrimary,
   },
   productoAcciones: {
     flexDirection: 'row',
-    gap: spacing.md,
   },
   accionButton: {
     padding: spacing.xs,
