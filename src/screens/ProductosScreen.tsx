@@ -35,7 +35,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  * tipeada, y evita mostrar un loader en cada tecla.
  */
 export function ProductosScreen({ route, navigation }: Props) {
-  const { hogarId, hogarNombre, abrirAgregar, abrirVoz } = route.params;
+  const { hogarId, hogarNombre, abrirAgregar, abrirVoz, enfocarBusqueda } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,6 +288,9 @@ export function ProductosScreen({ route, navigation }: Props) {
         placeholderTextColor={colors.textSecondary}
         value={busqueda}
         onChangeText={setBusqueda}
+        // Llegando desde la lupa de la barra de abajo, el buscador arranca
+        // activo con el teclado abierto.
+        autoFocus={enfocarBusqueda}
         autoCapitalize="none"
       />
 

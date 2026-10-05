@@ -396,7 +396,7 @@ export function HomeScreen() {
   // uno (RF6), para eso está el selector. "Agregar producto" además le pide
   // a ProductosScreen que abra el modal de carga apenas llega, para no
   // obligar a un segundo toque sobre el FAB.
-  function handleIrAProductos(abrirAgregar: boolean, abrirVoz = false) {
+  function handleIrAProductos(abrirAgregar: boolean, abrirVoz = false, enfocarBusqueda = false) {
     if (!hogarSeleccionado) {
       avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
       return;
@@ -406,6 +406,7 @@ export function HomeScreen() {
       hogarNombre: hogarSeleccionado.nombre,
       abrirAgregar,
       abrirVoz,
+      enfocarBusqueda,
     });
   }
 
@@ -456,7 +457,12 @@ export function HomeScreen() {
   // (Búsqueda, Notificaciones y Perfil). "Home" no hace nada porque ya
   // estamos ahí.
   function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
-    if (tab === 'search' || tab === 'notifications' || tab === 'profile') {
+    // La lupa lleva al buscador de la despensa del hogar seleccionado.
+    if (tab === 'search') {
+      handleIrAProductos(false, false, true);
+      return;
+    }
+    if (tab === 'notifications' || tab === 'profile') {
       avisar('Próximamente', 'Esta sección todavía no está disponible.');
     }
   }

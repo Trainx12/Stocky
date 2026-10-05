@@ -21,7 +21,14 @@ export type AppStackParamList = {
   // producto" de HomeScreen, para no obligar a un segundo toque en el FAB).
   // `abrirVoz`: igual, pero abre la carga por voz (acceso rápido "Cargar por
   // voz", RF8).
-  Productos: { hogarId: string; hogarNombre: string; abrirAgregar?: boolean; abrirVoz?: boolean };
+  // `enfocarBusqueda`: abre con el buscador activo (lupa de la barra de abajo).
+  Productos: {
+    hogarId: string;
+    hogarNombre: string;
+    abrirAgregar?: boolean;
+    abrirVoz?: boolean;
+    enfocarBusqueda?: boolean;
+  };
   // Admin: sugerencias de productos nuevos para el catálogo global
   // pendientes de aprobar/rechazar (ver services/catalogo.ts). Sin
   // parámetros -- lista todo lo pendiente, no es por hogar.
