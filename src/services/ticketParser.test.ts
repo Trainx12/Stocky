@@ -199,3 +199,86 @@ N.D.M. 29
     expect(nombres[0]).toBe('MILANESA');
   });
 });
+
+describe('parsearTicket: tiquete electrónico (Super Mora)', () => {
+  const ENCABEZADO = `SUPER MORA Colón
+COMERCIAL ALEMORA S.A.
+CIUDAD COLON, MORA
+FRENTE AL MERCADO MUNICIPAL
+C.J. 3-101-103492 2249-2459
+Visítenos en www.supermora.com
+TIQUETE ELECTRONICO
+CLIENTE: GENERAL
+FECHA: 24/11/2024 HORA: 3:09:23 pm
+DB MXL31604CT Tr. No:00627067
+Tiquete Electrónico en CONTINGENCIA`;
+
+  const PIE = `IVA Incluido
+e=0%, m=1%, p=2%
+r=4%, g=13%
+Artic/Petr.: 0
+Importe: 12,846.70
+Redondeo: 0.00
+Tarjeta: 12,846.70
+Cambio: 0.00
+Pago:TARJETA
+Total Cupones: 0
+Usted ahorró en esta compra la suma de:
+776.18 colones
+SUBTOTAL..............: 12,719.50
+IMPTO. VALOR AGREG. 1%.: 127.20`;
+
+  const ESPERADOS = ['CEBOLLA SECA SUELTA KLS', 'MAYONESA LIZANO D-P LIM', 'PAN BAGUETTE CON QUESO', 'SALSA LIZANO 700 ml PL', 'TOMATE GRANEL KILOGRAMO'];
+
+  it('con las columnas en el mismo renglón, con precios pegados a una letra y pares unitario/total', () => {
+    const texto = `${ENCABEZADO}
+Cnt Descripción Unitario Total
+0.775 CEBOLLA SECA SUELTA KLS 1090.00 844.75m
+1.000 MAYONESA LIZANO D-P LIM 1577.00 1577.00m
+Ahorro Espec MAYONESA LIZANO D-P LIMO -227.09
+1.000 PAN BAGUETTE CON QUESO 745.00 745.00m
+1.000 SALSA LIZANO 700 ml PL 2199.00 2199.00m
+Ahorro Espec SALSA LIZANO 700 ml PLA -549.09
+3.405 TOMATE GRANEL KILOGRAMO 2425.00 8257.13m
+${PIE}`;
+    const productos = parsearTicket(texto);
+
+    expect(productos.map((p) => p.nombre)).toEqual(ESPERADOS);
+    expect(productos.map((p) => p.cantidad)).toEqual([0.775, 1, 1, 1, 3.405]);
+  });
+
+  it('con las columnas separadas por el OCR ("Total" suelto en el encabezado no corta el cuerpo)', () => {
+    const texto = `${ENCABEZADO}
+Ont Descripción
+Unitario
+Total
+0.775 CEBOLLA SECA SUELTA KLS
+1.000 MAYONESA LIZANO D-P LIM
+Ahorro Espec MAYONESA LIZANO D-P LIMO
+1.000 PAN BAGUETTE CON QUESO
+1.000 SALSA LIZANO 700 ml PL
+Ahorro Espec SALSA LIZANO 700 ml PLA
+3.405 TOMATE GRANEL KILOGRAMO
+1090.00 844.75m
+1577.00 1577.00m
+-227.09
+${PIE}`;
+    const productos = parsearTicket(texto);
+
+    expect(productos.map((p) => p.nombre)).toEqual(ESPERADOS);
+    expect(productos[0].cantidad).toBe(0.775);
+    expect(productos[4].cantidad).toBe(3.405);
+  });
+
+  it('no deja códigos de terminal ni encabezados de columna como productos', () => {
+    const texto = `${ENCABEZADO}
+Ont Descripción
+Unitario
+Total
+1.000 PAN BAGUETTE CON QUESO 745.00 745.00m
+${PIE}`;
+    const nombres = parsearTicket(texto).map((p) => p.nombre);
+
+    expect(nombres).toEqual(['PAN BAGUETTE CON QUESO']);
+  });
+});
