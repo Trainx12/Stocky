@@ -8,6 +8,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
+import { CatalogoSelectorModal } from '../components/CatalogoSelectorModal';
 import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
@@ -60,6 +61,8 @@ export function HomeScreen() {
   // "Tus hogares activos" -- un toque directo, sin gestos escondidos (antes
   // vivían atrás de un long-press sobre "Perfil" en la nav bar).
   const [crearVisible, setCrearVisible] = useState(false);
+  // Formulario "Sugerir producto" del acceso rápido (ver CatalogoSelectorModal).
+  const [sugerirVisible, setSugerirVisible] = useState(false);
   const [unirseVisible, setUnirseVisible] = useState(false);
 
   // Hogares de los que el usuario ya es miembro (puede ser más de uno).
@@ -742,6 +745,9 @@ export function HomeScreen() {
                 <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos(true)} />
                 <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos(false, true)} />
                 <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos(false)} />
+                {/* Cualquier usuario puede sugerir un producto que falta en el
+                    catálogo; queda pendiente hasta que un admin lo apruebe. */}
+                <QuickAccessButton icon="bulb-outline" label="Sugerir producto" onPress={() => setSugerirVisible(true)} />
                 {/* Primer acceso gateado por rol de la app (ver comentario
                     en AdminSugerenciasScreen): un usuario común ni ve el
                     botón, y aunque fuerce la navegación la RLS tampoco le
@@ -771,6 +777,8 @@ export function HomeScreen() {
       </ScrollView>
 
       <BottomNavBar active="home" onTabPress={handleTabPress} />
+
+      <CatalogoSelectorModal visible={sugerirVisible} soloSugerir onClose={() => setSugerirVisible(false)} />
 
       <HogarFormModal
         visible={crearVisible}

@@ -13,7 +13,12 @@ interface CatalogoSelectorModalProps {
   visible: boolean;
   onClose: () => void;
   /** Se llama cuando el usuario toca un producto del catálogo para elegirlo. */
-  onSeleccionar: (producto: ProductoCatalogo) => void;
+  onSeleccionar?: (producto: ProductoCatalogo) => void;
+  /**
+   * Abre directo el formulario de sugerencia, sin el selector (acceso rápido
+   * "Sugerir producto" de HomeScreen). Al mandar o cancelar se cierra el modal.
+   */
+  soloSugerir?: boolean;
 }
 
 // Mismas unidades que ProductoFormModal, para el formulario de sugerencia.
@@ -33,7 +38,7 @@ const UNIDADES: { valor: UnidadProducto; label: string }[] = [
  * producto buscado no está, se puede sugerir (queda pendiente de que un
  * admin lo apruebe, ver AdminSugerenciasScreen) en vez de cargarlo directo.
  */
-export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: CatalogoSelectorModalProps) {
+export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSugerir = false }: CatalogoSelectorModalProps) {
   const [catalogo, setCatalogo] = useState<ProductoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -54,7 +59,12 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
     if (!visible) return;
     setBusqueda('');
     setCategoriaSeleccionada(null);
-    setSugerirVisible(false);
+    if (soloSugerir) {
+      setNombreSugerido('');
+      setCategoriaSugerida('');
+      setUnidadSugerida('unidad');
+    }
+    setSugerirVisible(soloSugerir);
     (async () => {
       setLoading(true);
       try {
@@ -65,7 +75,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
         setLoading(false);
       }
     })();
-  }, [visible]);
+  }, [visible, soloSugerir]);
 
   const categorias = useMemo(() => categoriasDelCatalogo(catalogo), [catalogo]);
   const catalogoFiltrado = useMemo(
@@ -89,6 +99,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
         `Le avisamos a los administradores. Vas a poder elegir "${nombreSugerido.trim()}" apenas lo aprueben.`,
       );
       setSugerirVisible(false);
+      if (soloSugerir) onClose();
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo enviar la sugerencia.');
     } finally {
@@ -101,18 +112,20 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.title}>Elegí un producto</Text>
+          <Text style={styles.title}>{sugerirVisible ? 'Sugerir un producto' : 'Elegí un producto'}</Text>
 
-          <TextInput
-            style={styles.buscador}
-            placeholder="Buscar producto..."
-            placeholderTextColor={colors.textSecondary}
-            value={busqueda}
-            onChangeText={setBusqueda}
-            autoCapitalize="none"
-          />
+          {!sugerirVisible && (
+            <TextInput
+              style={styles.buscador}
+              placeholder="Buscar producto..."
+              placeholderTextColor={colors.textSecondary}
+              value={busqueda}
+              onChangeText={setBusqueda}
+              autoCapitalize="none"
+            />
+          )}
 
-          {categorias.length > 0 && (
+          {!sugerirVisible && categorias.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriasScroll} contentContainerStyle={styles.categoriasRow}>
               <Pressable
                 onPress={() => setCategoriaSeleccionada(null)}
@@ -187,7 +200,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                 <Button
                   label="Cancelar"
                   variant="outline"
-                  onPress={() => setSugerirVisible(false)}
+                  onPress={() => (soloSugerir ? onClose() : setSugerirVisible(false))}
                   disabled={sugiriendo}
                   style={styles.sugerirAccionButton}
                 />
@@ -217,7 +230,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                   <Pressable
                     key={item.id}
                     style={styles.item}
-                    onPress={() => onSeleccionar(item)}
+                    onPress={() => onSeleccionar?.(item)}
                     accessibilityRole="button"
                     accessibilityLabel={`Elegir ${item.nombre}`}
                   >
@@ -236,17 +249,25 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                 ))}
               </View>
 
-              {/* También se puede sugerir aunque la búsqueda sí haya
-                  encontrado algo (quizás el que busca es otro parecido). */}
-              {busqueda.trim() !== '' && (
-                <Button
-                  label={`Sugerir "${busqueda.trim()}" como producto nuevo`}
-                  variant="outline"
-                  onPress={handleAbrirSugerir}
-                  style={styles.sugerirButtonInline}
-                />
-              )}
             </ScrollView>
+          )}
+
+          {/* Siempre a la vista (no solo cuando la búsqueda no encuentra
+              nada): antes quedaba escondido y nadie encontraba cómo sugerir. */}
+          {!sugerirVisible && !loading && catalogoFiltrado.length > 0 && (
+            <Pressable
+              onPress={handleAbrirSugerir}
+              style={styles.sugerirPie}
+              accessibilityRole="button"
+              accessibilityLabel="Sugerir un producto que no está en el catálogo"
+            >
+              <Ionicons name="bulb-outline" size={18} color={colors.primary} />
+              <Text style={styles.sugerirPieTexto} numberOfLines={1}>
+                {busqueda.trim()
+                  ? `¿No es ninguno? Sugerí "${busqueda.trim()}"`
+                  : '¿No encontrás tu producto? Sugerilo'}
+              </Text>
+            </Pressable>
           )}
         </Pressable>
       </Pressable>
@@ -377,8 +398,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     alignSelf: 'stretch',
   },
-  sugerirButtonInline: {
-    marginTop: spacing.md,
+  sugerirPie: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+  },
+  sugerirPieTexto: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    flexShrink: 1,
   },
   sugerirForm: {
     flex: 1,
