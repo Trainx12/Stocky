@@ -74,8 +74,9 @@ async function elegirUriNativa(origen: OrigenFoto): Promise<string | null> {
 // Saca o elige una foto y la devuelve en base64 (sin prefijo data:), lista
 // para mandar a ocr-ticket / vencimiento-foto. null = el usuario canceló.
 // Tira Error con mensaje legible si falta el permiso de cámara o la foto no
-// se puede abrir.
-export async function obtenerFotoBase64(origen: OrigenFoto): Promise<string | null> {
+// se puede abrir. `anchoMaximo` más chico para fotos que solo se muestran
+// (la de una sugerencia del catálogo) y no se leen con OCR.
+export async function obtenerFotoBase64(origen: OrigenFoto, anchoMaximo = ANCHO_MAXIMO): Promise<string | null> {
   let uri: string | null;
   if (Platform.OS === 'web') {
     const archivo = await elegirArchivoWeb(origen);
@@ -91,7 +92,7 @@ export async function obtenerFotoBase64(origen: OrigenFoto): Promise<string | nu
   if (!uri) return null;
 
   const contexto = ImageManipulator.manipulate(uri);
-  contexto.resize({ width: ANCHO_MAXIMO });
+  contexto.resize({ width: anchoMaximo });
   const imagen = await contexto.renderAsync();
   const guardada = await imagen.saveAsync({ format: SaveFormat.JPEG, compress: CALIDAD_JPEG, base64: true });
 

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { categoriasDelCatalogo, filtrarCatalogo, listarCatalogoAprobado, sugerirProducto } from '../services/catalogo';
 import type { ProductoCatalogo } from '../types/database';
 import type { UnidadProducto } from '../types/database';
 import { avisar } from '../lib/alert';
+import { obtenerFotoBase64 } from '../lib/fotos';
+import type { OrigenFoto } from '../lib/fotos';
 import { imagenDeCatalogo } from '../lib/catalogoImagenes';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -51,6 +53,10 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
   const [categoriaSugerida, setCategoriaSugerida] = useState('');
   const [unidadSugerida, setUnidadSugerida] = useState<UnidadProducto>('unidad');
   const [sugiriendo, setSugiriendo] = useState(false);
+  // Foto opcional del producto sugerido (JPEG en base64), y si se está
+  // sacando/eligiendo en este momento.
+  const [fotoSugerida, setFotoSugerida] = useState<string | null>(null);
+  const [cargandoFoto, setCargandoFoto] = useState(false);
 
   // Se recarga cada vez que se abre, para reflejar sugerencias aprobadas
   // desde la última vez (por ejemplo, si un admin aprobó una mientras el
@@ -64,6 +70,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
       setCategoriaSugerida('');
       setUnidadSugerida('unidad');
     }
+    setFotoSugerida(null);
     setSugerirVisible(soloSugerir);
     (async () => {
       setLoading(true);
@@ -87,13 +94,32 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
     setNombreSugerido(busqueda.trim());
     setCategoriaSugerida('');
     setUnidadSugerida('unidad');
+    setFotoSugerida(null);
     setSugerirVisible(true);
+  }
+
+  // 600 px de ancho alcanza para mostrarla en el catálogo (no se lee con OCR).
+  async function handleElegirFoto(origen: OrigenFoto) {
+    setCargandoFoto(true);
+    try {
+      const foto = await obtenerFotoBase64(origen, 600);
+      if (foto) setFotoSugerida(foto);
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo cargar la foto.');
+    } finally {
+      setCargandoFoto(false);
+    }
   }
 
   async function handleSugerir() {
     setSugiriendo(true);
     try {
-      await sugerirProducto({ nombre: nombreSugerido, categoria: categoriaSugerida, unidad: unidadSugerida });
+      await sugerirProducto({
+        nombre: nombreSugerido,
+        categoria: categoriaSugerida,
+        unidad: unidadSugerida,
+        fotoBase64: fotoSugerida,
+      });
       avisar(
         'Sugerencia enviada',
         `Le avisamos a los administradores. Vas a poder elegir "${nombreSugerido.trim()}" apenas lo aprueben.`,
@@ -191,6 +217,51 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
                   </Pressable>
                 ))}
               </View>
+
+              <Text style={styles.label}>Foto (opcional)</Text>
+              {fotoSugerida ? (
+                <View style={styles.fotoFila}>
+                  <Image source={{ uri: `data:image/jpeg;base64,${fotoSugerida}` }} style={styles.fotoVista} resizeMode="contain" />
+                  <Pressable
+                    onPress={() => setFotoSugerida(null)}
+                    disabled={sugiriendo}
+                    style={styles.fotoQuitar}
+                    accessibilityRole="button"
+                    accessibilityLabel="Quitar la foto"
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                    <Text style={styles.fotoQuitarTexto}>Quitar</Text>
+                  </Pressable>
+                </View>
+              ) : cargandoFoto ? (
+                <ActivityIndicator color={colors.primary} style={styles.fotoCargando} />
+              ) : (
+                <View style={styles.fotoFila}>
+                  {/* En web no hay cámara confiable: un solo botón que abre el selector de archivos. */}
+                  {Platform.OS !== 'web' && (
+                    <Pressable
+                      onPress={() => handleElegirFoto('camara')}
+                      disabled={sugiriendo}
+                      style={styles.fotoBoton}
+                      accessibilityRole="button"
+                      accessibilityLabel="Sacar una foto del producto"
+                    >
+                      <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                      <Text style={styles.fotoBotonTexto}>Sacar foto</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={() => handleElegirFoto('galeria')}
+                    disabled={sugiriendo}
+                    style={styles.fotoBoton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Elegir una foto del producto"
+                  >
+                    <Ionicons name="image-outline" size={20} color={colors.primary} />
+                    <Text style={styles.fotoBotonTexto}>{Platform.OS === 'web' ? 'Subir foto' : 'Galería'}</Text>
+                  </Pressable>
+                </View>
+              )}
 
               <Text style={styles.sugerenciaAyuda}>
                 Un administrador tiene que aprobarlo antes de que puedas cargarlo en un hogar.
@@ -397,6 +468,47 @@ const styles = StyleSheet.create({
   sugerirButton: {
     marginTop: spacing.sm,
     alignSelf: 'stretch',
+  },
+  fotoFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  fotoVista: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  fotoQuitar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.xs,
+  },
+  fotoQuitarTexto: {
+    ...typography.caption,
+    color: colors.danger,
+  },
+  fotoBoton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  fotoBotonTexto: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  fotoCargando: {
+    alignSelf: 'flex-start',
+    marginVertical: spacing.sm,
   },
   sugerirPie: {
     flexDirection: 'row',
