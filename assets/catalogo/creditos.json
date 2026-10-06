@@ -1,0 +1,1801 @@
+{
+ "Aceite": {
+  "archivo": "aceite.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7792180001665"
+ },
+ "Aceite de Girasol": {
+  "archivo": "aceite-de-girasol.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790272001029"
+ },
+ "Aceite de Oliva": {
+  "archivo": "aceite-de-oliva.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7792180005182"
+ },
+ "Aceitunas": {
+  "archivo": "aceitunas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798080521722"
+ },
+ "Acelga": {
+  "archivo": "acelga.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Grendelkhan",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Rainbow_chard_for_sale_at_the_Campbell_farmers_market.jpg"
+ },
+ "Agua con Gas": {
+  "archivo": "agua-con-gas.jpg",
+  "fuente": "Aportada por el equipo",
+  "autor": "Equipo de Stocky",
+  "licencia": "A confirmar (foto aportada por el equipo)",
+  "url": ""
+ },
+ "Agua Mineral": {
+  "archivo": "agua-mineral.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/031/500/0446/front_es.8.400.jpg"
+ },
+ "Agua Saborizada": {
+  "archivo": "agua-saborizada.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790639002478"
+ },
+ "Ajo": {
+  "archivo": "ajo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/840/200/102/7550/front_es.8.400.jpg"
+ },
+ "Ají Molido": {
+  "archivo": "aji-molido.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Takeaway",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Chilli_flakes.jpg"
+ },
+ "Alfajor": {
+  "archivo": "alfajor.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/000/007/797/6307/front_es.22.400.jpg"
+ },
+ "Ananá": {
+  "archivo": "anana.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Wilfredor",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Pineapple_fruit_2.jpg"
+ },
+ "Apio": {
+  "archivo": "apio.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Chuck Spidell",
+  "licencia": "CC BY 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Celery_(177029685).jpeg"
+ },
+ "Arroz": {
+  "archivo": "arroz.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/050/319/9099/front_fr.9.400.jpg"
+ },
+ "Arvejas": {
+  "archivo": "arvejas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7792290279206"
+ },
+ "Arándanos": {
+  "archivo": "arandanos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Petar Milošević",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Dish_of_blueberries.jpg"
+ },
+ "Avena": {
+  "archivo": "avena.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/019/960/4587/front_es.9.400.jpg"
+ },
+ "Azúcar": {
+  "archivo": "azucar.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/817/497/0016/front_fr.3.400.jpg"
+ },
+ "Banana": {
+  "archivo": "banana.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/356/470/714/1710/front_en.46.400.jpg"
+ },
+ "Barrita de Cereal": {
+  "archivo": "barrita-de-cereal.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/075/374/3622/front_es.3.400.jpg"
+ },
+ "Batata": {
+  "archivo": "batata.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/000/000/331/4500/front_en.52.400.jpg"
+ },
+ "Berenjena": {
+  "archivo": "berenjena.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Grey Geezer",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Aubergine-Varianten.JPG"
+ },
+ "Bizcochos": {
+  "archivo": "bizcochos.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7791720037003"
+ },
+ "Brócoli": {
+  "archivo": "brocoli.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Fir0002",
+  "licencia": "GFDL 1.2",
+  "url": "https://commons.wikimedia.org/wiki/File:Broccoli_and_cross_section_edit.jpg"
+ },
+ "Cacao en Polvo": {
+  "archivo": "cacao-en-polvo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7793323004802"
+ },
+ "Café": {
+  "archivo": "cafe.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Alorin",
+  "licencia": "CC BY 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Coarsely_grounded_coffee_beans_in_white_bowl_with_intact_roasted_bean.png"
+ },
+ "Café Instantáneo": {
+  "archivo": "cafe-instantaneo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/015/015/0252/front_es.3.400.jpg"
+ },
+ "Caldo en Cubos": {
+  "archivo": "caldo-en-cubos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Rainer Z ...",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Br%C3%BChw%C3%BCrfel-1.jpg"
+ },
+ "Canela": {
+  "archivo": "canela.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Luc Viatour",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Canelle_Cinnamomum_burmanni_Luc_Viatour.jpg"
+ },
+ "Caramelos": {
+  "archivo": "caramelos.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/058/060/2000/front_es.11.400.jpg"
+ },
+ "Cebolla": {
+  "archivo": "cebolla.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/000/002/024/2299/front_fr.63.400.jpg"
+ },
+ "Cebolla de Verdeo": {
+  "archivo": "cebolla-de-verdeo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Evan-Amos",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:CSA-Red-Spring-Onions.jpg"
+ },
+ "Cereza": {
+  "archivo": "cereza.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Benjamint444, edited by Fir0002",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Cherry_Stella444.jpg"
+ },
+ "Cerveza": {
+  "archivo": "cerveza.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/400/263/102/2679/front_es.10.400.jpg"
+ },
+ "Champiñones": {
+  "archivo": "champinones.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "0x010C",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:2016-01_Agaricus_bisporus_07.jpg"
+ },
+ "Chicles": {
+  "archivo": "chicles.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7622201457457"
+ },
+ "Chizitos": {
+  "archivo": "chizitos.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7794520869003"
+ },
+ "Choclo": {
+  "archivo": "choclo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/841/070/700/2313/front_fr.27.400.jpg"
+ },
+ "Choclo en Lata": {
+  "archivo": "choclo-en-lata.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790790120806"
+ },
+ "Chocolate": {
+  "archivo": "chocolate.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/842/519/771/2024/front_en.60.400.jpg"
+ },
+ "Ciruela": {
+  "archivo": "ciruela.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Evan-Amos",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Red-Plums.jpg"
+ },
+ "Coliflor": {
+  "archivo": "coliflor.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Rjcastillo",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Brassica_oleracea_var._botrytis_(Coliflor).jpg"
+ },
+ "Comino": {
+  "archivo": "comino.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7794268000454"
+ },
+ "Copos de Maíz": {
+  "archivo": "copos-de-maiz.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7792052175401"
+ },
+ "Crema de Leche": {
+  "archivo": "crema-de-leche.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7793913013443"
+ },
+ "Dulce de Batata": {
+  "archivo": "dulce-de-batata.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790580503109"
+ },
+ "Dulce de Leche": {
+  "archivo": "dulce-de-leche.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/074/237/3908/front_en.12.400.jpg"
+ },
+ "Dulce de Membrillo": {
+  "archivo": "dulce-de-membrillo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7791451801249"
+ },
+ "Durazno": {
+  "archivo": "durazno.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Jack Dykinga, USDA",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Autumn_Red_peaches.jpg"
+ },
+ "Edulcorante": {
+  "archivo": "edulcorante.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7792129004566"
+ },
+ "Esencia de Vainilla": {
+  "archivo": "esencia-de-vainilla.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/5797513002571"
+ },
+ "Espinaca": {
+  "archivo": "espinaca.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Nillerdk",
+  "licencia": "CC BY 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Spinach_leaves.jpg"
+ },
+ "Facturas": {
+  "archivo": "facturas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/848/000/082/9313/front_es.37.400.jpg"
+ },
+ "Fernet": {
+  "archivo": "fernet.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Didier Descouens",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Fernetbranca.jpg"
+ },
+ "Fideos": {
+  "archivo": "fideos.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/007/033/6552/front_es.20.400.jpg"
+ },
+ "Flan": {
+  "archivo": "flan.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Cary Bass",
+  "licencia": "CC BY-SA 2.5",
+  "url": "https://commons.wikimedia.org/wiki/File:Homemade_Flan.jpg"
+ },
+ "Frutilla": {
+  "archivo": "frutilla.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/814/113/2720/front_es.4.400.jpg"
+ },
+ "Frutos Secos": {
+  "archivo": "frutos-secos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Alabama Extension",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Mixed_Nuts_(Alabama_Extension).jpg"
+ },
+ "Galletitas de Agua": {
+  "archivo": "galletitas-de-agua.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/004/013/3693/front_es.21.400.jpg"
+ },
+ "Galletitas Dulces": {
+  "archivo": "galletitas-dulces.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/356/007/043/9881/front_en.123.400.jpg"
+ },
+ "Galletitas Rellenas": {
+  "archivo": "galletitas-rellenas.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Evan-Amos",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Oreo-Two-Cookies.jpg"
+ },
+ "Galletitas Saladas": {
+  "archivo": "galletitas-saladas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798177401302"
+ },
+ "Garbanzos": {
+  "archivo": "garbanzos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "AlixSaz",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Ordinary_chickpeas_in_a_ceramic_bowl.jpg"
+ },
+ "Garrapiñada": {
+  "archivo": "garrapinada.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790380014645"
+ },
+ "Gaseosa Cola": {
+  "archivo": "gaseosa-cola.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/089/500/0782/front_es.40.400.jpg"
+ },
+ "Gaseosa Lima Limón": {
+  "archivo": "gaseosa-lima-limon.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790895001000"
+ },
+ "Gaseosa Naranja": {
+  "archivo": "gaseosa-naranja.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790895004308"
+ },
+ "Gaseosa Sin Azúcar": {
+  "archivo": "gaseosa-sin-azucar.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790895012259"
+ },
+ "Gelatina": {
+  "archivo": "gelatina.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790070432490"
+ },
+ "Gomitas": {
+  "archivo": "gomitas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790380029793"
+ },
+ "Granola": {
+  "archivo": "granola.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "No machine-readable author provided. Miskatonic assumed (based on copyright clai",
+  "licencia": "CC BY 2.5",
+  "url": "https://commons.wikimedia.org/wiki/File:Granola03242006.JPG"
+ },
+ "Grisines": {
+  "archivo": "grisines.jpg",
+  "fuente": "Aportada por el equipo",
+  "autor": "Equipo de Stocky",
+  "licencia": "A confirmar (foto aportada por el equipo)",
+  "url": ""
+ },
+ "Harina": {
+  "archivo": "harina.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/259/000/0159/front_es.4.400.jpg"
+ },
+ "Huevos": {
+  "archivo": "huevos.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/205/207/2809/front_es.4.400.jpg"
+ },
+ "Jugo en Polvo": {
+  "archivo": "jugo-en-polvo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7622201814946"
+ },
+ "Jugo Envasado": {
+  "archivo": "jugo-envasado.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798085681841"
+ },
+ "Jugo Exprimido": {
+  "archivo": "jugo-exprimido.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/808/568/1841/front_es.15.400.jpg"
+ },
+ "Ketchup": {
+  "archivo": "ketchup.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/400/000/6188/front_es.35.400.jpg"
+ },
+ "Kiwi": {
+  "archivo": "kiwi.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Luc Viatour",
+  "licencia": "CC BY-SA 2.5",
+  "url": "https://commons.wikimedia.org/wiki/File:Kiwi_(Actinidia_chinensis)_1_Luc_Viatour.jpg"
+ },
+ "Leche": {
+  "archivo": "leche.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/074/236/3008/front_en.3.400.jpg"
+ },
+ "Leche Chocolatada": {
+  "archivo": "leche-chocolatada.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790787053254"
+ },
+ "Leche Descremada": {
+  "archivo": "leche-descremada.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798338290035"
+ },
+ "Leche en Polvo": {
+  "archivo": "leche-en-polvo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798417060085"
+ },
+ "Lechuga": {
+  "archivo": "lechuga.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/843/701/313/9342/front_es.72.400.jpg"
+ },
+ "Lentejas": {
+  "archivo": "lentejas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798048720396"
+ },
+ "Levadura": {
+  "archivo": "levadura.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7803000000925"
+ },
+ "Limón": {
+  "archivo": "limon.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/841/419/613/2360/front_es.52.400.jpg"
+ },
+ "Maicena": {
+  "archivo": "maicena.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Picasa author kalaya",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Cornstarch_mixed_with_water.jpg"
+ },
+ "Mandarina": {
+  "archivo": "mandarina.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Joe Ravi",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Mandarin_Oranges_(Citrus_Reticulata).jpg"
+ },
+ "Manteca": {
+  "archivo": "manteca.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/394/005/4006/front_es.42.400.jpg"
+ },
+ "Mantecol": {
+  "archivo": "mantecol.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7622201816414"
+ },
+ "Manzana": {
+  "archivo": "manzana.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/826/202/0036/front_es.3.400.jpg"
+ },
+ "Manzanilla": {
+  "archivo": "manzanilla.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/015/033/0135/front_es.9.400.jpg"
+ },
+ "Maní": {
+  "archivo": "mani.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/815/195/3360/front_es.4.400.jpg"
+ },
+ "Mate Cocido": {
+  "archivo": "mate-cocido.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/038/700/0849/front_es.5.400.jpg"
+ },
+ "Mayonesa": {
+  "archivo": "mayonesa.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/400/000/6065/front_es.22.400.jpg"
+ },
+ "Medialunas": {
+  "archivo": "medialunas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/325/654/000/0339/front_en.66.400.jpg"
+ },
+ "Mermelada": {
+  "archivo": "mermelada.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7793046008415"
+ },
+ "Miel": {
+  "archivo": "miel.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/8480000154361"
+ },
+ "Mostaza": {
+  "archivo": "mostaza.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/400/000/6485/front_es.34.400.jpg"
+ },
+ "Naranja": {
+  "archivo": "naranja.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/811/330/1772/front_es.4.400.jpg"
+ },
+ "Orégano": {
+  "archivo": "oregano.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Revital Salomon",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Dried_Oregano.JPG"
+ },
+ "Palitos Salados": {
+  "archivo": "palitos-salados.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/8480017047687"
+ },
+ "Palta": {
+  "archivo": "palta.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/000/002/022/9030/front_en.71.400.jpg"
+ },
+ "Pan Baguette": {
+  "archivo": "pan-baguette.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Popo le Chien",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Baguette_mie.jpg"
+ },
+ "Pan de Hamburguesa": {
+  "archivo": "pan-de-hamburguesa.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7793890001846"
+ },
+ "Pan de Salvado": {
+  "archivo": "pan-de-salvado.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/063/600/0613/front_es.3.400.jpg"
+ },
+ "Pan Francés": {
+  "archivo": "pan-frances.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/327/655/108/0656/front_fr.81.400.jpg"
+ },
+ "Pan Lactal": {
+  "archivo": "pan-lactal.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/063/600/0606/front_es.9.400.jpg"
+ },
+ "Pan para Panchos": {
+  "archivo": "pan-para-panchos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Joy",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:New_England_style_hot_dog_bun.jpg"
+ },
+ "Pan Rallado": {
+  "archivo": "pan-rallado.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790070413666"
+ },
+ "Papa": {
+  "archivo": "papa.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/280/000/574/9588/front_es.3.400.jpg"
+ },
+ "Papas Fritas": {
+  "archivo": "papas-fritas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/818/721/1311/front_es.3.400.jpg"
+ },
+ "Pasas de Uva": {
+  "archivo": "pasas-de-uva.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790380037002"
+ },
+ "Pasta para Sopa": {
+  "archivo": "pasta-para-sopa.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790070320001"
+ },
+ "Pepino": {
+  "archivo": "pepino.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/505/085/420/9970/front_en.15.400.jpg"
+ },
+ "Pera": {
+  "archivo": "pera.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Rhododendrites",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:D%27anjou_pear.jpg"
+ },
+ "Perejil": {
+  "archivo": "perejil.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "H. Zell",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Petroselinum_crispum_003.JPG"
+ },
+ "Pimentón": {
+  "archivo": "pimenton.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790150564806"
+ },
+ "Pimienta Negra": {
+  "archivo": "pimienta-negra.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ryan Snyder",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Black_Peppercorns_(4422070187).jpg"
+ },
+ "Pimiento": {
+  "archivo": "pimiento.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "AntanO",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Red_bell_pepper.jpg"
+ },
+ "Pochoclo": {
+  "archivo": "pochoclo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "ViajeroExtraviado",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Popcorn_9.jpg"
+ },
+ "Polenta": {
+  "archivo": "polenta.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/801/411/0145/front_es.4.400.jpg"
+ },
+ "Polvo de Hornear": {
+  "archivo": "polvo-de-hornear.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/8480017252661"
+ },
+ "Porotos": {
+  "archivo": "porotos.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798048720150"
+ },
+ "Postre Lácteo": {
+  "archivo": "postre-lacteo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7791337002005"
+ },
+ "Premezcla para Bizcochuelo": {
+  "archivo": "premezcla-para-bizcochuelo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790070432964"
+ },
+ "Prepizza": {
+  "archivo": "prepizza.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798273190254"
+ },
+ "Puerro": {
+  "archivo": "puerro.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Amada44",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Leek_on_white_background_-_0947.jpg"
+ },
+ "Puré de Tomate": {
+  "archivo": "pure-de-tomate.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/079/001/9063/front_es.3.400.jpg"
+ },
+ "Puré Instantáneo": {
+  "archivo": "pure-instantaneo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/8445290993021"
+ },
+ "Queso Crema": {
+  "archivo": "queso-crema.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798151770929"
+ },
+ "Queso Cremoso": {
+  "archivo": "queso-cremoso.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/499/087/9656/front_es.43.400.jpg"
+ },
+ "Queso Rallado": {
+  "archivo": "queso-rallado.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/039/810/0132/front_es.34.400.jpg"
+ },
+ "Queso Untable": {
+  "archivo": "queso-untable.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7794990000043"
+ },
+ "Quinoa": {
+  "archivo": "quinoa.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798067050757"
+ },
+ "Remolacha": {
+  "archivo": "remolacha.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Quadell",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Beets_produce-1.jpg"
+ },
+ "Repollo": {
+  "archivo": "repollo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Deborah Tjituka",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Cabbage_heads.jpg"
+ },
+ "Ricota": {
+  "archivo": "ricota.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Paoletta S.",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Ricotta.jpeg"
+ },
+ "Sal": {
+  "archivo": "sal.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/007/200/1014/front_es.27.400.jpg"
+ },
+ "Salsa de Soja": {
+  "archivo": "salsa-de-soja.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790127789447"
+ },
+ "Salsa de Tomate": {
+  "archivo": "salsa-de-tomate.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7794000598881"
+ },
+ "Salsa Golf": {
+  "archivo": "salsa-golf.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/0794400006983"
+ },
+ "Sandía": {
+  "archivo": "sandia.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "فارس البلغم",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:%D8%A7%D9%84%D8%A8%D8%B7%D9%8A%D8%AE_%D8%A7%D9%84%D8%A3%D8%AD%D9%85%D8%B1.JPG"
+ },
+ "Sidra": {
+  "archivo": "sidra.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790119009881"
+ },
+ "Soda": {
+  "archivo": "soda.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/191/300/0753/front_es.15.400.jpg"
+ },
+ "Sopa Instantánea": {
+  "archivo": "sopa-instantanea.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7794000598539"
+ },
+ "Tapas de Empanadas": {
+  "archivo": "tapas-de-empanadas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798158705429"
+ },
+ "Tapas de Tarta": {
+  "archivo": "tapas-de-tarta.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790236001270"
+ },
+ "Tomate": {
+  "archivo": "tomate.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/058/056/7903/front_es.4.400.jpg"
+ },
+ "Tomate Triturado": {
+  "archivo": "tomate-triturado.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7798011770021"
+ },
+ "Tostadas": {
+  "archivo": "tostadas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/007/662/521/2074/front_es.11.400.jpg"
+ },
+ "Turrón": {
+  "archivo": "turron.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/842/169/100/6393/front_es.20.400.jpg"
+ },
+ "Té": {
+  "archivo": "te.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/015/036/0200/front_en.6.400.jpg"
+ },
+ "Té Verde": {
+  "archivo": "te-verde.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790150355084"
+ },
+ "Uva": {
+  "archivo": "uva.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/843/701/378/3880/front_es.3.400.jpg"
+ },
+ "Vainillas": {
+  "archivo": "vainillas.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Papouten",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Bizcochos_de_soletilla.jpg"
+ },
+ "Vinagre": {
+  "archivo": "vinagre.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/013/000/0058/front_es.6.400.jpg"
+ },
+ "Vino": {
+  "archivo": "vino.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/154/004/7862/front_es.10.400.jpg"
+ },
+ "Yerba Mate": {
+  "archivo": "yerba-mate.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/038/701/5324/front_en.17.400.jpg"
+ },
+ "Yerba Mate con Hierbas": {
+  "archivo": "yerba-mate-con-hierbas.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7792710000090"
+ },
+ "Yogur": {
+  "archivo": "yogur.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/779/391/301/3993/front_en.26.400.jpg"
+ },
+ "Yogur Bebible": {
+  "archivo": "yogur-bebible.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790742662026"
+ },
+ "Zanahoria": {
+  "archivo": "zanahoria.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/325/039/047/3275/front_fr.74.400.jpg"
+ },
+ "Zapallo": {
+  "archivo": "zapallo.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Open Food Facts",
+  "licencia": "CC BY-SA 3.0 (fotos de Open Food Facts)",
+  "url": "https://images.openfoodfacts.org/images/products/859/516/014/4845/front_en.3.400.jpg"
+ },
+ "Ñoquis Secos": {
+  "archivo": "noquis-secos.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7792180006769"
+ },
+ "Zapallito": {
+  "archivo": "zapallito.jpg",
+  "fuente": "Aportada por el equipo",
+  "autor": "Equipo de Stocky",
+  "licencia": "A confirmar (foto aportada por el equipo)",
+  "url": ""
+ },
+ "Rúcula": {
+  "archivo": "rucula.jpg",
+  "fuente": "Aportada por el equipo",
+  "autor": "Equipo de Stocky",
+  "licencia": "A confirmar (foto aportada por el equipo)",
+  "url": ""
+ },
+ "Premezcla para Panqueques": {
+  "archivo": "premezcla-para-panqueques.jpg",
+  "fuente": "Aportada por el equipo",
+  "autor": "Equipo de Stocky",
+  "licencia": "A confirmar (foto aportada por el equipo)",
+  "url": ""
+ },
+ "Melón": {
+  "archivo": "melon.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "fir0002  flagstaffotos [at] gmail.com\n\t\tCanon 20D + Sigma 150mm f/2.8",
+  "licencia": "GFDL 1.2",
+  "url": "https://commons.wikimedia.org/wiki/File:Canteloupe_and_cross_section.jpg"
+ },
+ "Pomelo": {
+  "archivo": "pomelo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Citrus_paradisi_(Grapefruit,_pink).jpg: א (Aleph)\nderivative work: — raeky",
+  "licencia": "CC BY-SA 2.5",
+  "url": "https://commons.wikimedia.org/wiki/File:Citrus_paradisi_(Grapefruit,_pink)_white_bg.jpg"
+ },
+ "Aceto Balsámico": {
+  "archivo": "aceto-balsamico.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "1hnmr",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Traditional_Balsamic_Vinegars_of_Modena_(right)_and_Reggio_Emilia_(left).jpg"
+ },
+ "Agua Tónica": {
+  "archivo": "agua-tonica.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Reedy",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Schweppes_Indian_Tonic_Water_(front).jpg"
+ },
+ "Albahaca": {
+  "archivo": "albahaca.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "rajucreddy",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Verdant_Whispers_By_Raju_C_Reddy.jpg"
+ },
+ "Almendras": {
+  "archivo": "almendras.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ivar Leidus",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Almonds_-_in_shell,_shell_cracked_open,_shelled,_blanched.jpg"
+ },
+ "Ananá en Almíbar": {
+  "archivo": "anana-en-almibar.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Alabama Extension",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Canned_Pineapple_Chunks.jpg"
+ },
+ "Aperitivo": {
+  "archivo": "aperitivo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Kenneth C. Zirkel",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Bottle_of_Yzaguirre_Vermouth_(Catalonia,_Spain).jpg"
+ },
+ "Arroz Integral": {
+  "archivo": "arroz-integral.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Chouk Khmer",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Germinated_brown_rice_-_long_grain.jpg"
+ },
+ "Arvejas Partidas": {
+  "archivo": "arvejas-partidas.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Mx. Granger",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Goya_yellow_split_peas.jpg"
+ },
+ "Azúcar Impalpable": {
+  "archivo": "azucar-impalpable.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ɱ",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:PowderedSugar.png"
+ },
+ "Azúcar Mascabo": {
+  "archivo": "azucar-mascabo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Moe Rubenzahl",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Brown_sugar_examples.JPG"
+ },
+ "Bebida Isotónica": {
+  "archivo": "bebida-isotonica.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Lucasdmitchell",
+  "licencia": "CC BY 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Korean_Low_Calorie_Gatorade_(Blue_Bolt_flavor).jpg"
+ },
+ "Bicarbonato de Sodio": {
+  "archivo": "bicarbonato-de-sodio.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Thavox",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Sodium_bicarbonate.jpg"
+ },
+ "Boldo": {
+  "archivo": "boldo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Pato Novoa from Valparaíso, Chile",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Peumus_boldus_(boldo),_hembra_-_Flickr_-_Pato_Novoa.jpg"
+ },
+ "Bombones": {
+  "archivo": "bombones.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Sikander Iqbal",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Nad%C3%A8ge_chocolate_bonbons.jpg"
+ },
+ "Budín": {
+  "archivo": "budin.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Douglas Paul Perkins",
+  "licencia": "CC BY 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Pound_cake_3.jpg"
+ },
+ "Café en Cápsulas": {
+  "archivo": "cafe-en-capsulas.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Chepry 💬 (Andrzej Barabasz) 📷 🇵🇱",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Nespresso-capsules_AB-01.jpg"
+ },
+ "Castañas de Cajú": {
+  "archivo": "castanas-de-caju.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ranjithkumar Murugesan",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:CASHEW_NUTS.jpg"
+ },
+ "Cebolla Morada": {
+  "archivo": "cebolla-morada.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Colin",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Red_Onion_on_White.JPG"
+ },
+ "Chaucha": {
+  "archivo": "chaucha.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Gaurav Dhwaj Khadka",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Green_Beans_1.jpg"
+ },
+ "Chimichurri": {
+  "archivo": "chimichurri.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Dominic Lockyer",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Chimichurri_Sauce_Recipe_(13294214165).jpg"
+ },
+ "Chocolate Cobertura": {
+  "archivo": "chocolate-cobertura.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Mx. Granger",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Green_and_Black%27s_dark_chocolate_bar_2.jpg"
+ },
+ "Cilantro": {
+  "archivo": "cilantro.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Rupeshm364",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Coriander_Leaves.jpg"
+ },
+ "Coco Rallado": {
+  "archivo": "coco-rallado.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ivar Leidus",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Coconuts_-_single_and_cracked_open.jpg"
+ },
+ "Crema Chantilly": {
+  "archivo": "crema-chantilly.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Jo",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Frozen_Whipped_Cream_Sandwiches.jpg"
+ },
+ "Crema de Maní": {
+  "archivo": "crema-de-mani.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Shisma",
+  "licencia": "CC BY 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Peanut_butter_glass.jpg"
+ },
+ "Curry": {
+  "archivo": "curry.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Thomas Steiner",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Curry_powder_in_the_spice-bazaar_in_Istanbul.jpg"
+ },
+ "Damasco": {
+  "archivo": "damasco.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Fir0002",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Apricots.jpg"
+ },
+ "Durazno en Almíbar": {
+  "archivo": "durazno-en-almibar.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Horacio Cambeiro",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Canned_peach_halves_in_a_metal_bowl.jpg"
+ },
+ "Energizante": {
+  "archivo": "energizante.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Klooni",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Energy_Drink_Battery_Cans.jpg"
+ },
+ "Espumante": {
+  "archivo": "espumante.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Taken on September 22, 2005",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Champagne_flute_and_bottle.jpg"
+ },
+ "Fideos Guiseros": {
+  "archivo": "fideos-guiseros.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Desconocido",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Macaroni_closeup.jpg"
+ },
+ "Frambuesa": {
+  "archivo": "frambuesa.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Juhanson",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Raspberries_(Rubus_Idaeus).jpg"
+ },
+ "Fécula de Mandioca": {
+  "archivo": "fecula-de-mandioca.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Linason Blessing",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:A_plate_of_Tapioca.jpg"
+ },
+ "Galletas de Arroz": {
+  "archivo": "galletas-de-arroz.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "BD2412",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Puffed_Rice_Cakes.jpg"
+ },
+ "Galletitas Integrales": {
+  "archivo": "galletitas-integrales.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Mark Taylor from Rockville, USA",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Whole_wheat_Ritz_Cracker_(7571386026).jpg"
+ },
+ "Gaseosa Pomelo": {
+  "archivo": "gaseosa-pomelo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "JIP",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Self-made_gin_pink_grapefruit_long_drink.jpg"
+ },
+ "Gelatina sin Sabor": {
+  "archivo": "gelatina-sin-sabor.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7622201106034"
+ },
+ "Granada": {
+  "archivo": "granada.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ivar Leidus",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Pomegranate_fruit_-_whole_and_piece_with_arils.jpg"
+ },
+ "Harina Integral": {
+  "archivo": "harina-integral.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Margaret Hoogstrate",
+  "licencia": "CC BY 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Whole_wheat_grain_flour_being_scooped.jpg"
+ },
+ "Harina Leudante": {
+  "archivo": "harina-leudante.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "SZE XAIMMOOA HONGMIN",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:HK_food_%E9%BA%B5%E7%B2%89_Wheat_flour_powder_%E5%8A%A0%E5%85%A5%E9%9B%9E%E8%9B%8B_with_egg_October_2025_N13P_01.jpg"
+ },
+ "Higo": {
+  "archivo": "higo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "BenAveling",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Bowl_of_Figs.jpg"
+ },
+ "Hinojo": {
+  "archivo": "hinojo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Mauro Cateb",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Fennel_bulb_from_Brazil.jpg"
+ },
+ "Jengibre": {
+  "archivo": "jengibre.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Khlshnuramalina",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Ginger_(Zingiber_officinale).jpg"
+ },
+ "Laurel": {
+  "archivo": "laurel.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Mauro Cateb",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Dried_bay_leaves.jpg"
+ },
+ "Leche Condensada": {
+  "archivo": "leche-condensada.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Anders Lagerås",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Condensed_and_evaporated_milk.jpg"
+ },
+ "Leche de Almendras": {
+  "archivo": "leche-de-almendras.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Amazing Almonds",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Home-made_almond_milk,_November_2012.jpg"
+ },
+ "Leche de Soja": {
+  "archivo": "leche-de-soja.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Veganbaking.net from USA",
+  "licencia": "CC BY-SA 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Soy_Non-Dairy_Milk_(5082414499).jpg"
+ },
+ "Lima": {
+  "archivo": "lima.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ivar Leidus",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Lime_-_whole_and_halved.jpg"
+ },
+ "Magdalenas": {
+  "archivo": "magdalenas.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "W.carter",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Plain_vanilla_muffin_in_Tuntorp.jpg"
+ },
+ "Mango": {
+  "archivo": "mango.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ivar Leidus",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Mangos_-_single_and_halved.jpg"
+ },
+ "Menta": {
+  "archivo": "menta.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "ANBARASU THIRAVIYAM",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Mint_leaves_2.jpg"
+ },
+ "Mix de Hojas Verdes": {
+  "archivo": "mix-de-hojas-verdes.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Dwight Sipler from Stow, MA, USA",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:New_Lettuce_(6193662526).jpg"
+ },
+ "Morrones en Lata": {
+  "archivo": "morrones-en-lata.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "sindändùne -",
+  "licencia": "CC BY-SA 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Piquillo_Peppers.jpg"
+ },
+ "Muzzarella": {
+  "archivo": "muzzarella.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Popo le Chien",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Mozzarella_di_bufala3.jpg"
+ },
+ "Nachos": {
+  "archivo": "nachos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "chee.hong from Kuala Lumpur, Malaysia",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Nachos-cheese.jpg"
+ },
+ "Nueces": {
+  "archivo": "nueces.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ivar Leidus",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Walnuts_-_whole_and_open_with_halved_kernel.jpg"
+ },
+ "Nuez Moscada": {
+  "archivo": "nuez-moscada.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Miansari66",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Nutmeg_whole.JPG"
+ },
+ "Obleas": {
+  "archivo": "obleas.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Xemenendura",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Obleas_0.jpg"
+ },
+ "Palmitos": {
+  "archivo": "palmitos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "mhoenig",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Heart_of_palm.jpg"
+ },
+ "Pan de Miga": {
+  "archivo": "pan-de-miga.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Brenton Walker from Buenos Aires, Argentina",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Sandwich_de_Miga.jpg"
+ },
+ "Pan Integral": {
+  "archivo": "pan-integral.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Veganbaking.net",
+  "licencia": "CC BY-SA 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Vegan_no-knead_whole_wheat_bread_loaf,_sliced,_September_2010.jpg"
+ },
+ "Pan Árabe": {
+  "archivo": "pan-arabe.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Contrapunctus-1",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Foul_with_tahina_and_pita_bread_at_Agasi,_Lajpat_Nagar,_Delhi_(2025-10-04).jpg"
+ },
+ "Pepinillos": {
+  "archivo": "pepinillos.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "W.carter",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:A_jar_of_sliced_pickled_cucumber.jpg"
+ },
+ "Premezcla para Pizza": {
+  "archivo": "premezcla-para-pizza.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Food Recipes",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Vegetarian_pizza.jpg"
+ },
+ "Provenzal": {
+  "archivo": "provenzal.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Andrea Pavanello, Milano",
+  "licencia": "CC BY-SA 3.0 it",
+  "url": "https://commons.wikimedia.org/wiki/File:%22_12_-_ITALY_-_Mediterranean_food_-_aglio_pomodorini_e_prezzemolo_(_garlic,_tomatoes,_parsley_)_su_tagliere_-_wooden_chopping_board.JPG"
+ },
+ "Queso Port Salut": {
+  "archivo": "queso-port-salut.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Jon Sullivan",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Port_Salut_cheese.jpg"
+ },
+ "Rabanito": {
+  "archivo": "rabanito.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Self, en:User:Jengod",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Radish_3371103037_4ab07db0bf_o.jpg"
+ },
+ "Ravioles": {
+  "archivo": "ravioles.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Hayford Peirce",
+  "licencia": "CC BY 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Alkaline_Pasta_for_Ravioli_(3),_Sept_2010,_ravioli_and_chitarra_pasta.jpg"
+ },
+ "Rebozador": {
+  "archivo": "rebozador.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Yvwv",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Breadcrumb.jpg"
+ },
+ "Sal Gruesa": {
+  "archivo": "sal-gruesa.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Nolabob",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Sea_Salt.jpg"
+ },
+ "Salsa Barbacoa": {
+  "archivo": "salsa-barbacoa.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Jorge Barrios",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Hunts-Barbecue-Sauce.jpg"
+ },
+ "Semillas de Chía": {
+  "archivo": "semillas-de-chia.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "formulatehealth",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Chia_Seeds_with_the_word_Chia_spelled_out.jpg"
+ },
+ "Semillas de Girasol": {
+  "archivo": "semillas-de-girasol.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Dmitry Makeev",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Sunflower_seeds._img_004.jpg"
+ },
+ "Semillas de Lino": {
+  "archivo": "semillas-de-lino.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Guglani",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Linum_usitatissimum_(linseed)_in_jar.jpg"
+ },
+ "Spaghetti": {
+  "archivo": "spaghetti.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Kevin Doncaster",
+  "licencia": "CC BY 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Spaghetti_(247838199).jpeg"
+ },
+ "Tallarines": {
+  "archivo": "tallarines.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Mathias Braux",
+  "licencia": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Dry_tagliatelle_pasta.jpg"
+ },
+ "Tapas de Lasaña": {
+  "archivo": "tapas-de-lasana.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "MMFE",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Lasagne_Bl%C3%A4tter01.jpg"
+ },
+ "Tilo": {
+  "archivo": "tilo.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Rillke",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Tiliae_flos_267302.jpg"
+ },
+ "Tomate Cherry": {
+  "archivo": "tomate-cherry.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Evan-Amos",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Cherry-Tomatoes-in-Pack.jpg"
+ },
+ "Tortillas": {
+  "archivo": "tortillas.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Ocdp",
+  "licencia": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Flour_Tortillas_001.jpg"
+ },
+ "Té Negro": {
+  "archivo": "te-negro.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Vyacheslav Argenberg",
+  "licencia": "CC BY 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Darjeeling,_India,_Fermented_tea_leaves.jpg"
+ },
+ "Vino Blanco": {
+  "archivo": "vino-blanco.jpg",
+  "fuente": "Open Food Facts",
+  "autor": "Contribuyentes de Open Food Facts",
+  "licencia": "CC BY-SA 3.0",
+  "url": "https://ar.openfoodfacts.org/producto/7790717153474"
+ },
+ "Vino Tinto": {
+  "archivo": "vino-tinto.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Evan Swigart from Chicago, USA",
+  "licencia": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Glass_of_Red_Wine_with_a_bottle_of_Red_Wine_-_Evan_Swigart.jpg"
+ },
+ "Yogur Griego": {
+  "archivo": "yogur-griego.jpg",
+  "fuente": "Wikimedia Commons",
+  "autor": "Takeaway",
+  "licencia": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Turkish_strained_yogurt.jpg"
+ },
+ "Achicoria": {
+  "archivo": "achicoria.jpg",
+  "fuente": "Aportada por el equipo",
+  "autor": "Equipo de Stocky",
+  "licencia": "A confirmar (foto aportada por el equipo)",
+  "url": ""
+ },
+ "Leche de Coco": {
+  "archivo": "leche-de-coco.jpg",
+  "fuente": "Aportada por el equipo",
+  "autor": "Equipo de Stocky",
+  "licencia": "A confirmar (foto aportada por el equipo)",
+  "url": ""
+ }
+}

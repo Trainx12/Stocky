@@ -19,7 +19,16 @@ export type AppStackParamList = {
   // `abrirAgregar`: si viene en true, ProductosScreen abre el modal de
   // "Agregar producto" apenas monta (usado por el acceso rápido "Agregar
   // producto" de HomeScreen, para no obligar a un segundo toque en el FAB).
-  Productos: { hogarId: string; hogarNombre: string; abrirAgregar?: boolean };
+  // `abrirVoz`: igual, pero abre la carga por voz (acceso rápido "Cargar por
+  // voz", RF8).
+  // `enfocarBusqueda`: abre con el buscador activo (lupa de la barra de abajo).
+  Productos: {
+    hogarId: string;
+    hogarNombre: string;
+    abrirAgregar?: boolean;
+    abrirVoz?: boolean;
+    enfocarBusqueda?: boolean;
+  };
   // Admin: sugerencias de productos nuevos para el catálogo global
   // pendientes de aprobar/rechazar (ver services/catalogo.ts). Sin
   // parámetros -- lista todo lo pendiente, no es por hogar.

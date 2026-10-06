@@ -95,6 +95,9 @@ export interface Producto {
   // Nullable: los productos cargados antes de que existiera el catálogo no
   // tienen ninguna referencia real a la que apuntar.
   catalogo_id: string | null;
+  // Texto libre opcional ("Lucchetti"): distingue dos paquetes del mismo
+  // producto del catálogo con vencimientos distintos.
+  marca: string | null;
   created_at: string;
   updated_at: string;
 }

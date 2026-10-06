@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { listarSugerenciasPendientes, responderSugerencia } from '../services/catalogo';
 import type { ProductoCatalogo } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
-import { colors, spacing, typography } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 import type { AppStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'AdminSugerencias'>;
@@ -58,7 +58,7 @@ export function AdminSugerenciasScreen({ navigation }: Props) {
 
     setRespondiendoIds((actuales) => new Set(actuales).add(sugerencia.id));
     try {
-      await responderSugerencia(sugerencia.id, aprobar);
+      await responderSugerencia(sugerencia.id, aprobar, sugerencia.imagen_url);
       setSugerencias((actuales) => actuales.filter((s) => s.id !== sugerencia.id));
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo responder la sugerencia.');
@@ -93,6 +93,15 @@ export function AdminSugerenciasScreen({ navigation }: Props) {
             const respondiendo = respondiendoIds.has(sugerencia.id);
             return (
               <View key={sugerencia.id} style={styles.fila}>
+                {/* Foto que mandó quien sugirió (si mandó): al aprobar pasa a
+                    ser la del producto en el catálogo. */}
+                <View style={styles.foto}>
+                  {sugerencia.imagen_url ? (
+                    <Image source={{ uri: sugerencia.imagen_url }} style={styles.fotoImagen} resizeMode="contain" />
+                  ) : (
+                    <Ionicons name="basket-outline" size={24} color={colors.primary} />
+                  )}
+                </View>
                 <View style={styles.filaTextos}>
                   <Text style={styles.filaNombre} numberOfLines={1}>
                     {sugerencia.nombre}
@@ -169,8 +178,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  foto: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  fotoImagen: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.white,
+  },
   filaTextos: {
-    flexShrink: 1,
+    flex: 1,
     gap: 2,
   },
   filaNombre: {

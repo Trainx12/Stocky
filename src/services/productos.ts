@@ -33,6 +33,8 @@ export interface DatosProducto {
   // 20260909212018_catalogo_productos.sql). Null en productos que ya
   // existían antes del catálogo.
   catalogoId: string | null;
+  // Marca opcional en texto libre (ver migración 20260912120000_productos_marca.sql).
+  marca?: string | null;
 }
 
 // Parsea 'YYYY-MM-DD' como Date en hora LOCAL a medianoche. `new
@@ -74,6 +76,7 @@ function validar(datos: DatosProducto): {
   cantidad: number;
   stockMinimo: number;
   fechaVencimiento: string | null;
+  marca: string | null;
 } {
   const nombre = capitalizar(datos.nombre.trim());
   if (!nombre) throw new Error('El nombre del producto no puede estar vacío');
@@ -89,7 +92,51 @@ function validar(datos: DatosProducto): {
     throw new Error('La fecha de vencimiento no es válida (formato AAAA-MM-DD)');
   }
 
-  return { nombre, categoria, cantidad: datos.cantidad, stockMinimo: datos.stockMinimo, fechaVencimiento };
+  const marca = datos.marca?.trim() || null;
+  if (marca && marca.length > 40) throw new Error('La marca no puede tener más de 40 caracteres');
+
+  return { nombre, categoria, cantidad: datos.cantidad, stockMinimo: datos.stockMinimo, fechaVencimiento, marca };
+}
+
+// Minúsculas, sin tildes ni espacios de más: "Lucchetti " ~ "lucchetti".
+function normalizarTexto(texto: string | null | undefined): string {
+  return (texto ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Nombre para mostrar en listas: "Fideos · Lucchetti" cuando tiene marca, así
+// dos paquetes del mismo producto se distinguen a simple vista.
+export function nombreConMarca(producto: Pick<Producto, 'nombre' | 'marca'>): string {
+  return producto.marca ? `${producto.nombre} · ${producto.marca}` : producto.nombre;
+}
+
+// Busca entre los productos de un hogar uno que sea "el mismo" que el que se
+// está por crear: misma identidad (producto del catálogo, o mismo nombre si
+// no viene de catálogo), misma marca y mismo vencimiento. Si existe, conviene
+// sumarle la cantidad en vez de crear una fila repetida.
+export function buscarDuplicado(
+  existentes: Producto[],
+  nuevo: { nombre: string; catalogoId: string | null; marca: string | null; fechaVencimiento: string | null },
+): Producto | null {
+  const marcaNueva = normalizarTexto(nuevo.marca);
+  const nombreNuevo = normalizarTexto(nuevo.nombre);
+
+  return (
+    existentes.find((p) => {
+      const mismaIdentidad = nuevo.catalogoId
+        ? p.catalogo_id === nuevo.catalogoId
+        : p.catalogo_id === null && normalizarTexto(p.nombre) === nombreNuevo;
+      return (
+        mismaIdentidad &&
+        normalizarTexto(p.marca) === marcaNueva &&
+        (p.fecha_vencimiento ?? null) === (nuevo.fechaVencimiento ?? null)
+      );
+    }) ?? null
+  );
 }
 
 // Lista los productos de un hogar puntual. Filtra explícito por hogar_id
@@ -111,8 +158,22 @@ export async function listarProductos(hogarId: string): Promise<Producto[]> {
 }
 
 // Crea un producto nuevo en un hogar puntual.
+// Si ya hay en el hogar un producto idéntico (mismo producto, misma marca y
+// mismo vencimiento) y se agrega con cantidad, se le suma en vez de crear una
+// fila repetida -- la base solo guarda filas distintas cuando hay algo
+// distinto que distinguir (otra marca u otra fecha).
 export async function crearProducto(hogarId: string, datos: DatosProducto): Promise<Producto> {
-  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento } = validar(datos);
+  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca } = validar(datos);
+
+  if (cantidad > 0) {
+    const duplicado = buscarDuplicado(await listarProductos(hogarId), {
+      nombre,
+      catalogoId: datos.catalogoId,
+      marca,
+      fechaVencimiento,
+    });
+    if (duplicado) return ajustarCantidadProducto(duplicado.id, cantidad);
+  }
 
   const { data, error } = await supabase
     .from('productos')
@@ -126,6 +187,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
       fecha_vencimiento: fechaVencimiento,
       alerta_vencimiento_habilitada: datos.alertaVencimientoHabilitada,
       catalogo_id: datos.catalogoId,
+      marca,
     })
     .select()
     .single();
@@ -141,7 +203,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
 // (nombre/categoría/unidad/catálogo) queda fija desde que se crea, editar
 // solo cambia cantidad/stock/vencimiento (ver ProductoFormModal).
 export async function editarProducto(productoId: string, datos: DatosProducto): Promise<Producto> {
-  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento } = validar(datos);
+  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca } = validar(datos);
 
   const { data, error } = await supabase
     .from('productos')
@@ -153,6 +215,7 @@ export async function editarProducto(productoId: string, datos: DatosProducto): 
       stock_minimo: stockMinimo,
       fecha_vencimiento: fechaVencimiento,
       alerta_vencimiento_habilitada: datos.alertaVencimientoHabilitada,
+      marca,
     })
     .eq('id', productoId)
     .select()
@@ -167,6 +230,29 @@ export async function editarProducto(productoId: string, datos: DatosProducto): 
 export async function eliminarProducto(productoId: string): Promise<void> {
   const { error } = await supabase.from('productos').delete().eq('id', productoId);
   if (error) throw error;
+}
+
+// Productos que se pueden limpiar de la lista: se acabaron (cantidad 0) y no
+// tienen stock mínimo. Los agotados CON stock mínimo se dejan a propósito:
+// ese 0 es la señal de "hay que reponerlo".
+export function productosAgotadosLimpiables(productos: Producto[]): Producto[] {
+  return productos.filter((p) => p.cantidad === 0 && p.stock_minimo === 0);
+}
+
+// Borra del hogar los productos agotados limpiables (ver arriba). Devuelve
+// cuántos borró. Filtra por hogar_id explícito (no solo RLS), igual que
+// listarProductos.
+export async function eliminarProductosAgotados(hogarId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('productos')
+    .delete()
+    .eq('hogar_id', hogarId)
+    .eq('cantidad', 0)
+    .eq('stock_minimo', 0)
+    .select('id');
+
+  if (error) throw error;
+  return data?.length ?? 0;
 }
 
 // Suma o resta `delta` a la cantidad actual (+1/-1 rápido desde la lista,
@@ -208,7 +294,11 @@ export function categoriasEnUso(productos: Producto[]): string[] {
 export function filtrarProductos(productos: Producto[], busqueda: string, categoria: string | null): Producto[] {
   const busquedaNormalizada = busqueda.trim().toLowerCase();
   return productos.filter((p) => {
-    const coincideBusqueda = !busquedaNormalizada || p.nombre.toLowerCase().includes(busquedaNormalizada);
+    // También por marca: "red premium" encuentra las manzanas de esa marca.
+    const coincideBusqueda =
+      !busquedaNormalizada ||
+      p.nombre.toLowerCase().includes(busquedaNormalizada) ||
+      (p.marca ?? '').toLowerCase().includes(busquedaNormalizada);
     const coincideCategoria = !categoria || p.categoria === categoria;
     return coincideBusqueda && coincideCategoria;
   });
@@ -223,6 +313,69 @@ export function filtrarProductos(productos: Producto[], busqueda: string, catego
 export function parsearNumero(texto: string): number {
   const valor = Number(texto.replace(',', '.'));
   return Number.isFinite(valor) ? valor : 0;
+}
+
+// Un producto tal como se muestra en la lista: todas las filas del mismo
+// producto (misma identidad y unidad) juntas. Cada fila es un "lote" con su
+// propia marca, cantidad y vencimiento -- en la base siguen separadas para que
+// la alerta de vencimiento de cada una sea exacta, pero en pantalla se ven
+// bajo un solo "Manzana" en vez de desparramadas por la lista.
+export interface GrupoProductos {
+  clave: string;
+  nombre: string;
+  categoria: string | null;
+  unidad: UnidadProducto;
+  cantidadTotal: number;
+  lotes: Producto[];
+}
+
+// Lo más urgente primero: por fecha de vencimiento (los sin fecha al final),
+// y a igual fecha por marca (los sin marca al final).
+function compararLotes(a: Producto, b: Producto): number {
+  if (a.fecha_vencimiento !== b.fecha_vencimiento) {
+    if (!a.fecha_vencimiento) return 1;
+    if (!b.fecha_vencimiento) return -1;
+    return a.fecha_vencimiento.localeCompare(b.fecha_vencimiento);
+  }
+  if (!a.marca !== !b.marca) return a.marca ? -1 : 1;
+  return (a.marca ?? '').localeCompare(b.marca ?? '');
+}
+
+// Agrupa por nombre (sin distinguir mayúsculas/tildes) y unidad: "3 kg de
+// papa" y "2 paquetes de papa" no se suman, quedan como grupos distintos.
+// Respeta el orden en que vienen los productos (alfabético desde la base).
+export function agruparProductos(productos: Producto[]): GrupoProductos[] {
+  const grupos = new Map<string, GrupoProductos>();
+  for (const producto of productos) {
+    const clave = `${normalizarTexto(producto.nombre)}|${producto.unidad}`;
+    const grupo = grupos.get(clave);
+    if (grupo) {
+      grupo.lotes.push(producto);
+      grupo.cantidadTotal = Math.round((grupo.cantidadTotal + producto.cantidad) * 1000) / 1000;
+    } else {
+      grupos.set(clave, {
+        clave,
+        nombre: producto.nombre,
+        categoria: producto.categoria,
+        unidad: producto.unidad,
+        cantidadTotal: producto.cantidad,
+        lotes: [producto],
+      });
+    }
+  }
+  return Array.from(grupos.values()).map((grupo) => ({ ...grupo, lotes: ordenarLotes(grupo.lotes) }));
+}
+
+// Copia ordenada con lo más urgente primero (ver compararLotes). La usa
+// también el ABM por voz para descontar del lote que vence antes.
+export function ordenarLotes(lotes: Producto[]): Producto[] {
+  return [...lotes].sort(compararLotes);
+}
+
+// 'AAAA-MM-DD' -> 'DD/MM/AAAA', como se lee una fecha en Argentina.
+export function formatearFechaCorta(fecha: string): string {
+  const [anio, mes, dia] = fecha.split('-');
+  return `${dia}/${mes}/${anio}`;
 }
 
 /**

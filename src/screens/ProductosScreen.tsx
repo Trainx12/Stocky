@@ -4,14 +4,21 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
+import { EscanearTicketModal } from '../components/EscanearTicketModal';
+import { ComandoVozModal } from '../components/ComandoVozModal';
 import {
+  agruparProductos,
   ajustarCantidadProducto,
   categoriasEnUso,
   eliminarProducto,
   estadoVencimiento,
   etiquetaVencimiento,
   filtrarProductos,
+  formatearFechaCorta,
+  eliminarProductosAgotados,
   listarProductos,
+  nombreConMarca,
+  productosAgotadosLimpiables,
 } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
@@ -28,7 +35,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  * tipeada, y evita mostrar un loader en cada tecla.
  */
 export function ProductosScreen({ route, navigation }: Props) {
-  const { hogarId, hogarNombre, abrirAgregar } = route.params;
+  const { hogarId, hogarNombre, abrirAgregar, abrirVoz, enfocarBusqueda } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +44,9 @@ export function ProductosScreen({ route, navigation }: Props) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+  const [ticketVisible, setTicketVisible] = useState(false);
+  // RF8: ABM por voz (ver ComandoVozModal).
+  const [vozVisible, setVozVisible] = useState(false);
   // Ids con un ajuste de +/- en vuelo (ver handleAjustarCantidad), para
   // deshabilitar sus botones mientras se resuelve y no disparar dos veces
   // el mismo delta con un doble toque.
@@ -68,6 +78,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   // cierra sin guardar y la pantalla vuelve a renderizar por otro motivo.
   useEffect(() => {
     if (abrirAgregar) handleAgregar();
+    else if (abrirVoz) setVozVisible(true);
   }, []);
 
   // Categorías realmente en uso en ESTE hogar (no una lista fija): se
@@ -82,6 +93,32 @@ export function ProductosScreen({ route, navigation }: Props) {
     () => filtrarProductos(productos, busqueda, categoriaSeleccionada),
     [productos, busqueda, categoriaSeleccionada],
   );
+
+  // Lo que se ve en la lista: las filas del mismo producto (distinta marca o
+  // vencimiento) juntas bajo un solo nombre.
+  const grupos = useMemo(() => agruparProductos(productosFiltrados), [productosFiltrados]);
+
+  // Agotados sin stock mínimo: se pueden limpiar de una (los que tienen
+  // mínimo se dejan, ese 0 es la señal de "hay que reponer").
+  const agotados = useMemo(() => productosAgotadosLimpiables(productos), [productos]);
+
+  async function handleLimpiarAgotados() {
+    const confirmado = await confirmar(
+      'Limpiar agotados',
+      agotados.length === 1
+        ? '¿Eliminar 1 producto agotado? Los que tienen stock mínimo no se tocan.'
+        : `¿Eliminar ${agotados.length} productos agotados? Los que tienen stock mínimo no se tocan.`,
+      'Eliminar',
+    );
+    if (!confirmado) return;
+
+    try {
+      await eliminarProductosAgotados(hogarId);
+      await cargar();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudieron limpiar los agotados.');
+    }
+  }
 
   function handleAgregar() {
     setProductoEditando(null);
@@ -132,7 +169,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   // confirmar()/avisar() de src/lib/alert.ts en vez de Alert.alert directo,
   // que en react-native-web es un no-op (ver docs/incidentes-sprint3.md).
   async function handleEliminar(producto: Producto) {
-    const confirmado = await confirmar('Eliminar producto', `¿Seguro que querés eliminar "${producto.nombre}"?`, 'Eliminar');
+    const confirmado = await confirmar('Eliminar producto', `¿Seguro que querés eliminar "${nombreConMarca(producto)}"?`, 'Eliminar');
     if (!confirmado) return;
 
     try {
@@ -141,6 +178,81 @@ export function ProductosScreen({ route, navigation }: Props) {
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo eliminar el producto.');
     }
+  }
+
+  // "3 unidad · vence 07/10/2026": la fecha siempre a la vista, así dos lotes
+  // del mismo producto se distinguen sin abrirlos.
+  function detalleLote(producto: Producto): string {
+    const vence = producto.fecha_vencimiento ? ` · vence ${formatearFechaCorta(producto.fecha_vencimiento)}` : '';
+    return `${producto.cantidad} ${producto.unidad}${vence}`;
+  }
+
+  // RF2/RF3: badge de vencimiento (null = sin fecha, o alerta deshabilitada a
+  // propósito -- ver estadoVencimiento).
+  function renderBadgeVencimiento(producto: Producto) {
+    const etiqueta = etiquetaVencimiento(producto);
+    if (!etiqueta) return null;
+    return (
+      <View style={[styles.vencimientoBadge, estadoVencimiento(producto) === 'vencido' && styles.vencimientoBadgeVencido]}>
+        <Text style={styles.vencimientoBadgeTexto} numberOfLines={1}>
+          {etiqueta}
+        </Text>
+      </View>
+    );
+  }
+
+  // +/- rápido sin abrir el formulario completo (ver ajustarCantidadProducto
+  // en services/productos.ts). El "-" se deshabilita en 0: no tiene sentido
+  // restar más (el backend ya lo frena con greatest(...,0), esto solo evita
+  // el toque de más).
+  function renderStepper(producto: Producto) {
+    const descripcion = nombreConMarca(producto);
+    return (
+      <View style={styles.stepperGrupo}>
+        <Pressable
+          onPress={() => handleAjustarCantidad(producto, -1)}
+          disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
+          style={styles.stepperButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Restar 1 a ${descripcion}`}
+        >
+          <Ionicons name="remove-circle-outline" size={26} color={producto.cantidad <= 0 ? colors.border : colors.danger} />
+        </Pressable>
+        <Pressable
+          onPress={() => handleAjustarCantidad(producto, 1)}
+          disabled={ajustandoIds.has(producto.id)}
+          style={styles.stepperButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Sumar 1 a ${descripcion}`}
+        >
+          <Ionicons name="add-circle-outline" size={26} color={colors.success} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  function renderAcciones(producto: Producto) {
+    const descripcion = nombreConMarca(producto);
+    return (
+      <View style={styles.productoAcciones}>
+        <Pressable
+          onPress={() => handleEditar(producto)}
+          style={styles.accionButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Editar ${descripcion}`}
+        >
+          <Ionicons name="pencil-outline" size={16} color={colors.textSecondary} />
+        </Pressable>
+        <Pressable
+          onPress={() => handleEliminar(producto)}
+          style={styles.accionButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Eliminar ${descripcion}`}
+        >
+          <Ionicons name="trash-outline" size={16} color={colors.danger} />
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -152,6 +264,22 @@ export function ProductosScreen({ route, navigation }: Props) {
         <Text style={styles.title} numberOfLines={1}>
           {hogarNombre}
         </Text>
+        <Pressable
+          onPress={() => setVozVisible(true)}
+          style={styles.escanearButton}
+          accessibilityRole="button"
+          accessibilityLabel="Cargar productos por voz"
+        >
+          <Ionicons name="mic-outline" size={22} color={colors.primary} />
+        </Pressable>
+        <Pressable
+          onPress={() => setTicketVisible(true)}
+          style={styles.escanearButton}
+          accessibilityRole="button"
+          accessibilityLabel="Escanear ticket de compra"
+        >
+          <Ionicons name="receipt-outline" size={22} color={colors.primary} />
+        </Pressable>
       </View>
 
       <TextInput
@@ -160,6 +288,9 @@ export function ProductosScreen({ route, navigation }: Props) {
         placeholderTextColor={colors.textSecondary}
         value={busqueda}
         onChangeText={setBusqueda}
+        // Llegando desde la lupa de la barra de abajo, el buscador arranca
+        // activo con el teclado abierto.
+        autoFocus={enfocarBusqueda}
         autoCapitalize="none"
       />
 
@@ -185,6 +316,13 @@ export function ProductosScreen({ route, navigation }: Props) {
         </ScrollView>
       )}
 
+      {agotados.length > 0 && (
+        <Pressable onPress={handleLimpiarAgotados} style={styles.limpiarButton} accessibilityRole="button">
+          <Ionicons name="trash-bin-outline" size={16} color={colors.textSecondary} />
+          <Text style={styles.limpiarTexto}>Limpiar agotados ({agotados.length})</Text>
+        </Pressable>
+      )}
+
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : productosFiltrados.length === 0 ? (
@@ -196,90 +334,84 @@ export function ProductosScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
-          {productosFiltrados.map((producto) => {
-            // RF2/RF3: badge de vencimiento (null = sin fecha, o alerta
-            // deshabilitada a propósito -- ver estadoVencimiento).
-            const estado = estadoVencimiento(producto);
-            const etiqueta = etiquetaVencimiento(producto);
-            return (
-            <View key={producto.id} style={styles.productoRow}>
-              <View style={styles.productoInfo}>
-                <Text style={styles.productoNombre} numberOfLines={1}>
-                  {producto.nombre}
-                </Text>
-                <View style={styles.categoriaRow}>
-                  {producto.categoria ? (
-                    <Text style={styles.productoCategoria}>{producto.categoria}</Text>
-                  ) : (
-                    <View />
+          {/* Todos los productos con el mismo formato: arriba el producto con
+              su total, abajo cada lote (marca y vencimiento). Con varios lotes
+              queda un solo "Manzana" en vez de filas sueltas (ver
+              agruparProductos en services/productos.ts). */}
+          {grupos.map((grupo) => (
+            <View key={grupo.clave} style={styles.grupo}>
+              <View style={styles.grupoEncabezado}>
+                <View style={styles.productoInfo}>
+                  <Text style={styles.grupoNombre} numberOfLines={1}>
+                    {grupo.nombre}
+                  </Text>
+                  {(grupo.categoria || grupo.lotes.length > 1) && (
+                    <Text style={styles.grupoDetalle}>
+                      {[grupo.categoria, grupo.lotes.length > 1 ? `${grupo.lotes.length} lotes` : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
                   )}
-                  {/* +/- rápido sin abrir el formulario completo (ver
-                      ajustarCantidadProducto en services/productos.ts), al
-                      lado de la categoría en vez de la cantidad. El "-" se
-                      deshabilita en 0: no tiene sentido restar más (el
-                      backend ya lo frena con greatest(...,0), esto solo
-                      evita el toque de más). */}
-                  <View style={styles.stepperGrupo}>
-                    <Pressable
-                      onPress={() => handleAjustarCantidad(producto, -1)}
-                      disabled={ajustandoIds.has(producto.id) || producto.cantidad <= 0}
-                      style={styles.stepperButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Restar 1 a ${producto.nombre}`}
-                    >
-                      <Ionicons
-                        name="remove-circle-outline"
-                        size={30}
-                        color={producto.cantidad <= 0 ? colors.border : colors.danger}
-                      />
-                    </Pressable>
-                    <Pressable
-                      onPress={() => handleAjustarCantidad(producto, 1)}
-                      disabled={ajustandoIds.has(producto.id)}
-                      style={styles.stepperButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Sumar 1 a ${producto.nombre}`}
-                    >
-                      <Ionicons name="add-circle-outline" size={30} color={colors.success} />
-                    </Pressable>
-                  </View>
                 </View>
-                <Text style={styles.productoDetalle}>
-                  {producto.cantidad} {producto.unidad}
+                <Text style={styles.grupoTotal}>
+                  {grupo.cantidadTotal} {grupo.unidad}
                 </Text>
-                {etiqueta && (
-                  <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
-                    <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
+              </View>
+              {grupo.lotes.map((lote, indice) => (
+                <View key={lote.id} style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
+                  <View style={styles.productoInfo}>
+                    <Text style={styles.loteMarca} numberOfLines={1}>
+                      {lote.marca ?? 'Sin marca'}
+                    </Text>
+                    <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
+                    {renderBadgeVencimiento(lote)}
                   </View>
-                )}
-              </View>
-              <View style={styles.productoAcciones}>
-                <Pressable
-                  onPress={() => handleEditar(producto)}
-                  style={styles.accionButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Editar ${producto.nombre}`}
-                >
-                  <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
-                </Pressable>
-                <Pressable
-                  onPress={() => handleEliminar(producto)}
-                  style={styles.accionButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Eliminar ${producto.nombre}`}
-                >
-                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                </Pressable>
-              </View>
+                  {renderStepper(lote)}
+                  {renderAcciones(lote)}
+                </View>
+              ))}
             </View>
-            );
-          })}
+          ))}
         </ScrollView>
       )}
 
+      {/* Voz arriba del "+": es la vía rápida para cargar varias cosas de una
+          ("compré leche, huevos y pan") o cambiar vencimientos sin abrir el
+          formulario. */}
+      <Pressable
+        style={[styles.fab, styles.fabVoz]}
+        onPress={() => setVozVisible(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Cargar productos por voz"
+      >
+        <Ionicons name="mic" size={24} color={colors.primary} />
+      </Pressable>
       <Pressable style={styles.fab} onPress={handleAgregar} accessibilityRole="button" accessibilityLabel="Agregar producto">
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
+
+      <ComandoVozModal
+        visible={vozVisible}
+        hogarId={hogarId}
+        productos={productos}
+        onClose={() => setVozVisible(false)}
+        onSuccess={async (cantidad) => {
+          setVozVisible(false);
+          avisar('Listo', cantidad === 1 ? 'Se aplicó 1 cambio.' : `Se aplicaron ${cantidad} cambios.`);
+          await cargar();
+        }}
+      />
+
+      <EscanearTicketModal
+        visible={ticketVisible}
+        hogarId={hogarId}
+        onClose={() => setTicketVisible(false)}
+        onSuccess={async (cantidad) => {
+          setTicketVisible(false);
+          avisar('Productos agregados', cantidad === 1 ? 'Se agregó 1 producto del ticket.' : `Se agregaron ${cantidad} productos del ticket.`);
+          await cargar();
+        }}
+      />
 
       <ProductoFormModal
         visible={formVisible}
@@ -308,6 +440,20 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.textPrimary,
     flexShrink: 1,
+    flexGrow: 1,
+  },
+  limpiarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  limpiarTexto: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  escanearButton: {
+    padding: spacing.xs,
   },
   buscador: {
     ...typography.body,
@@ -360,43 +506,24 @@ const styles = StyleSheet.create({
   lista: {
     flex: 1,
   },
-  productoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
   productoInfo: {
-    flexShrink: 1,
+    flex: 1,
     gap: 2,
-  },
-  productoNombre: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
   },
   productoDetalle: {
     ...typography.caption,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.textSecondary,
   },
-  categoriaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  productoCategoria: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
+  // Botones compactos: en un celular angosto tienen que entrar al lado del
+  // texto del lote sin partirlo en varias líneas.
   stepperGrupo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: spacing.lg,
   },
   stepperButton: {
-    padding: spacing.xs,
+    padding: 2,
   },
   // RF2/RF3: badge de "próximo a vencer"/"vencido". Usa colors.stockStatus
   // (ver src/theme/colors.ts) en vez de un color a mano, para no duplicar
@@ -415,11 +542,60 @@ const styles = StyleSheet.create({
   vencimientoBadgeTexto: {
     ...typography.caption,
     color: colors.white,
-    fontSize: 11,
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  // Cada producto es una tarjeta con el borde violeta de la app: arriba una
+  // franja violeta clara con el producto y su total, abajo sus lotes.
+  grupo: {
+    marginVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  grupoEncabezado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+  },
+  grupoNombre: {
+    ...typography.bodyMedium,
+    color: colors.primaryDark,
+  },
+  grupoDetalle: {
+    ...typography.caption,
+    color: colors.primaryDark,
+  },
+  grupoTotal: {
+    ...typography.bodyMedium,
+    color: colors.primaryDark,
+  },
+  loteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surface,
+  },
+  loteSeparado: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  loteMarca: {
+    ...typography.caption,
+    color: colors.textPrimary,
   },
   productoAcciones: {
     flexDirection: 'row',
-    gap: spacing.md,
   },
   accionButton: {
     padding: spacing.xs,
@@ -439,5 +615,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+  },
+  fabVoz: {
+    bottom: spacing.lg + 56 + spacing.md,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    right: spacing.lg + 4,
+    backgroundColor: colors.primaryLight,
   },
 });
