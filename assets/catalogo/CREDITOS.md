@@ -15,6 +15,7 @@ Esta tabla se genera con `node scripts/generar-imagenes-catalogo.mjs` a partir d
 | Aceitunas | aceitunas.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798080521722 |
 | Acelga | acelga.jpg | Wikimedia Commons | Grendelkhan | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Rainbow_chard_for_sale_at_the_Campbell_farmers_market.jpg |
 | Aceto Balsámico | aceto-balsamico.jpg | Wikimedia Commons | 1hnmr | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Traditional_Balsamic_Vinegars_of_Modena_(right)_and_Reggio_Emilia_(left).jpg |
+| Achicoria | achicoria.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Agua con Gas | agua-con-gas.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Agua Mineral | agua-mineral.jpg | Open Food Facts | Open Food Facts | CC BY-SA 3.0 (fotos de Open Food Facts) | https://images.openfoodfacts.org/images/products/779/031/500/0446/front_es.8.400.jpg |
 | Agua Saborizada | agua-saborizada.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790639002478 |
@@ -136,6 +137,7 @@ Esta tabla se genera con `node scripts/generar-imagenes-catalogo.mjs` a partir d
 | Leche Chocolatada | leche-chocolatada.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7790787053254 |
 | Leche Condensada | leche-condensada.jpg | Wikimedia Commons | Anders Lagerås | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Condensed_and_evaporated_milk.jpg |
 | Leche de Almendras | leche-de-almendras.jpg | Wikimedia Commons | Amazing Almonds | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Home-made_almond_milk,_November_2012.jpg |
+| Leche de Coco | leche-de-coco.jpg | Aportada por el equipo | Equipo de Stocky | A confirmar (foto aportada por el equipo) | - |
 | Leche de Soja | leche-de-soja.jpg | Wikimedia Commons | Veganbaking.net from USA | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Soy_Non-Dairy_Milk_(5082414499).jpg |
 | Leche Descremada | leche-descremada.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798338290035 |
 | Leche en Polvo | leche-en-polvo.jpg | Open Food Facts | Contribuyentes de Open Food Facts | CC BY-SA 3.0 | https://ar.openfoodfacts.org/producto/7798417060085 |
