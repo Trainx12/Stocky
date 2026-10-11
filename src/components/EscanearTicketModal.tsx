@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
+import { CatalogoSelectorModal } from './CatalogoSelectorModal';
 import { obtenerFotoBase64 } from '../lib/fotos';
 import type { OrigenFoto } from '../lib/fotos';
 import { categoriasDelCatalogo, listarCatalogoAprobado } from '../services/catalogo';
-import { armarCandidatos, UNIDADES_DISPONIBLES } from '../services/escaneo';
+import { armarCandidatos, elegirDelCatalogo, errorDeCandidato, pasarASinCatalogo, UNIDADES_DISPONIBLES } from '../services/escaneo';
 import type { CandidatoTicket } from '../services/escaneo';
+import type { ProductoCatalogo } from '../types/database';
 import { reconocerProductosDeTicket } from '../services/externalApis';
-import { crearProducto, parsearNumero } from '../services/productos';
+import { crearProducto, formatearFechaInput, parsearNumero } from '../services/productos';
 import { colors, radius, spacing, typography } from '../theme';
 
 interface EscanearTicketModalProps {
@@ -33,6 +35,12 @@ type Paso = 'elegir' | 'procesando' | 'revisar' | 'vacio';
  * queda sin catálogo (catalogo_id nulo). La marca se sugiere a partir del
  * texto del ticket y es editable. No se inventa fecha de vencimiento: sin
  * fecha no hay alerta, que es lo correcto para lo que se va a congelar.
+ *
+ * Corregir lo que se leyó mal (Sprint 10): cualquier producto se puede
+ * cambiar por otro del catálogo ("Cambiar producto") o pasar a escrito a
+ * mano ("Escribir a mano") para tipear el nombre, y se le puede cargar la
+ * fecha de vencimiento. Si a un producto le falta algo (nombre, cantidad
+ * válida, fecha bien escrita) se avisa debajo y no se deja confirmar.
  */
 export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: EscanearTicketModalProps) {
   const [paso, setPaso] = useState<Paso>('elegir');
@@ -41,6 +49,9 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
   const [categorias, setCategorias] = useState<string[]>(['Otros']);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Producto del ticket para el que se está eligiendo otro del catálogo
+  // (null = el selector está cerrado).
+  const [cambiandoId, setCambiandoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -74,6 +85,16 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
     setCandidatos((actuales) => actuales.map((c) => (c.id === id ? { ...c, ...cambios } : c)));
   }
 
+  // Elegido en el selector del catálogo para el producto que se estaba corrigiendo.
+  function handleElegidoDelCatalogo(producto: ProductoCatalogo) {
+    setCandidatos((actuales) => actuales.map((c) => (c.id === cambiandoId ? elegirDelCatalogo(c, producto) : c)));
+    setCambiandoId(null);
+  }
+
+  function handleEscribirAMano(id: string) {
+    setCandidatos((actuales) => actuales.map((c) => (c.id === id ? pasarASinCatalogo(c) : c)));
+  }
+
   function handleDescartar(id: string) {
     setCandidatos((actuales) => actuales.filter((c) => c.id !== id));
   }
@@ -81,6 +102,8 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
   // Se guarda lo marcado para incluir y con nombre (lo que no está en el
   // catálogo solo si el usuario lo pidió con "Agregar igual").
   const guardables = candidatos.filter((c) => c.incluir && c.nombre.trim() !== '');
+  // Mientras algún producto a guardar tenga un error, no se deja confirmar.
+  const hayErrores = candidatos.some((c) => c.incluir && errorDeCandidato(c) !== null);
 
   async function handleConfirmar() {
     setGuardando(true);
@@ -98,7 +121,7 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
           unidad: candidato.unidad,
           cantidad: parsearNumero(candidato.cantidad),
           stockMinimo: 0,
-          fechaVencimiento: null,
+          fechaVencimiento: candidato.fechaVencimiento || null,
           alertaVencimientoHabilitada: true,
           catalogoId: candidato.catalogo?.id ?? null,
           marca: candidato.marca,
@@ -166,8 +189,8 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
             {paso === 'revisar' && (
               <View style={styles.bloque}>
                 <Text style={styles.texto}>
-                  Revisá los productos detectados. Podés corregir cantidad y marca y, si no están en el catálogo, nombre,
-                  categoría y unidad, o descartar los que no correspondan.
+                  Revisá los productos detectados. Si alguno se leyó mal, cambialo por otro del catálogo o escribilo a mano;
+                  también podés corregir cantidad, marca y vencimiento, o descartar los que no correspondan.
                 </Text>
 
                 {candidatos.map((candidato) =>
@@ -216,6 +239,28 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                           Detectado: {candidato.nombreDetectado}
                           {candidato.catalogo ? '' : ' · sin catálogo'}
                         </Text>
+                        {/* Corregir un producto mal leído: elegir otro del
+                            catálogo, o escribirlo a mano. */}
+                        <View style={styles.acciones}>
+                          <Pressable
+                            onPress={() => setCambiandoId(candidato.id)}
+                            disabled={guardando}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Cambiar ${candidato.nombre} por otro producto del catálogo`}
+                          >
+                            <Text style={styles.accionTexto}>{candidato.catalogo ? 'Cambiar producto' : 'Elegir del catálogo'}</Text>
+                          </Pressable>
+                          {candidato.catalogo && (
+                            <Pressable
+                              onPress={() => handleEscribirAMano(candidato.id)}
+                              disabled={guardando}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Escribir a mano el nombre de ${candidato.nombre}`}
+                            >
+                              <Text style={styles.accionTexto}>Escribir a mano</Text>
+                            </Pressable>
+                          )}
+                        </View>
                       </View>
                       <TextInput
                         style={styles.cantidad}
@@ -244,6 +289,19 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                       placeholder="Marca (opcional)"
                       placeholderTextColor={colors.textSecondary}
                       accessibilityLabel={`Marca de ${candidato.nombre}`}
+                    />
+
+                    <TextInput
+                      style={styles.inputMarca}
+                      value={candidato.fechaVencimiento}
+                      // Mismo auto-guionado que el formulario de producto: se tipean solo dígitos.
+                      onChangeText={(texto) => handleCambiar(candidato.id, { fechaVencimiento: formatearFechaInput(texto) })}
+                      editable={!guardando}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      placeholder="Vencimiento AAAA-MM-DD (opcional)"
+                      placeholderTextColor={colors.textSecondary}
+                      accessibilityLabel={`Fecha de vencimiento de ${candidato.nombre}`}
                     />
 
                     {!candidato.catalogo && (
@@ -276,6 +334,8 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                         </ScrollView>
                       </>
                     )}
+
+                    {errorDeCandidato(candidato) && <Text style={styles.error}>{errorDeCandidato(candidato)}</Text>}
                   </View>
                   ),
                 )}
@@ -286,13 +346,19 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                   label={guardables.length === 1 ? 'Agregar 1 producto' : `Agregar ${guardables.length} productos`}
                   onPress={handleConfirmar}
                   loading={guardando}
-                  disabled={guardables.length === 0}
+                  disabled={guardables.length === 0 || hayErrores}
                 />
               </View>
             )}
           </ScrollView>
         </Pressable>
       </Pressable>
+
+      <CatalogoSelectorModal
+        visible={cambiandoId !== null}
+        onClose={() => setCambiandoId(null)}
+        onSeleccionar={handleElegidoDelCatalogo}
+      />
     </Modal>
   );
 }
@@ -355,6 +421,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  acciones: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: 2,
+  },
+  accionTexto: {
+    ...typography.caption,
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   agregarIgual: {
     ...typography.caption,

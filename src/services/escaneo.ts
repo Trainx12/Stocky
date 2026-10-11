@@ -20,6 +20,10 @@ export interface CandidatoTicket {
   categoria: string;
   unidad: UnidadProducto;
   catalogo: ProductoCatalogo | null;
+  // Fecha de vencimiento opcional ('AAAA-MM-DD' o ''), cargada a mano en la
+  // revisión: el ticket no la trae, pero si el usuario la sabe (o la mira en
+  // el envase) puede dejarla cargada de una.
+  fechaVencimiento: string;
   // Se guarda al confirmar. Lo que no está en el catálogo arranca en false:
   // el usuario tiene que pedir "Agregar igual", así un renglón mal leído del
   // ticket nunca se guarda por descuido.
@@ -174,9 +178,53 @@ export function armarCandidatos(reconocidos: ProductoReconocido[], catalogo: Pro
       categoria: encontrado ? encontrado.categoria : 'Otros',
       unidad: encontrado ? encontrado.unidad : 'unidad',
       catalogo: encontrado,
+      fechaVencimiento: '',
       incluir: encontrado !== null,
     };
   });
+}
+
+/**
+ * Corregir en la revisión un producto que se leyó mal (pedido del equipo):
+ * cambiar a qué producto del catálogo corresponde, o pasarlo a "escrito a
+ * mano" para tipear el nombre. Funciones puras: la pantalla solo aplica el
+ * resultado.
+ */
+
+// El usuario eligió otro producto del catálogo para esta línea del ticket:
+// toma su nombre, categoría y unidad, y queda incluido. La marca, la cantidad
+// y la fecha que ya había corregido se conservan.
+export function elegirDelCatalogo(candidato: CandidatoTicket, producto: ProductoCatalogo): CandidatoTicket {
+  return {
+    ...candidato,
+    catalogo: producto,
+    nombre: producto.nombre,
+    categoria: producto.categoria,
+    unidad: producto.unidad,
+    incluir: true,
+  };
+}
+
+// El usuario quiere escribir el nombre a mano (no está en el catálogo, o lo
+// que encontramos no es): se suelta del catálogo, conservando lo que ya
+// tenía como punto de partida para corregir.
+export function pasarASinCatalogo(candidato: CandidatoTicket): CandidatoTicket {
+  return { ...candidato, catalogo: null, incluir: true };
+}
+
+// Qué le falta a un producto para poder guardarse, o null si está bien. Se
+// muestra debajo del producto y frena el botón de confirmar, así no se
+// descubre el error recién al guardar.
+export function errorDeCandidato(candidato: CandidatoTicket): string | null {
+  if (!candidato.nombre.trim()) return 'Falta el nombre del producto.';
+  const cantidad = Number(candidato.cantidad.replace(',', '.'));
+  if (candidato.cantidad.trim() === '' || !Number.isFinite(cantidad) || cantidad <= 0) {
+    return 'La cantidad tiene que ser un número mayor a 0.';
+  }
+  if (candidato.fechaVencimiento && !fechaDetectadaValida(candidato.fechaVencimiento)) {
+    return 'La fecha de vencimiento no es válida (AAAA-MM-DD).';
+  }
+  return null;
 }
 
 // Una fecha de vencimiento devuelta por Gemini solo se vuelca al formulario

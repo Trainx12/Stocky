@@ -4,11 +4,15 @@ import type { ProductoCatalogo } from '../types/database';
 import {
   armarCandidatos,
   buscarEnCatalogo,
+  elegirDelCatalogo,
+  errorDeCandidato,
   extraerMarca,
+  pasarASinCatalogo,
   fechaDetectadaValida,
   fechaUtilizable,
   normalizarNombre,
 } from './escaneo';
+import type { CandidatoTicket } from './escaneo';
 
 function item(nombre: string, extra: Partial<ProductoCatalogo> = {}): ProductoCatalogo {
   return {
@@ -179,5 +183,74 @@ describe('buscarEnCatalogo con alimentos agregados desde tickets reales', () => 
   it('reconoce los productos que antes quedaban sin catálogo', () => {
     expect(buscarEnCatalogo('PASTAS PARA SOPA SPA', ampliado)?.nombre).toBe('Pasta para Sopa');
     expect(buscarEnCatalogo('FLAN CASERO LIGHT DO', ampliado)?.nombre).toBe('Flan');
+  });
+});
+
+// Sprint 10: corregir en la revisión un producto que se leyó mal.
+describe('corregir productos en la revisión', () => {
+  const candidato = (extra: Partial<CandidatoTicket> = {}): CandidatoTicket => ({
+    id: '0-PIMIENTO',
+    nombreDetectado: 'PIMIENTO',
+    nombre: 'Pimiento',
+    marca: 'Alicante',
+    cantidad: '2',
+    categoria: 'Verduras y frutas',
+    unidad: 'unidad',
+    catalogo: item('Pimiento', { categoria: 'Verduras y frutas' }),
+    fechaVencimiento: '',
+    incluir: true,
+    ...extra,
+  });
+
+  it('armarCandidatos arranca sin fecha de vencimiento', () => {
+    expect(armarCandidatos([{ nombre: 'LECHE', cantidad: 1 }], catalogo)[0].fechaVencimiento).toBe('');
+  });
+
+  it('elegirDelCatalogo toma nombre, categoría y unidad del elegido y conserva lo ya corregido', () => {
+    const pimienta = item('Pimienta Negra', { categoria: 'Otros', unidad: 'g' });
+    const corregido = elegirDelCatalogo(candidato({ cantidad: '3', fechaVencimiento: '2026-12-01' }), pimienta);
+
+    expect(corregido).toMatchObject({
+      catalogo: pimienta,
+      nombre: 'Pimienta Negra',
+      categoria: 'Otros',
+      unidad: 'g',
+      marca: 'Alicante',
+      cantidad: '3',
+      fechaVencimiento: '2026-12-01',
+      incluir: true,
+    });
+  });
+
+  it('elegirDelCatalogo incluye un renglón que no se había reconocido', () => {
+    const sinReconocer = candidato({ catalogo: null, incluir: false });
+    expect(elegirDelCatalogo(sinReconocer, item('Leche')).incluir).toBe(true);
+  });
+
+  it('pasarASinCatalogo suelta el catálogo y deja el nombre para corregir', () => {
+    const aMano = pasarASinCatalogo(candidato());
+    expect(aMano.catalogo).toBeNull();
+    expect(aMano.nombre).toBe('Pimiento');
+    expect(aMano.incluir).toBe(true);
+  });
+
+  describe('errorDeCandidato', () => {
+    it('sin errores devuelve null', () => {
+      expect(errorDeCandidato(candidato())).toBeNull();
+      expect(errorDeCandidato(candidato({ cantidad: '0,5', fechaVencimiento: '2026-12-01' }))).toBeNull();
+    });
+
+    it('nombre vacío', () => {
+      expect(errorDeCandidato(candidato({ nombre: '   ' }))).toMatch(/nombre/);
+    });
+
+    it.each(['', '0', '-1', 'abc'])('cantidad inválida %p', (cantidad) => {
+      expect(errorDeCandidato(candidato({ cantidad }))).toMatch(/cantidad/);
+    });
+
+    it('fecha incompleta o imposible', () => {
+      expect(errorDeCandidato(candidato({ fechaVencimiento: '2026-12' }))).toMatch(/fecha/);
+      expect(errorDeCandidato(candidato({ fechaVencimiento: '2026-02-30' }))).toMatch(/fecha/);
+    });
   });
 });
