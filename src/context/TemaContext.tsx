@@ -6,8 +6,8 @@ import type { EsquemaColor } from '../theme/colors';
 
 /**
  * Modo oscuro (Sprint 10). El usuario elige en Cuenta → Apariencia:
- *   - 'sistema': sigue al celular (si el teléfono está en oscuro, la app también);
- *   - 'claro' / 'oscuro': fijo.
+ *   - 'claro' (por defecto, pedido del equipo) / 'oscuro': fijo;
+ *   - 'sistema': sigue al celular (si el teléfono está en oscuro, la app también).
  * La elección se guarda en el celular (AsyncStorage): es una preferencia del
  * dispositivo, no de la cuenta (con varias cuentas en el mismo celular, el
  * modo no cambia al pasar de una a otra).
@@ -28,9 +28,13 @@ export function resolverEsquema(modo: ModoTema, delSistema: string | null | unde
   return delSistema === 'dark' ? 'oscuro' : 'claro';
 }
 
+// Modo con el que arranca la app si el usuario nunca eligió otro: claro,
+// aunque el celular esté en oscuro (pedido del equipo).
+export const MODO_POR_DEFECTO: ModoTema = 'claro';
+
 // Lo guardado en el celular -> modo válido (cualquier otra cosa, el default).
 export function modoGuardadoValido(valor: string | null): ModoTema {
-  return valor === 'claro' || valor === 'oscuro' || valor === 'sistema' ? valor : 'sistema';
+  return valor === 'claro' || valor === 'oscuro' || valor === 'sistema' ? valor : MODO_POR_DEFECTO;
 }
 
 interface TemaContextValue {
@@ -43,7 +47,7 @@ const TemaContext = createContext<TemaContextValue | undefined>(undefined);
 
 export function TemaProvider({ children }: { children: React.ReactNode }) {
   const delSistema = useColorScheme();
-  const [modo, setModo] = useState<ModoTema>('sistema');
+  const [modo, setModo] = useState<ModoTema>(MODO_POR_DEFECTO);
 
   // Recupera la elección guardada al abrir la app.
   useEffect(() => {

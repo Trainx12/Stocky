@@ -21,10 +21,11 @@ import type { AppStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Cuenta'>;
 
+// Claro primero: es el modo por defecto (ver MODO_POR_DEFECTO en TemaContext).
 const MODOS: { valor: ModoTema; etiqueta: string; icono: keyof typeof Ionicons.glyphMap }[] = [
-  { valor: 'sistema', etiqueta: 'Sistema', icono: 'phone-portrait-outline' },
   { valor: 'claro', etiqueta: 'Claro', icono: 'sunny-outline' },
   { valor: 'oscuro', etiqueta: 'Oscuro', icono: 'moon-outline' },
+  { valor: 'sistema', etiqueta: 'Sistema', icono: 'phone-portrait-outline' },
 ];
 
 /**
