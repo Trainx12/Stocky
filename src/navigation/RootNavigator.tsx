@@ -11,6 +11,8 @@ import { ProductosScreen } from '../screens/ProductosScreen';
 import { AdminSugerenciasScreen } from '../screens/AdminSugerenciasScreen';
 import { AdminUsuariosScreen } from '../screens/AdminUsuariosScreen';
 import { CuentaDeshabilitadaScreen } from '../screens/CuentaDeshabilitadaScreen';
+import { NotificacionesScreen } from '../screens/NotificacionesScreen';
+import { navegacion } from './navegacion';
 import { colors } from '../theme';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
 
@@ -44,6 +46,8 @@ function AppNavigator() {
           acceso a admins, y si alguien fuerza la navegación la RPC
           admin_listar_usuarios le devuelve error (no hay datos que ver). */}
       <AppStack.Screen name="AdminUsuarios" component={AdminUsuariosScreen} />
+      {/* Campanita: notificaciones del propio usuario (cualquier rol). */}
+      <AppStack.Screen name="Notificaciones" component={NotificacionesScreen} />
     </AppStack.Navigator>
   );
 }
@@ -74,5 +78,9 @@ export function RootNavigator() {
   }
 
   // Con o sin sesión, se muestra un stack completo distinto.
-  return <NavigationContainer>{session ? <AppNavigator /> : <AuthNavigator />}</NavigationContainer>;
+  // `navegacion` (ver navegacion.ts) permite navegar desde fuera de una
+  // pantalla, por ejemplo al tocar una notificación del sistema.
+  return (
+    <NavigationContainer ref={navegacion}>{session ? <AppNavigator /> : <AuthNavigator />}</NavigationContainer>
+  );
 }

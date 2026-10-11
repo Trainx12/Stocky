@@ -74,8 +74,29 @@ export async function signInWithGoogle() {
   return sessionData.session;
 }
 
+// Tareas que tienen que correr ANTES de cerrar la sesión, mientras todavía
+// hay un usuario autenticado (por ejemplo, desregistrar este celular de los
+// push de la cuenta: después del signOut la RPC ya no sabría de quién es).
+// Se registran desde afuera (NotificacionesContext) para que este archivo no
+// dependa de módulos nativos.
+const tareasAntesDeCerrarSesion = new Set<() => Promise<void>>();
+
+export function registrarTareaAntesDeCerrarSesion(tarea: () => Promise<void>): () => void {
+  tareasAntesDeCerrarSesion.add(tarea);
+  return () => {
+    tareasAntesDeCerrarSesion.delete(tarea);
+  };
+}
+
 // Cierra la sesión activa (borra el token guardado y avisa a AuthContext).
+// Si alguna tarea previa falla, se cierra la sesión igual: salir de la
+// cuenta nunca puede quedar trabado por un detalle secundario.
 export async function signOut() {
+  await Promise.all(
+    Array.from(tareasAntesDeCerrarSesion).map((tarea) =>
+      tarea().catch((err) => console.warn('[Stocky] Falló una tarea previa al cierre de sesión:', err)),
+    ),
+  );
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

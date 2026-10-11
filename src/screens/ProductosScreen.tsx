@@ -27,6 +27,7 @@ import {
 import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
+import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
 import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
 
@@ -43,6 +44,10 @@ export function ProductosScreen({ route, navigation }: Props) {
   const { hogarId, hogarNombre, abrirAgregar, abrirVoz, enfocarBusqueda, filtroInicial } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
+  // Preferencia general "avisarme X días antes" (cada producto puede pisarla
+  // con la suya): define cuándo un lote muestra el badge "Vence en N días".
+  const { usuario } = useAuth();
+  const diasAviso = usuario?.dias_aviso_vencimiento;
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   // null = "Todas" (sin filtrar por categoría).
@@ -221,10 +226,10 @@ export function ProductosScreen({ route, navigation }: Props) {
   // RF2/RF3: badge de vencimiento (null = sin fecha, o alerta deshabilitada a
   // propósito -- ver estadoVencimiento).
   function renderBadgeVencimiento(producto: Producto) {
-    const etiqueta = etiquetaVencimiento(producto);
+    const etiqueta = etiquetaVencimiento(producto, undefined, diasAviso);
     if (!etiqueta) return null;
     return (
-      <View style={[styles.vencimientoBadge, estadoVencimiento(producto) === 'vencido' && styles.vencimientoBadgeVencido]}>
+      <View style={[styles.vencimientoBadge, estadoVencimiento(producto, undefined, diasAviso) === 'vencido' && styles.vencimientoBadgeVencido]}>
         <Text style={styles.vencimientoBadgeTexto} numberOfLines={1}>
           {etiqueta}
         </Text>

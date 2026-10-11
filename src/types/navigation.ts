@@ -12,7 +12,9 @@ export type AuthStackParamList = {
 };
 
 export type AppStackParamList = {
-  Home: undefined;
+  // `abrirMiembrosDe`: id de un hogar cuyo "Miembros del hogar" se abre
+  // apenas carga Home (al tocar la notificación "X quiere unirse a ...").
+  Home: { abrirMiembrosDe?: string } | undefined;
   // RF7: listado/ABM de productos de UN hogar puntual. Va por parámetro de
   // navegación (no por contexto global) porque un usuario puede tener más
   // de un hogar (RF6) y cada uno tiene su propio inventario.
@@ -38,6 +40,9 @@ export type AppStackParamList = {
   AdminSugerencias: undefined;
   // Admin: ABM de usuarios de la plataforma (ver services/usuarios.ts).
   AdminUsuarios: undefined;
+  // Campanita: notificaciones recientes + preferencias de aviso (ver
+  // services/notificaciones.ts).
+  Notificaciones: undefined;
 };
 
 // Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer

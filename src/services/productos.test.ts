@@ -38,6 +38,9 @@ import {
   buscarDuplicado,
   categoriasEnUso,
   crearProducto,
+  diasAvisoDe,
+  esDiasAvisoValido,
+  parsearDiasAviso,
   editarProducto,
   eliminarProducto,
   eliminarProductosAgotados,
@@ -159,6 +162,7 @@ describe('crearProducto', () => {
       alerta_vencimiento_habilitada: true,
       catalogo_id: 'cat-1',
       marca: null,
+      dias_aviso_vencimiento: null,
     });
     expect(resultado).toEqual(producto);
   });
@@ -261,6 +265,7 @@ describe('editarProducto', () => {
       fecha_vencimiento: null,
       alerta_vencimiento_habilitada: true,
       marca: null,
+      dias_aviso_vencimiento: null,
     });
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
     expect(resultado).toEqual(producto);
@@ -346,6 +351,7 @@ function producto(datos: Partial<Producto>): Producto {
     alerta_vencimiento_habilitada: true,
     catalogo_id: null,
     marca: null,
+    dias_aviso_vencimiento: null,
     created_at: '2026-01-01',
     updated_at: '2026-01-01',
     ...datos,
@@ -945,5 +951,56 @@ describe('productosConVencimiento', () => {
     ];
     expect(productosConVencimiento(lista).map((p) => p.id)).toEqual(['a', 'b']);
     expect(lista.map((p) => p.id)).toEqual(['b', 'a']);
+  });
+});
+
+describe('días de aviso de vencimiento (Sprint 10)', () => {
+  it('esDiasAvisoValido: enteros entre 1 y 60', () => {
+    expect(esDiasAvisoValido(1)).toBe(true);
+    expect(esDiasAvisoValido(60)).toBe(true);
+    expect(esDiasAvisoValido(0)).toBe(false);
+    expect(esDiasAvisoValido(61)).toBe(false);
+    expect(esDiasAvisoValido(2.5)).toBe(false);
+    expect(esDiasAvisoValido(NaN)).toBe(false);
+  });
+
+  it('parsearDiasAviso: vacío = null (usar la general), el resto como número', () => {
+    expect(parsearDiasAviso('')).toBeNull();
+    expect(parsearDiasAviso('  ')).toBeNull();
+    expect(parsearDiasAviso('3')).toBe(3);
+    expect(parsearDiasAviso('0')).toBe(0);
+  });
+
+  it('diasAvisoDe: el del producto pisa la preferencia general', () => {
+    expect(diasAvisoDe({ dias_aviso_vencimiento: 2 }, 10)).toBe(2);
+    expect(diasAvisoDe({ dias_aviso_vencimiento: null }, 10)).toBe(10);
+    expect(diasAvisoDe({}, undefined)).toBe(7);
+  });
+
+  it('estadoVencimiento usa los días del producto o los generales', () => {
+    // HOY = 15/09/2026; vence el 25/09 -> faltan 10 días.
+    const enDiez = producto({ fecha_vencimiento: '2026-09-25' });
+    expect(estadoVencimiento(enDiez, HOY)).toBe('ok'); // default 7
+    expect(estadoVencimiento(enDiez, HOY, 10)).toBe('proximo'); // general 10
+    expect(estadoVencimiento({ ...enDiez, dias_aviso_vencimiento: 3 }, HOY, 30)).toBe('ok'); // propio 3 pisa 30
+    expect(etiquetaVencimiento(enDiez, HOY, 10)).toBe('Vence en 10 días');
+  });
+
+  it('productosProximosAVencer respeta la preferencia general', () => {
+    const enDiez = producto({ id: 'p', fecha_vencimiento: '2026-09-25' });
+    expect(productosProximosAVencer([enDiez], HOY)).toEqual([]);
+    expect(productosProximosAVencer([enDiez], HOY, 15)).toEqual([enDiez]);
+  });
+
+  it('crearProducto rechaza días fuera de rango sin consultar Supabase', async () => {
+    await expect(crearProducto('hogar-1', { ...datosValidos, diasAvisoVencimiento: 0 })).rejects.toThrow('entre 1 y 60');
+    await expect(crearProducto('hogar-1', { ...datosValidos, diasAvisoVencimiento: 99 })).rejects.toThrow('entre 1 y 60');
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it('editarProducto guarda los días propios del producto', async () => {
+    mockSingle.mockResolvedValue({ data: producto({ id: 'p1' }), error: null });
+    await editarProducto('p1', { ...datosValidos, diasAvisoVencimiento: 3 });
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ dias_aviso_vencimiento: 3 }));
   });
 });

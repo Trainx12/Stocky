@@ -441,6 +441,57 @@ agotados" no cambiaron de comportamiento).
 
 ---
 
+## Notificaciones (Sprint 10)
+
+Rama `feature/notificaciones` (PR apilado sobre el #15). Detalle en
+[incidentes-sprint10.md](incidentes-sprint10.md). **Requiere** la migración
+`20261012120000_notificaciones.sql` aplicada (**ya aplicada** el 2026-10-11, con `get_advisors` sin hallazgos nuevos) y un **development build nuevo**
+(`expo-notifications` es nativo). El push con la app cerrada además requiere
+Firebase configurado (pasos en incidentes-sprint10 #1); sin Firebase, los
+vencimientos igual llegan por el plan B local.
+
+**Ruta crítica:**
+1. Cuenta A (dueño) y cuenta B. B manda el código → A ve el cartelito "Nueva
+   solicitud", el numerito en la campanita y la notificación; tocarla abre
+   "Miembros del hogar" de ese hogar.
+2. A acepta → B ve "¡Te aceptaron!" con el nombre del hogar. Repetir
+   rechazando y expulsando: B ve "Solicitud rechazada" / "Te sacaron de un
+   hogar". B cancela su propia solicitud → A y B **no** reciben nada.
+3. Producto con mínimo 3 y cantidad 4: restar a 2 → todos los miembros
+   reciben "Stock bajo"; restar a 1 → **no** se repite; restar a 0 → "Sin
+   stock". Tocarla abre la despensa con el filtro "Stock bajo".
+4. Vencimientos: con días generales en 7, un producto que vence en 5 días
+   → aparece en el Home y en la despensa con badge; cambiar el general a 3 →
+   desaparece; ponerle a ese producto "10" en su formulario → vuelve a
+   aparecer. Para la notificación sin esperar al job de las 9:00, correr
+   `select public.generar_notificaciones_vencimiento();` (Claude puede
+   hacerlo) y verificar que llega una sola vez aunque se corra dos veces.
+5. Cartelitos: cualquier acción que antes mostraba "localhost dice..." (web)
+   o el diálogo del sistema (celular) ahora muestra el cartelito de la app;
+   eliminar un producto pide confirmación con el diálogo propio (botón
+   coral).
+6. Con la app **cerrada** (development build con Firebase): repetir 1 y 3 →
+   llega la notificación del sistema; tocarla abre la campanita. Sin
+   Firebase: solo llegan los avisos de vencimiento programados localmente.
+7. Cerrar sesión con A y loguear B en el mismo celular → el celular deja de
+   recibir push de A.
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc --noEmit` limpio,
+`npm test` (17 suites / 381 tests: `notificaciones.test.ts`,
+`notificacionesPush.test.ts`, cartelitos en `alert.test.ts`, días de aviso
+en `productos.test.ts`, tareas previas al cierre de sesión en
+`auth.test.ts`), la app compila para web y arranca sin errores de consola.
+**No hecho:** tocar las pantallas logueado (no se puede loguear con Google
+desde Claude), ni recibir un push real en un celular.
+
+**Regresión obligatoria:** Sprints 1 a 9, con foco en: login/logout (se
+agregó una tarea antes del `signOut`), aceptar/rechazar/expulsar (los avisos
+de Home ahora vienen de la campanita), ABM de productos y +/− (trigger de
+stock nuevo en `productos`), y vencimientos (la ventana ya no es fija en 7
+días).
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**

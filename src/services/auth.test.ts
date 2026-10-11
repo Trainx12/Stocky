@@ -26,7 +26,7 @@ jest.mock('../lib/supabase', () => ({
 
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
-import { signInWithGoogle, signOut } from './auth';
+import { registrarTareaAntesDeCerrarSesion, signInWithGoogle, signOut } from './auth';
 
 const signInWithOAuth = supabase.auth.signInWithOAuth as jest.Mock;
 const setSession = supabase.auth.setSession as jest.Mock;
@@ -105,5 +105,44 @@ describe('signOut', () => {
     signOutMock.mockResolvedValue({ error: new Error('sin red') });
 
     await expect(signOut()).rejects.toThrow('sin red');
+  });
+
+  it('corre las tareas registradas ANTES de cerrar la sesión', async () => {
+    const orden: string[] = [];
+    signOutMock.mockImplementation(async () => {
+      orden.push('signOut');
+      return { error: null };
+    });
+    const quitar = registrarTareaAntesDeCerrarSesion(async () => {
+      orden.push('tarea');
+    });
+
+    await signOut();
+    quitar();
+
+    expect(orden).toEqual(['tarea', 'signOut']);
+  });
+
+  it('cierra la sesión igual si una tarea previa falla', async () => {
+    signOutMock.mockResolvedValue({ error: null });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const quitar = registrarTareaAntesDeCerrarSesion(async () => {
+      throw new Error('sin red');
+    });
+
+    await expect(signOut()).resolves.toBeUndefined();
+    expect(signOutMock).toHaveBeenCalledTimes(1);
+    quitar();
+    warn.mockRestore();
+  });
+
+  it('una tarea desregistrada ya no corre', async () => {
+    signOutMock.mockResolvedValue({ error: null });
+    const tarea = jest.fn().mockResolvedValue(undefined);
+    registrarTareaAntesDeCerrarSesion(tarea)();
+
+    await signOut();
+
+    expect(tarea).not.toHaveBeenCalled();
   });
 });

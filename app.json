@@ -40,6 +40,12 @@
           "microphonePermission": "Stocky necesita el micrófono para cargar productos y fechas de vencimiento por voz.",
           "recordAudioAndroid": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#7B2FF7"
+        }
       ]
     ],
     "extra": {
