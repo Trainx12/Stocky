@@ -40,7 +40,7 @@ src/
 
 supabase/
   migrations/    SQL versionado (tablas + RLS), aplicado en orden por nombre
-  functions/     Edge Functions (hoy son stubs: ocr-ticket, vencimiento-foto, voz-a-texto)
+  functions/     Edge Functions: ocr-ticket (OCR.space), vencimiento-foto y voz-a-texto (Gemini)
 ```
 
 ## Setup local
@@ -138,6 +138,18 @@ lógica pura que ya existe (no hay tests de pantallas/UI todavía):
   entre modelos de Gemini (`supabase/functions/_shared/gemini.ts`).
 - `src/services/catalogo.test.ts` — sugerencias del catálogo, incluida la
   subida y el borrado de la foto en Storage.
+- `src/services/escaneo.test.ts` — escaneo de tickets: matching tolerante
+  con el catálogo, sugerencia de marca, líneas sin catálogo y fecha de
+  vencimiento detectada por foto.
+- `src/services/ticketParser.test.ts` — el parser del texto del OCR
+  (`supabase/functions/_shared/ticket.ts`) contra los formatos de ticket
+  reales probados (supermercado, restaurante, columnas separadas,
+  subtotales por sección). Ver
+  [docs/incidentes-sprint5-6.md](docs/incidentes-sprint5-6.md).
+- `src/lib/fotos.test.ts` — detección de fotos HEIC (que los navegadores
+  de escritorio no abren).
+- `src/lib/catalogoImagenes.test.ts` — foto local antes que URL externa y
+  consistencia de `assets/catalogo` (mapa generado, créditos y archivos).
 
 Los tests mockean Supabase/expo-web-browser/expo-linking — no hacen
 llamadas de red reales ni necesitan `.env` configurado. A medida que se
@@ -176,10 +188,18 @@ dos entidades. Todo usuario nuevo entra como `'usuario'`; el rol
 `'administrador'` se asigna a mano (UPDATE en la tabla) hasta que exista
 la gestión de usuarios de RF9 (sprint 9).
 
-## APIs externas (todavía no implementadas)
+## APIs externas
 
-`src/services/externalApis.ts` ya define la forma de las funciones que
-van a llamar a las Edge Functions de OCR de tickets, detección de
-vencimiento por foto y voz a texto. Los stubs en `supabase/functions/`
-están listos para recibir la lógica del proveedor elegido en los sprints
-5–8; hasta entonces devuelven respuestas vacías.
+`src/services/externalApis.ts` llama a las Edge Functions de OCR de tickets
+(`ocr-ticket`, OCR.space), detección de vencimiento por foto
+(`vencimiento-foto`, Gemini) y voz a texto (`voz-a-texto`, Gemini). Las keys
+(`OCR_SPACE_KEY`, `GEMINI_API_KEY` y, opcional, `GEMINI_MODEL`) son secrets de
+las funciones: se cargan con `supabase secrets set` y nunca van en el cliente
+(ver `.env.example`). Qué se construyó, cómo se opera y qué errores
+aparecieron: [docs/cambios-sprint5-6.md](docs/cambios-sprint5-6.md) y
+[docs/incidentes-sprint5-6.md](docs/incidentes-sprint5-6.md).
+
+Las fotos de los productos del catálogo viven en `assets/catalogo/` (no
+dependen de ningún sitio externo); sus créditos y licencias están en
+`assets/catalogo/CREDITOS.md`, que se genera con
+`node scripts/generar-imagenes-catalogo.mjs`.

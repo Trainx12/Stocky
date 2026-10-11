@@ -11,7 +11,7 @@ export type OrigenFoto = 'camara' | 'galeria';
 const ANCHO_MAXIMO = 1400;
 const CALIDAD_JPEG = 0.6;
 
-function esHeic(archivo: File): boolean {
+export function esHeic(archivo: Pick<File, 'type' | 'name'>): boolean {
   return /hei[cf]/i.test(archivo.type) || /\.hei[cf]$/i.test(archivo.name);
 }
 
