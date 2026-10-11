@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Logo } from './Logo';
 import { colors, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface HeaderProps {
   /** Nombre del usuario logueado; si es null/undefined se muestra un saludo genérico. */
@@ -16,6 +17,7 @@ interface HeaderProps {
  * logueado a medida que se agreguen (hogar, perfil, etc.).
  */
 export function Header({ nombre }: HeaderProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     <View style={styles.row}>
       <View style={styles.textos}>
@@ -29,7 +31,8 @@ export function Header({ nombre }: HeaderProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

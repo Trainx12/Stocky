@@ -5,12 +5,27 @@
  * (la validación real de "solo admins" vive en las RPCs de Postgres).
  */
 const mockRpc = jest.fn();
+const mockGetUser = jest.fn();
+const mockUpdateEq = jest.fn();
+const mockUpdate = jest.fn((_datos: unknown) => ({ eq: (...args: unknown[]) => mockUpdateEq(...args) }));
 
 jest.mock('../lib/supabase', () => ({
-  supabase: { rpc: (...args: unknown[]) => mockRpc(...args) },
+  supabase: {
+    rpc: (...args: unknown[]) => mockRpc(...args),
+    auth: { getUser: () => mockGetUser() },
+    from: () => ({ update: (datos: unknown) => mockUpdate(datos) }),
+  },
 }));
 
-import { cambiarHabilitado, cambiarRol, filtrarUsuarios, listarUsuarios } from './usuarios';
+import {
+  actualizarMiNombre,
+  cambiarHabilitado,
+  cambiarRol,
+  filtrarUsuarios,
+  inicialDe,
+  listarUsuarios,
+  validarNombre,
+} from './usuarios';
 import type { UsuarioAdmin } from './usuarios';
 
 beforeEach(() => {
@@ -123,5 +138,42 @@ describe('filtrarUsuarios', () => {
 
   it('combina búsqueda y filtro', () => {
     expect(ids(filtrarUsuarios(usuarios, 'ana', 'deshabilitados'))).toEqual([]);
+  });
+});
+
+describe('cuenta propia', () => {
+  beforeEach(() => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'yo' } } });
+    mockUpdateEq.mockResolvedValue({ error: null });
+    mockUpdate.mockClear();
+    mockUpdateEq.mockClear();
+  });
+
+  it('validarNombre limpia espacios y rechaza vacío o muy largo', () => {
+    expect(validarNombre('  Ana   María ')).toBe('Ana María');
+    expect(() => validarNombre('   ')).toThrow('vacío');
+    expect(() => validarNombre('x'.repeat(61))).toThrow('60');
+  });
+
+  it('actualizarMiNombre cambia solo la fila del usuario logueado', async () => {
+    await actualizarMiNombre(' Ana ');
+    expect(mockUpdate).toHaveBeenCalledWith({ nombre: 'Ana' });
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'yo');
+  });
+
+  it('actualizarMiNombre no consulta Supabase si el nombre no es válido', async () => {
+    await expect(actualizarMiNombre('')).rejects.toThrow('vacío');
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('actualizarMiNombre propaga el error de Supabase', async () => {
+    mockUpdateEq.mockResolvedValue({ error: new Error('sin red') });
+    await expect(actualizarMiNombre('Ana')).rejects.toThrow('sin red');
+  });
+
+  it('inicialDe usa el nombre, o el email si no hay nombre', () => {
+    expect(inicialDe('ana', 'x@mail.com')).toBe('A');
+    expect(inicialDe(null, 'beto@mail.com')).toBe('B');
+    expect(inicialDe('  ', '')).toBe('?');
   });
 });

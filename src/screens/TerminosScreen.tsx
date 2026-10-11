@@ -10,6 +10,7 @@ import { listarCreditos, resumenPorFuente, textoCredito } from '../legal/credito
 import { avisar } from '../lib/alert';
 import { guardarAceptacionLocal } from '../services/terminos';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
 
 /**
@@ -35,6 +36,7 @@ interface TerminosVistaProps {
 }
 
 export function TerminosVista({ modo, onAceptar, onVolver }: TerminosVistaProps) {
+  const styles = useEstilos(crearEstilos);
   const [tildado, setTildado] = useState(false);
   const [aceptando, setAceptando] = useState(false);
   // La lista de ~260 fotos va plegada: se despliega a pedido.
@@ -157,6 +159,7 @@ export function TerminosVista({ modo, onAceptar, onVolver }: TerminosVistaProps)
 
 // Un servicio o librería de "Créditos": nombre, detalle y enlace.
 function Recurso({ recurso }: { recurso: RecursoUsado }) {
+  const styles = useEstilos(crearEstilos);
   return (
     <Pressable onPress={() => Linking.openURL(recurso.url)} accessibilityRole="link" style={styles.recurso}>
       <Text style={styles.recursoNombre}>{recurso.nombre}</Text>
@@ -184,7 +187,8 @@ export function TerminosVerScreen({ navigation }: NativeStackScreenProps<AppStac
   return <TerminosVista modo="ver" onVolver={() => navigation.goBack()} />;
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     gap: spacing.md,
   },

@@ -20,21 +20,37 @@ jest.mock('../lib/supabase', () => ({
       signInWithOAuth: jest.fn(),
       setSession: jest.fn(),
       signOut: jest.fn(),
+      getSession: jest.fn(),
     },
   },
 }));
 
+// Varias cuentas (services/cuentas.ts tiene sus propios tests): acá solo
+// importa qué le pide auth.ts al cerrar sesión.
+jest.mock('./cuentas', () => ({
+  cambiarACuenta: jest.fn(),
+  listarCuentas: jest.fn(),
+  olvidarCuenta: jest.fn(),
+  olvidarTodas: jest.fn(),
+  // Misma regla que la real (testeada en cuentas.test.ts), sin cargar AsyncStorage.
+  siguienteCuenta: (cuentas: { userId: string }[], actual: string) => cuentas.find((c) => c.userId !== actual) ?? null,
+}));
+
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
-import { registrarTareaAntesDeCerrarSesion, signInWithGoogle, signOut } from './auth';
+import { cerrarTodasLasSesiones, registrarTareaAntesDeCerrarSesion, signInWithGoogle, signOut } from './auth';
+import { cambiarACuenta, listarCuentas, olvidarCuenta, olvidarTodas } from './cuentas';
 
 const signInWithOAuth = supabase.auth.signInWithOAuth as jest.Mock;
 const setSession = supabase.auth.setSession as jest.Mock;
 const signOutMock = supabase.auth.signOut as jest.Mock;
 const openAuthSessionAsync = WebBrowser.openAuthSessionAsync as jest.Mock;
+const getSession = supabase.auth.getSession as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+  (listarCuentas as jest.Mock).mockResolvedValue([]);
   signInWithOAuth.mockResolvedValue({
     data: { url: 'https://proyecto.supabase.co/auth/v1/authorize?provider=google' },
     error: null,
@@ -93,12 +109,33 @@ describe('signInWithGoogle', () => {
 });
 
 describe('signOut', () => {
-  it('llama a supabase.auth.signOut()', async () => {
+  it('cierra solo la sesión de este celular y olvida la cuenta', async () => {
     signOutMock.mockResolvedValue({ error: null });
 
     await signOut();
 
-    expect(signOutMock).toHaveBeenCalledTimes(1);
+    expect(signOutMock).toHaveBeenCalledWith({ scope: 'local' });
+    expect(olvidarCuenta).toHaveBeenCalledWith('u1');
+    expect(cambiarACuenta).not.toHaveBeenCalled();
+  });
+
+  it('si quedan otras cuentas guardadas, pasa a la usada más recientemente', async () => {
+    signOutMock.mockResolvedValue({ error: null });
+    (listarCuentas as jest.Mock).mockResolvedValue([{ userId: 'u2' }, { userId: 'u3' }]);
+
+    await signOut();
+
+    expect(cambiarACuenta).toHaveBeenCalledWith('u2');
+  });
+
+  it('si la otra cuenta ya no sirve, no rompe (queda en la bienvenida)', async () => {
+    signOutMock.mockResolvedValue({ error: null });
+    (listarCuentas as jest.Mock).mockResolvedValue([{ userId: 'u2' }]);
+    (cambiarACuenta as jest.Mock).mockRejectedValue(new Error('venció'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(signOut()).resolves.toBeUndefined();
+    warn.mockRestore();
   });
 
   it('propaga el error si signOut falla', async () => {
@@ -144,5 +181,30 @@ describe('signOut', () => {
     await signOut();
 
     expect(tarea).not.toHaveBeenCalled();
+  });
+});
+
+describe('cerrarTodasLasSesiones', () => {
+  it('cierra la sesión activa y olvida todas las cuentas guardadas', async () => {
+    signOutMock.mockResolvedValue({ error: null });
+
+    await cerrarTodasLasSesiones();
+
+    expect(signOutMock).toHaveBeenCalledWith({ scope: 'local' });
+    expect(olvidarTodas).toHaveBeenCalled();
+  });
+});
+
+describe('signInWithGoogle elige cuenta', () => {
+  it('pide a Google que pregunte con qué cuenta entrar (para poder agregar otra)', async () => {
+    openAuthSessionAsync.mockResolvedValue({ type: 'cancel' });
+
+    await expect(signInWithGoogle()).rejects.toThrow();
+
+    expect(signInWithOAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ queryParams: { prompt: 'select_account' } }),
+      }),
+    );
   });
 });

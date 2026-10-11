@@ -5,6 +5,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
 import { signOut } from '../services/auth';
 import { colors, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 /**
  * Lo único que ve una cuenta deshabilitada por un administrador (ver
@@ -16,6 +17,7 @@ import { colors, spacing, typography } from '../theme';
  * solo explica qué pasa en vez de mostrar listas vacías o errores sueltos.
  */
 export function CuentaDeshabilitadaScreen() {
+  const styles = useEstilos(crearEstilos);
   return (
     <ScreenContainer style={styles.container}>
       <View style={styles.center}>
@@ -31,7 +33,8 @@ export function CuentaDeshabilitadaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     justifyContent: 'space-between',
     paddingVertical: spacing.xxl,

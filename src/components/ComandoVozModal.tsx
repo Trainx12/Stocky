@@ -18,6 +18,7 @@ import {
 import type { AccionVoz, TipoAccionVoz } from '../services/voz';
 import type { Producto } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface ComandoVozModalProps {
   visible: boolean;
@@ -39,11 +40,12 @@ const EJEMPLOS = [
   'Eliminá el yogur',
 ];
 
-const ESTILO_TIPO: Record<TipoAccionVoz, { etiqueta: string; color: string; fondo: string }> = {
+// Función (no constante): se lee en cada render, así respeta el modo claro/oscuro.
+const estiloTipo = (): Record<TipoAccionVoz, { etiqueta: string; color: string; fondo: string }> => ({
   alta: { etiqueta: 'Agregar', color: colors.success, fondo: colors.successLight },
   modificacion: { etiqueta: 'Modificar', color: colors.primary, fondo: colors.primaryLight },
   baja: { etiqueta: 'Eliminar', color: colors.danger, fondo: colors.dangerLight },
-};
+});
 
 function formatearSegundos(segundos: number): string {
   return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
@@ -64,6 +66,7 @@ function describirProducto(producto: Producto): string {
  * mismas funciones que el ABM manual (services/voz.ts).
  */
 export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, productos }: ComandoVozModalProps) {
+  const styles = useEstilos(crearEstilos);
   const [paso, setPaso] = useState<Paso>('grabar');
   const [transcripcion, setTranscripcion] = useState('');
   const [acciones, setAcciones] = useState<AccionVoz[]>([]);
@@ -283,7 +286,8 @@ interface TarjetaAccionProps {
 
 // Una acción entendida, con sus campos corregibles según el tipo.
 function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar }: TarjetaAccionProps) {
-  const estilo = ESTILO_TIPO[accion.tipo];
+  const styles = useEstilos(crearEstilos);
+  const estilo = estiloTipo()[accion.tipo];
   const titulo = accion.producto ? nombreConMarca(accion.producto) : accion.nombre;
   const sinProducto = accion.tipo !== 'alta' && !accion.producto;
 
@@ -393,7 +397,8 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

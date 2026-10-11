@@ -523,6 +523,45 @@ términos).
 
 ---
 
+## Cuenta, modo oscuro, varias cuentas y edición del ticket (Sprint 10)
+
+Rama `feature/cuenta-y-ajustes`. Sin migraciones. Detalle en
+[incidentes-sprint10.md](incidentes-sprint10.md).
+
+**Ruta crítica:**
+1. Botón de la persona → Cuenta: muestra nombre, email y (si corresponde)
+   "Administrador". Editar el nombre → se ve en Home y en "Miembros del
+   hogar". Nombre vacío → aviso, no se guarda.
+2. Apariencia: Oscuro → TODA la app pasa a oscuro (recorrer Home,
+   despensa, formularios, modales, campanita, cartelitos, términos);
+   Claro → vuelve; Sistema → sigue al modo del celular. Cerrar y abrir la
+   app → recuerda la elección.
+3. Varias cuentas: "Agregar otra cuenta" → Google pregunta qué cuenta → entra
+   con la nueva y la anterior aparece en "Tus cuentas". Tocar la otra → cambia
+   sin pasar por el login, con sus hogares y productos (nada mezclado).
+4. Cerrar sesión con dos cuentas → pasa a la otra; con una sola → vuelve a la
+   bienvenida. La sesión en la web u otro celular de esa persona **sigue
+   abierta** (antes se cerraba en todos lados). "Cerrar sesión en todas"
+   → bienvenida y la lista vacía.
+5. Escanear un ticket → en la revisión: "Cambiar producto" elige otro del
+   catálogo (conserva cantidad/marca/fecha); "Escribir a mano" deja editar
+   el nombre; cargar un vencimiento; borrar el nombre o poner cantidad 0 →
+   aviso debajo y botón deshabilitado. Al confirmar, los productos se
+   guardan con lo corregido (incluida la fecha).
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, `npm test`
+(22 suites / 439 tests: `cuentas.test.ts`, `tema.test.ts`, corrección del
+ticket en `escaneo.test.ts`, cierre de sesión y elección de cuenta en
+`auth.test.ts`, nombre propio en `usuarios.test.ts`), y el modo oscuro
+probado en el navegador en las pantallas sin login. **No hecho:** los pasos
+1, 3, 4 y 5 (requieren login con Google).
+
+**Regresión obligatoria:** login/logout (cambió `signOut`), notificaciones
+(el push sigue a la cuenta activa), y una pasada visual por todas las
+pantallas en modo claro (se tocaron los estilos de las 25).
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**

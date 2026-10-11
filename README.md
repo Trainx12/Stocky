@@ -40,15 +40,17 @@ src/
                  SectionCard)
   navigation/    RootNavigator: decide stack de auth vs. stack principal
                  (y si mostrar "Cuenta deshabilitada" o los Términos)
-  context/       AuthContext (sesión + perfil/rol) y NotificacionesContext
-                 (campanita, cartelitos en tiempo real, push)
+  context/       AuthContext (sesión + perfil/rol), NotificacionesContext
+                 (campanita, cartelitos en tiempo real, push) y TemaContext
+                 (modo claro/oscuro)
   services/      Llamadas a Supabase: auth, hogares, productos, catálogo,
                  usuarios (admin), notificaciones, términos, y las Edge
                  Functions externas (OCR/voz)
   lib/           Cliente de Supabase, avisos/cartelitos (alert.ts),
                  notificaciones del teléfono (notificacionesPush.ts), fotos, audio
   legal/         Términos y Condiciones (texto) y créditos de lo que usamos
-  theme/         Colores, tipografía y spacing (única fuente de verdad de diseño)
+  theme/         Colores (claro y oscuro), tipografía, spacing y useEstilos
+                 (estilos que se adaptan al modo oscuro: ver la arquitectura, sección 2)
   types/         Tipos espejo del esquema SQL + tipos de navegación
 
 supabase/
@@ -178,6 +180,10 @@ lógica pura que ya existe (no hay tests de pantallas/UI todavía):
   para push y avisos locales, con los módulos nativos mockeados.
 - `src/lib/alert.test.ts` — avisos y confirmaciones: cartelitos propios
   cuando el `AvisosHost` está montado y el diálogo del sistema si no.
+- `src/services/cuentas.test.ts` — varias cuentas en el mismo celular:
+  qué se guarda, cambiar de cuenta y qué pasa si una sesión venció.
+- `src/theme/tema.test.ts` — modo oscuro: qué esquema corresponde y que las
+  dos paletas tengan los mismos colores.
 - `src/services/terminos.test.ts` y `src/legal/legal.test.ts` — cuándo hay
   que aceptar los Términos, la aceptación antes del login, y que cada foto
   del catálogo tenga autor, licencia y enlace.
@@ -195,7 +201,7 @@ un header con saludo + logo, la sección "Tus hogares activos", las alertas
 todos"), la actividad reciente y una barra de navegación inferior fija
 (Inicio/Búsqueda/Notificaciones/Perfil). La lupa abre el buscador de la
 despensa del hogar seleccionado; la campanita, las notificaciones (con el
-número de no leídas); Perfil todavía es un placeholder. Debajo de "Tus
+número de no leídas); la persona, Cuenta (perfil, varias cuentas, modo oscuro, ajustes, Términos y cerrar sesión). Debajo de "Tus
 hogares activos" hay dos botones directos, de un solo toque:
 
 - **Crear hogar** → `HogarFormModal` (modo `crear`).

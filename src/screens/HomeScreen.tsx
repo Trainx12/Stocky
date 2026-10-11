@@ -16,7 +16,6 @@ import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotificaciones } from '../context/NotificacionesContext';
-import { signOut } from '../services/auth';
 import {
   cancelarSolicitud,
   listarMisHogares,
@@ -42,6 +41,7 @@ import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 /**
  * Pantalla principal (dashboard) que ve cualquier usuario logueado al
@@ -71,6 +71,7 @@ import { colors, radius, spacing, typography } from '../theme';
 // que se vean sin scroll y no tapen el resto de la pantalla.
 const MAX_ALERTAS_DASHBOARD = 4;
 export function HomeScreen() {
+  const styles = useEstilos(crearEstilos);
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
   const { noLeidas, suscribirseANuevas } = useNotificaciones();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
@@ -521,8 +522,9 @@ export function HomeScreen() {
       navigation.navigate('Notificaciones');
       return;
     }
+    // La persona abre Cuenta (perfil, cuentas, modo oscuro, ajustes, cerrar sesión).
     if (tab === 'profile') {
-      avisar('Próximamente', 'Esta sección todavía no está disponible.');
+      navigation.navigate('Cuenta');
     }
   }
 
@@ -889,14 +891,8 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* Se mantiene visible mientras no exista una pantalla de Perfil
-            propia desde donde cerrar sesión. */}
-        <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} style={styles.signOutButton} />
-        {/* Los términos siempre se pueden volver a leer (también lo dicen
-            ellos mismos, punto 12). */}
-        <Pressable onPress={() => navigation.navigate('Terminos')} style={styles.terminosLink} accessibilityRole="link">
-          <Text style={styles.terminosLinkTexto}>Términos y Condiciones</Text>
-        </Pressable>
+        {/* Cerrar sesión y los Términos y Condiciones viven ahora en Cuenta
+            (botón de la persona en la barra de abajo). */}
       </ScrollView>
 
       <BottomNavBar active="home" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
@@ -992,6 +988,7 @@ interface EmptyStateProps {
 // Pie de las tarjetas de alertas: lleva a la lista completa (filtro de
 // ProductosScreen). Con un solo hogar no hace falta nombrarlo.
 function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarNombre: string | null; onPress: () => void }) {
+  const styles = useEstilos(crearEstilos);
   const texto = textoVerTodos(total, hogarNombre, MAX_ALERTAS_DASHBOARD);
   return (
     <Pressable onPress={onPress} style={styles.verTodosButton} accessibilityRole="button">
@@ -1002,6 +999,7 @@ function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarN
 }
 
 function EmptyState({ icon, text, actionLabel, onAction }: EmptyStateProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     <View style={styles.emptyState}>
       <Ionicons name={icon} size={28} color={colors.textSecondary} />
@@ -1022,6 +1020,7 @@ interface QuickAccessButtonProps {
 // Botón cuadrado de acceso rápido (ícono arriba, label abajo). Por ahora
 // todos disparan un placeholder hasta que existan sus pantallas.
 function QuickAccessButton({ icon, label, onPress }: QuickAccessButtonProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     <Pressable style={styles.quickAccessButton} onPress={onPress}>
       <Ionicons name={icon} size={26} color={colors.primary} />
@@ -1030,7 +1029,8 @@ function QuickAccessButton({ icon, label, onPress }: QuickAccessButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     paddingVertical: 0,
   },
@@ -1217,17 +1217,5 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.primary,
     textAlign: 'center',
-  },
-  terminosLink: {
-    alignSelf: 'center',
-    paddingVertical: spacing.sm,
-  },
-  terminosLinkTexto: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  signOutButton: {
-    marginTop: spacing.md,
   },
 });

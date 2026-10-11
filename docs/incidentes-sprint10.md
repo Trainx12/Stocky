@@ -290,3 +290,92 @@ usaba Expo Go): se agregó una nota arriba aclarando que es historial.
 - **7 fotos "aportadas por el equipo"** figuran con licencia "a confirmar"
   (ver incidentes-sprint5-6.md #18 e incidentes-sprint8.md #7; la de Leche de
   Coco parece una imagen publicitaria). Confirmar su origen o reemplazarlas.
+
+
+---
+
+# Cuenta, modo oscuro, varias cuentas y edición del ticket (también Sprint 10)
+
+Rama `feature/cuenta-y-ajustes`, apilada sobre el PR de términos (#17). Sin
+migraciones nuevas.
+
+## Qué entró
+
+- **Botón de la persona → Cuenta:** perfil con nombre editable, varias
+  cuentas, apariencia, accesos a Notificaciones y Términos, versión, y
+  cerrar sesión.
+- **Modo oscuro** (sistema / claro / oscuro), elegido desde Cuenta y
+  guardado en el celular.
+- **Varias cuentas** en el mismo celular, cambiando entre ellas sin pasar por
+  el login (como Instagram).
+- **Revisión del ticket:** corregir un producto mal leído (cambiarlo por
+  otro del catálogo o escribirlo a mano), cantidad, marca y vencimiento, con
+  aviso por producto si le falta algo.
+
+## 7. Cerrar sesión cerraba la sesión en TODOS los dispositivos
+
+**Síntoma (encontrado al diseñar varias cuentas):** `signOut()` llamaba a
+`supabase.auth.signOut()` sin parámetros, que por defecto usa `scope:
+'global'`: cerrar sesión en el celular cerraba también la sesión de esa
+persona en la web y en cualquier otro dispositivo.
+
+**Solución:** `signOut({ scope: 'local' })`: solo este celular. Con varias
+cuentas, además pasa a la siguiente cuenta guardada.
+
+## 8. Google entraba siempre con la última cuenta usada
+
+**Causa:** sin indicarle nada, el login de Google reutiliza la cuenta con la
+que ya se había entrado, así que "Agregar otra cuenta" volvía a entrar con
+la misma.
+
+**Solución:** `queryParams: { prompt: 'select_account' }` en el login: Google
+siempre pregunta con qué cuenta entrar.
+
+## Notas de diseño
+
+- **Varias cuentas:** los tokens de las cuentas no activas se guardan en
+  AsyncStorage, igual que Supabase guarda los de la sesión activa (mismo
+  nivel de seguridad). Si la sesión guardada de una cuenta venció o se
+  cerró desde otro lado, al tocarla se avisa y se saca de la lista. Las
+  notificaciones push llegan solo para la cuenta activa del celular.
+  "Cerrar sesión en todas" olvida las cuentas en el celular; sus sesiones
+  en el servidor vencen solas.
+- **Modo oscuro:** es una preferencia del celular, no de la cuenta (no
+  cambia al pasar de una cuenta a otra). Con "Sistema" sigue al modo del
+  teléfono. La regla para escribir componentes nuevos está en
+  `docs/arquitectura-del-codigo.md`, sección 2.
+- **Ticket:** "Cambiar producto" conserva lo que el usuario ya corrigió
+  (cantidad, marca, fecha) y solo cambia nombre/categoría/unidad.
+
+## Errores de proceso
+
+1. **Conversión de los 25 archivos al modo oscuro:** se hizo con un script
+   (estilos → función + `useEstilos` en cada componente) y se usó `tsc`
+   como red de seguridad (un componente sin el hook da "Cannot find name
+   'styles'"): pasó a la primera. El script dejó la indentación interna de
+   los estilos como estaba (válida, solo estética), y eso hizo fallar
+   después un reemplazo que asumía la indentación vieja; se corrigió con
+   una expresión que no depende de la indentación.
+2. **Constantes de módulo con colores:** quedaban 3 (`AvisosHost`,
+   `ComandoVozModal`, `NotificacionesScreen`) que se habrían quedado con
+   los colores del modo inicial; se encontraron buscando `colors.` fuera
+   de los estilos y se pasaron a funciones.
+3. **Tests y AsyncStorage:** `auth.test.ts` dejó de correr porque `auth.ts`
+   ahora importa `cuentas.ts` (AsyncStorage nativo); un primer intento con
+   `jest.requireActual('./cuentas')` volvió a cargarlo. Se mockeó
+   `./cuentas` entero con la regla pura copiada. En `cuentas.test.ts`, un
+   test fallaba porque el `setSession` simulado no tenía respuesta por
+   defecto.
+4. **El servidor de Expo del equipo seguía corriendo** sobre esta carpeta
+   mientras se programaba: los cambios de la rama le llegaban al celular por
+   hot reload. Mismo riesgo que [incidentes-sprint9.md](incidentes-sprint9.md)
+   #4: saber desde qué rama corre Metro. Para verificar en el navegador se
+   usó ese mismo servidor (no se levantó otro) y se forzó el modo oscuro
+   desde el almacenamiento local, sin tocar nada del equipo.
+
+## Lo que no se pudo verificar
+
+Probado en el navegador: modo oscuro en Bienvenida, Onboarding y Términos
+(sin errores de consola). **No probado** (necesita login con Google): la
+pantalla Cuenta, cambiar y agregar cuentas, editar el nombre y la revisión
+del ticket con un ticket real.

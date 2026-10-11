@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { diasDelMesCalendario, formatearFechaISO } from '../services/productos';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface CalendarioPickerProps {
   /** Fecha ya elegida ('YYYY-MM-DD'), o null si todavía no hay ninguna. Determina qué día queda resaltado y con qué mes arranca el calendario. */
@@ -36,6 +37,7 @@ function parsearFechaSiValida(fecha: string | null): Date | null {
  * flotante -- más simple de armar dentro de un modal que ya scrollea.
  */
 export function CalendarioPicker({ valor, onSeleccionar }: CalendarioPickerProps) {
+  const styles = useEstilos(crearEstilos);
   const fechaInicial = parsearFechaSiValida(valor) ?? new Date();
   const [mesVisible, setMesVisible] = useState(fechaInicial.getMonth());
   const [anioVisible, setAnioVisible] = useState(fechaInicial.getFullYear());
@@ -116,7 +118,8 @@ export function CalendarioPicker({ valor, onSeleccionar }: CalendarioPickerProps
 
 const ANCHO_CELDA = `${100 / 7}%` as const;
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: colors.border,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface SectionCardProps {
   title: string;
@@ -14,6 +15,7 @@ interface SectionCardProps {
  * espaciado/tipografía y no haya que repetir el StyleSheet tres veces.
  */
 export function SectionCard({ title, children }: SectionCardProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     <View style={styles.wrapper}>
       <Text style={styles.title}>{title}</Text>
@@ -22,7 +24,8 @@ export function SectionCard({ title, children }: SectionCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   wrapper: {
     gap: spacing.sm,
   },

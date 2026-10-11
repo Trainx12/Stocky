@@ -10,13 +10,15 @@ import {
 } from '../lib/alert';
 import type { AvisoEnPantalla, Confirmacion, TipoAviso } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 // Color de la franja/ícono e ícono por defecto de cada tipo de aviso.
-const ESTILO_POR_TIPO: Record<TipoAviso, { color: string; fondo: string; icono: string }> = {
+// Función (no constante): se lee en cada render, así respeta el modo claro/oscuro.
+const estiloPorTipo = (): Record<TipoAviso, { color: string; fondo: string; icono: string }> => ({
   exito: { color: colors.success, fondo: colors.successLight, icono: 'checkmark-circle' },
   error: { color: colors.danger, fondo: colors.dangerLight, icono: 'alert-circle' },
   info: { color: colors.primary, fondo: colors.primaryLight, icono: 'information-circle' },
-};
+});
 
 /**
  * Se monta una sola vez, arriba de toda la app (App.tsx), y se registra en
@@ -26,6 +28,7 @@ const ESTILO_POR_TIPO: Record<TipoAviso, { color: string; fondo: string; icono: 
  * sistema. Ver el comentario de alert.ts.
  */
 export function AvisosHost() {
+  const styles = useEstilos(crearEstilos);
   const insets = useSafeAreaInsets();
   const [avisos, setAvisos] = useState<AvisoEnPantalla[]>([]);
   const [confirmacion, setConfirmacion] = useState<Confirmacion | null>(null);
@@ -101,8 +104,9 @@ export function AvisosHost() {
 // Un cartelito: entra deslizándose desde arriba, se va solo después de
 // duracionAviso(tipo) o al tocarlo.
 function Cartelito({ aviso, onCerrar }: { aviso: AvisoEnPantalla; onCerrar: () => void }) {
+  const styles = useEstilos(crearEstilos);
   const animacion = useRef(new Animated.Value(0)).current;
-  const estilo = ESTILO_POR_TIPO[aviso.tipo];
+  const estilo = estiloPorTipo()[aviso.tipo];
 
   const salir = useCallback(() => {
     Animated.timing(animacion, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => onCerrar());
@@ -145,7 +149,8 @@ function Cartelito({ aviso, onCerrar }: { aviso: AvisoEnPantalla; onCerrar: () =
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   contenedor: {
     position: 'absolute',
     left: spacing.md,

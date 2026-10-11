@@ -46,8 +46,11 @@ export type AppStackParamList = {
   // Campanita: notificaciones recientes + preferencias de aviso (ver
   // services/notificaciones.ts).
   Notificaciones: undefined;
-  // Términos y Condiciones de solo lectura (enlace desde Home).
+  // Términos y Condiciones de solo lectura (desde Cuenta).
   Terminos: undefined;
+  // Cuenta y configuración: botón de la persona en la barra de abajo
+  // (perfil, varias cuentas, modo oscuro, ajustes, legal, cerrar sesión).
+  Cuenta: undefined;
 };
 
 // Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer

@@ -29,6 +29,7 @@ import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
@@ -41,6 +42,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  * tipeada, y evita mostrar un loader en cada tecla.
  */
 export function ProductosScreen({ route, navigation }: Props) {
+  const styles = useEstilos(crearEstilos);
   const { hogarId, hogarNombre, abrirAgregar, abrirVoz, enfocarBusqueda, filtroInicial } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -515,7 +517,8 @@ export function ProductosScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     gap: spacing.md,
   },

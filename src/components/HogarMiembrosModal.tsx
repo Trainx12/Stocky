@@ -25,6 +25,7 @@ import type { MiembroHogar, SolicitudPendiente } from '../services/hogares';
 import { Button } from './Button';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, fontSize, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface HogarMiembrosModalProps {
   visible: boolean;
@@ -44,6 +45,7 @@ interface HogarMiembrosModalProps {
  * tiene sentido ni mostrar el botón ahí).
  */
 export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usuarioActualId }: HogarMiembrosModalProps) {
+  const styles = useEstilos(crearEstilos);
   const [miembros, setMiembros] = useState<MiembroHogar[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudPendiente[]>([]);
   const [loading, setLoading] = useState(false);
@@ -319,7 +321,8 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   flex: {
     flex: 1,
   },

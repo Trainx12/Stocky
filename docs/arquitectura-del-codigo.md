@@ -57,6 +57,30 @@ escrito a mano** — siempre importa de `theme`.
   fácil (`import { theme } from '../theme'` o los exports sueltos como
   `colors`, `spacing`).
 
+**Modo oscuro (Sprint 10) — regla para todo componente nuevo:**
+`colors.ts` tiene dos juegos de valores con los mismos nombres (claro y
+oscuro). `colors` es un objeto cuyos valores cambia `aplicarEsquema()` al
+pasar de un modo al otro (lo llama `context/TemaContext.tsx`, que guarda la
+elección del usuario en el celular: sistema / claro / oscuro). Por eso:
+
+1. Los estilos se definen como **función** y se usan con el hook
+   `useEstilos` (`theme/useEstilos.ts`), que los vuelve a armar al cambiar
+   el modo:
+   ```tsx
+   export function MiPantalla() {
+     const styles = useEstilos(crearEstilos);
+     ...
+   }
+   const crearEstilos = () => StyleSheet.create({ ... });
+   ```
+   Un `const styles = StyleSheet.create(...)` a nivel de módulo se quedaría
+   con los colores del modo en que arrancó la app.
+2. Nunca guardar un color en una constante de módulo
+   (`const X = { color: colors.primary }`): usar una función que se lea en
+   cada render (ver `estiloPorTipo` en `AvisosHost`).
+3. `colors.white` se mantiene blanco en los dos modos (es el texto sobre
+   botones de color); para fondos usar `colors.surface`/`colors.background`.
+
 ---
 
 ## 3. `src/types/` — el "contrato" de datos
@@ -533,6 +557,26 @@ criterio que `actividad_hogar`).
 
 ---
 
+### `cuentas.ts` — varias cuentas en el mismo celular (Sprint 10)
+
+Como en Instagram: se puede iniciar sesión con más de una cuenta de Google y
+cambiar entre ellas desde Cuenta sin volver al login. Supabase maneja una
+sola sesión activa; de las demás se guardan en AsyncStorage los tokens de
+acceso y de renovación (mismo lugar y nivel de seguridad que usa Supabase
+para la sesión activa). `AuthContext` llama a `recordarSesion` en cada
+cambio o renovación de la sesión, así los tokens guardados de cada cuenta
+están al día; `cambiarACuenta` los activa con `supabase.auth.setSession`
+(si la sesión venció, olvida esa cuenta y avisa). El login pide a Google
+`prompt: 'select_account'` para poder elegir otra cuenta.
+
+`signOut()` (en `auth.ts`) ahora cierra la sesión **solo en este celular**
+(`scope: 'local'`; antes era global y cerraba la sesión de esa persona en
+todos sus dispositivos), olvida la cuenta y, si quedan otras guardadas, pasa
+a la usada más recientemente. `cerrarTodasLasSesiones()` olvida todas.
+Las notificaciones push van a la cuenta activa: al cambiar de cuenta, el
+celular se vuelve a registrar a nombre de la nueva (`registrar_push_token`
+mueve el token).
+
 ## 5bis. `src/legal/` — Términos y Condiciones y créditos
 
 Todo el texto legal vive como datos en `src/legal/terminos.ts` (versión
@@ -626,6 +670,14 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
   como texto libre y se parsean recién al submitear (acepta coma o punto
   como separador decimal), para no romper la UI si el usuario borra el
   campo a mitad de tipeo.
+- **`EscanearTicketModal.tsx`** (revisión del ticket): cada producto
+  detectado se puede corregir si se leyó mal: "Cambiar producto" (elegir
+  otro del catálogo con `CatalogoSelectorModal`) o "Escribir a mano" (se
+  suelta del catálogo y el nombre queda editable), además de cantidad, marca
+  y una fecha de vencimiento opcional. `errorDeCandidato` (en
+  `services/escaneo.ts`, igual que `elegirDelCatalogo`/`pasarASinCatalogo`)
+  avisa debajo de cada producto qué le falta y bloquea el botón de
+  confirmar.
 - **`CatalogoSelectorModal.tsx`**: selector del catálogo global de
   productos (ver `services/catalogo.ts`) -- búsqueda + chips de categoría
   sobre la lista ya cargada (mismo criterio 100% client-side que
@@ -680,6 +732,11 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
   sección 5). Tocar una notificación la marca como leída y lleva a la
   despensa con el filtro que corresponda, a "Miembros del hogar" (Home recibe
   `abrirMiembrosDe`), al inicio o a sugerencias.
+- **`CuentaScreen`** (botón de la persona en la barra de abajo): perfil
+  (nombre editable con `actualizarMiNombre`), varias cuentas (cambiar,
+  agregar), apariencia (sistema/claro/oscuro), accesos a Notificaciones y a
+  los Términos, versión de la app, y cerrar sesión (de esta cuenta o de
+  todas). "Cerrar sesión" y el enlace a los Términos salieron del Home.
 - **`CuentaDeshabilitadaScreen`**: lo único que ve una cuenta deshabilitada
   (mensaje + cerrar sesión). La muestra `RootNavigator` en lugar del stack
   principal.

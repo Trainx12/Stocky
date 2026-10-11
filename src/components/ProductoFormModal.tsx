@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import type { Producto, ProductoCatalogo } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface ProductoFormModalProps {
   visible: boolean;
@@ -48,6 +49,7 @@ interface ProductoFormModalProps {
  * mínimo.
  */
 export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, producto }: ProductoFormModalProps) {
+  const styles = useEstilos(crearEstilos);
   const editando = producto != null;
 
   // En modo "crear": el producto del catálogo elegido (null = todavía no
@@ -452,7 +454,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   diasAvisoRow: {
     flexDirection: 'row',
     alignItems: 'center',

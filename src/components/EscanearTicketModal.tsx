@@ -12,6 +12,7 @@ import type { ProductoCatalogo } from '../types/database';
 import { reconocerProductosDeTicket } from '../services/externalApis';
 import { crearProducto, formatearFechaInput, parsearNumero } from '../services/productos';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface EscanearTicketModalProps {
   visible: boolean;
@@ -43,6 +44,7 @@ type Paso = 'elegir' | 'procesando' | 'revisar' | 'vacio';
  * válida, fecha bien escrita) se avisa debajo y no se deja confirmar.
  */
 export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: EscanearTicketModalProps) {
+  const styles = useEstilos(crearEstilos);
   const [paso, setPaso] = useState<Paso>('elegir');
   const [candidatos, setCandidatos] = useState<CandidatoTicket[]>([]);
   // Categorías del catálogo, para elegir la de los productos sin catálogo.
@@ -363,7 +365,8 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

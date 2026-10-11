@@ -10,6 +10,7 @@ import { obtenerFotoBase64 } from '../lib/fotos';
 import type { OrigenFoto } from '../lib/fotos';
 import { imagenDeCatalogo } from '../lib/catalogoImagenes';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface CatalogoSelectorModalProps {
   visible: boolean;
@@ -41,6 +42,7 @@ const UNIDADES: { valor: UnidadProducto; label: string }[] = [
  * admin lo apruebe, ver AdminSugerenciasScreen) en vez de cargarlo directo.
  */
 export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSugerir = false }: CatalogoSelectorModalProps) {
+  const styles = useEstilos(crearEstilos);
   const [catalogo, setCatalogo] = useState<ProductoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -346,7 +348,8 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

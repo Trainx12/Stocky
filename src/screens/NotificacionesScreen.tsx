@@ -21,6 +21,7 @@ import { ajustarDiasAviso, DIAS_AVISO_MAXIMO, DIAS_AVISO_MINIMO, DIAS_AVISO_POR_
 import type { Notificacion } from '../types/database';
 import { avisar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import type { AppStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Notificaciones'>;
@@ -28,13 +29,14 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Notificaciones'>;
 // Color del ícono y de su círculo de fondo para cada familia de
 // notificación (mismos colores que los badges: vencimientos coral, stock
 // ámbar, buenas noticias verde).
-const COLORES: Record<FamiliaNotificacion, { color: string; fondo: string }> = {
+// Función (no constante): se lee en cada render, así respeta el modo claro/oscuro.
+const coloresPorFamilia = (): Record<FamiliaNotificacion, { color: string; fondo: string }> => ({
   vencimiento: { color: colors.stockStatus.critical, fondo: colors.dangerLight },
   stock: { color: colors.textPrimary, fondo: colors.warningLight },
   exito: { color: colors.success, fondo: colors.successLight },
   aviso: { color: colors.textSecondary, fondo: colors.background },
   hogar: { color: colors.primary, fondo: colors.primaryLight },
-};
+});
 
 /**
  * Campanita (Sprint 10): notificaciones recientes del usuario, nuevas
@@ -47,6 +49,7 @@ const COLORES: Record<FamiliaNotificacion, { color: string; fondo: string }> = {
  * (despensa con el filtro, "Miembros del hogar", Home, sugerencias).
  */
 export function NotificacionesScreen({ navigation }: Props) {
+  const styles = useEstilos(crearEstilos);
   const { usuario, refreshUsuario } = useAuth();
   const { refrescarNoLeidas, pushActivo, activarEnTelefono, suscribirseANuevas } = useNotificaciones();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
@@ -244,7 +247,7 @@ export function NotificacionesScreen({ navigation }: Props) {
         ) : (
           notificaciones.map((n) => {
             const { icono, familia } = aparienciaNotificacion(n.tipo);
-            const color = COLORES[familia];
+            const color = coloresPorFamilia()[familia];
             return (
               <Pressable
                 key={n.id}
@@ -285,7 +288,8 @@ export function NotificacionesScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     gap: spacing.md,
   },

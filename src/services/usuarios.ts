@@ -65,6 +65,42 @@ export async function cambiarRol(usuarioId: string, rol: RolUsuario): Promise<Us
   return data;
 }
 
+/**
+ * Cuenta propia (pantalla Cuenta, Sprint 10): lo que cualquier usuario
+ * puede cambiar de sí mismo. Desde el Sprint 9 la única columna de
+ * `usuarios` que el cliente puede editar es `nombre` (más
+ * `dias_aviso_vencimiento`, ver services/notificaciones.ts).
+ */
+
+export const LARGO_MAXIMO_NOMBRE = 60;
+
+// Valida el nombre a mostrar: devuelve el texto limpio o tira un error legible.
+export function validarNombre(nombre: string): string {
+  const limpio = nombre.trim().replace(/\s+/g, ' ');
+  if (!limpio) throw new Error('El nombre no puede quedar vacío.');
+  if (limpio.length > LARGO_MAXIMO_NOMBRE) throw new Error(`El nombre puede tener hasta ${LARGO_MAXIMO_NOMBRE} caracteres.`);
+  return limpio;
+}
+
+// Cambia el nombre con el que te ven los demás (miembros de tus hogares,
+// actividad). Filtra por el usuario logueado: un admin podría actualizar
+// cualquier fila según la RLS, y esto es solo "mi nombre".
+export async function actualizarMiNombre(nombre: string): Promise<void> {
+  const limpio = validarNombre(nombre);
+  const { data } = await supabase.auth.getUser();
+  const id = data.user?.id;
+  if (!id) throw new Error('No hay una sesión activa');
+  const { error } = await supabase.from('usuarios').update({ nombre: limpio }).eq('id', id);
+  if (error) throw error;
+}
+
+// Letra del círculo de avatar: la inicial del nombre, o la del email si no
+// tiene nombre.
+export function inicialDe(nombre: string | null, email: string): string {
+  const base = (nombre ?? '').trim() || email.trim();
+  return base ? base[0].toUpperCase() : '?';
+}
+
 export type FiltroUsuarios = 'todos' | 'administradores' | 'deshabilitados';
 
 // Búsqueda por nombre o email (sin distinguir mayúsculas ni tildes) + filtro

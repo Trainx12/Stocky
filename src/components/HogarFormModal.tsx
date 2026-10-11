@@ -4,6 +4,7 @@ import { Button } from './Button';
 import { crearHogar, editarHogar, unirseAHogar } from '../services/hogares';
 import type { Hogar } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 type Mode = 'crear' | 'unirse' | 'editar';
 
@@ -46,6 +47,7 @@ const COPY: Record<Mode, { title: string; placeholder: string; buttonLabel: stri
  * duplicado el manejo de loading/error sin necesidad.
  */
 export function HogarFormModal({ visible, mode, onClose, onSuccess, hogar }: HogarFormModalProps) {
+  const styles = useEstilos(crearEstilos);
   const [valor, setValor] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +116,8 @@ export function HogarFormModal({ visible, mode, onClose, onSuccess, hogar }: Hog
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   flex: {
     flex: 1,
   },

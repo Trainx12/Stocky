@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface LogoProps {
   size?: number;
@@ -20,6 +21,7 @@ interface LogoProps {
  * un cambio en un solo lugar.
  */
 export function Logo({ size = 96, compact = false }: LogoProps) {
+  const styles = useEstilos(crearEstilos);
   // Modo compacto (header): solo el badge, nada de texto debajo.
   if (compact) {
     return (
@@ -41,7 +43,8 @@ export function Logo({ size = 96, compact = false }: LogoProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   wrapper: {
     alignItems: 'center',
     gap: spacing.xs,

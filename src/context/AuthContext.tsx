@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Usuario } from '../types/database';
+import { recordarSesion } from '../services/cuentas';
 
 interface AuthContextValue {
   session: Session | null;
@@ -54,10 +55,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
+    // Cada sesión activa (login, cambio de cuenta, renovación del token) se
+    // guarda en la lista de cuentas del celular, así se puede volver a ella
+    // desde Cuenta sin pasar de nuevo por Google (ver services/cuentas.ts).
+    function guardarParaCambiarDeCuenta(sesion: Session | null) {
+      if (sesion) recordarSesion(sesion).catch((err) => console.warn('[Stocky] No se pudo guardar la cuenta:', err));
+    }
+
     // De ahí en más: cada vez que cambia la sesión (login, logout, refresh
     // de token), nos enteramos acá y actualizamos usuario/session solos.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      guardarParaCambiarDeCuenta(newSession);
       if (newSession?.user) {
         fetchUsuario(newSession.user.id);
       } else {

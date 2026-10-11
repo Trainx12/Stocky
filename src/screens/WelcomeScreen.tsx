@@ -5,6 +5,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
 import { spacing } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import type { AuthStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
@@ -12,6 +13,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 // Primera pantalla que ve alguien sin sesión: logo + botón para arrancar
 // el onboarding.
 export function WelcomeScreen({ navigation }: Props) {
+  const styles = useEstilos(crearEstilos);
   return (
     <ScreenContainer style={styles.container}>
       <View style={styles.center}>
@@ -22,7 +24,8 @@ export function WelcomeScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     justifyContent: 'space-between',
     paddingVertical: spacing.xxl,

@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { HogarConRol } from '../services/hogares';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface SeleccionarHogarModalProps {
   visible: boolean;
@@ -21,6 +22,7 @@ interface SeleccionarHogarModalProps {
  * TODOS los hogares sin importar cuál esté seleccionado acá.
  */
 export function SeleccionarHogarModal({ visible, onClose, hogares, hogarSeleccionadoId, onSeleccionar }: SeleccionarHogarModalProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -56,7 +58,8 @@ export function SeleccionarHogarModal({ visible, onClose, hogares, hogarSeleccio
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

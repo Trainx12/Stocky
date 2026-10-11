@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import type { Theme } from '@react-navigation/native';
+import { useTema } from '../context/TemaContext';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
@@ -12,6 +14,7 @@ import { AdminSugerenciasScreen } from '../screens/AdminSugerenciasScreen';
 import { AdminUsuariosScreen } from '../screens/AdminUsuariosScreen';
 import { CuentaDeshabilitadaScreen } from '../screens/CuentaDeshabilitadaScreen';
 import { NotificacionesScreen } from '../screens/NotificacionesScreen';
+import { CuentaScreen } from '../screens/CuentaScreen';
 import { TerminosPrevioScreen, TerminosVerScreen, TerminosVista } from '../screens/TerminosScreen';
 import { aceptarTerminos, necesitaAceptarTerminos, registrarAceptacionPendiente } from '../services/terminos';
 import { navegacion } from './navegacion';
@@ -51,8 +54,10 @@ function AppNavigator() {
       <AppStack.Screen name="AdminUsuarios" component={AdminUsuariosScreen} />
       {/* Campanita: notificaciones del propio usuario (cualquier rol). */}
       <AppStack.Screen name="Notificaciones" component={NotificacionesScreen} />
-      {/* Términos y Condiciones de solo lectura (enlace en Home). */}
+      {/* Términos y Condiciones de solo lectura (enlace en Cuenta). */}
       <AppStack.Screen name="Terminos" component={TerminosVerScreen} />
+      {/* Cuenta y configuración (botón de la persona en la barra de abajo). */}
+      <AppStack.Screen name="Cuenta" component={CuentaScreen} />
     </AppStack.Navigator>
   );
 }
@@ -64,6 +69,7 @@ function AppNavigator() {
  */
 export function RootNavigator() {
   const { session, loading, usuario, refreshUsuario } = useAuth();
+  const { esquema } = useTema();
   const faltanTerminos = session !== null && necesitaAceptarTerminos(usuario);
   // true mientras se intenta registrar una aceptación hecha antes del login
   // (en ese caso no hay que volver a mostrar los términos).
@@ -127,6 +133,25 @@ export function RootNavigator() {
   // `navegacion` (ver navegacion.ts) permite navegar desde fuera de una
   // pantalla, por ejemplo al tocar una notificación del sistema.
   return (
-    <NavigationContainer ref={navegacion}>{session ? <AppNavigator /> : <AuthNavigator />}</NavigationContainer>
+    <NavigationContainer ref={navegacion} theme={temaDeNavegacion(esquema === 'oscuro')}>
+      {session ? <AppNavigator /> : <AuthNavigator />}
+    </NavigationContainer>
   );
+}
+
+// Tema de React Navigation (el fondo que se ve entre pantallas durante una
+// transición) con los colores de la app, en claro u oscuro.
+function temaDeNavegacion(oscuro: boolean): Theme {
+  const base = oscuro ? DarkTheme : DefaultTheme;
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.textPrimary,
+      border: colors.border,
+    },
+  };
 }

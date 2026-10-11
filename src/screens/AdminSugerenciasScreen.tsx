@@ -7,6 +7,7 @@ import { listarSugerenciasPendientes, responderSugerencia } from '../services/ca
 import type { ProductoCatalogo } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import type { AppStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'AdminSugerencias'>;
@@ -25,6 +26,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'AdminSugerencias'>;
  * policy de SELECT de productos_catalogo).
  */
 export function AdminSugerenciasScreen({ navigation }: Props) {
+  const styles = useEstilos(crearEstilos);
   const [sugerencias, setSugerencias] = useState<ProductoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   // ids con una respuesta en vuelo, para deshabilitar sus botones y no
@@ -139,7 +141,8 @@ export function AdminSugerenciasScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     gap: spacing.md,
   },

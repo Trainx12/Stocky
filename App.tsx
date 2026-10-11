@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/poppins';
 import { useFonts as useBalooFonts, Baloo2_500Medium, Baloo2_700Bold } from '@expo-google-fonts/baloo-2';
 import { AuthProvider } from './src/context/AuthContext';
+import { TemaProvider, useTema } from './src/context/TemaContext';
 import { NotificacionesProvider } from './src/context/NotificacionesContext';
 import { AvisosHost } from './src/components/AvisosHost';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -45,15 +46,27 @@ export default function App() {
   // docs/arquitectura-del-codigo.md). AvisosHost va último para quedar por
   // encima de cualquier pantalla: muestra los cartelitos de avisar() y los
   // diálogos de confirmar() (ver src/lib/alert.ts).
+  // TemaProvider va por fuera de todo: el modo claro/oscuro (ver
+  // context/TemaContext.tsx) tiene que estar aplicado antes de que cualquier
+  // pantalla arme sus estilos.
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <NotificacionesProvider>
-          <RootNavigator />
-          <AvisosHost />
-          <StatusBar style="dark" />
-        </NotificacionesProvider>
-      </AuthProvider>
+      <TemaProvider>
+        <AuthProvider>
+          <NotificacionesProvider>
+            <RootNavigator />
+            <AvisosHost />
+            <BarraDeEstado />
+          </NotificacionesProvider>
+        </AuthProvider>
+      </TemaProvider>
     </SafeAreaProvider>
   );
+}
+
+// Íconos de la barra de estado (hora, batería) oscuros sobre fondo claro y
+// claros sobre fondo oscuro.
+function BarraDeEstado() {
+  const { esquema } = useTema();
+  return <StatusBar style={esquema === 'oscuro' ? 'light' : 'dark'} />;
 }
