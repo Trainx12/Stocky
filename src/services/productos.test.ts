@@ -50,6 +50,7 @@ import {
   listarProductos,
   listarProductosProximosAVencer,
   nombreConMarca,
+  ordenarLotes,
   parsearNumero,
   productosAgotadosLimpiables,
   productosProximosAVencer,
@@ -406,6 +407,25 @@ describe('agruparProductos', () => {
     ]);
 
     expect(grupo.cantidadTotal).toBe(0.3);
+  });
+});
+
+describe('ordenarLotes', () => {
+  it('pone primero lo que vence antes y, a igual fecha, los que tienen marca', () => {
+    const lotes = [
+      producto({ id: 'sin-fecha', fecha_vencimiento: null }),
+      producto({ id: 'pronto-sin-marca', fecha_vencimiento: '2026-10-07', marca: null }),
+      producto({ id: 'tarde', fecha_vencimiento: '2026-11-01' }),
+      producto({ id: 'pronto-con-marca', fecha_vencimiento: '2026-10-07', marca: 'Red Premium' }),
+    ];
+
+    expect(ordenarLotes(lotes).map((l) => l.id)).toEqual(['pronto-con-marca', 'pronto-sin-marca', 'tarde', 'sin-fecha']);
+  });
+
+  it('no modifica la lista original', () => {
+    const lotes = [producto({ id: 'b', fecha_vencimiento: '2026-12-01' }), producto({ id: 'a', fecha_vencimiento: '2026-10-01' })];
+    ordenarLotes(lotes);
+    expect(lotes.map((l) => l.id)).toEqual(['b', 'a']);
   });
 });
 

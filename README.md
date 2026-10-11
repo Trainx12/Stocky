@@ -129,6 +129,15 @@ lógica pura que ya existe (no hay tests de pantallas/UI todavía):
   a la RPC correcta, y `listarMisHogares` filtra explícito por el usuario
   logueado (regresión del bug de QA en
   [docs/incidentes-sprint2.md](docs/incidentes-sprint2.md)).
+- `src/services/productos.test.ts` — ABM de productos, vencimientos,
+  duplicados, y el agrupado de lotes de la lista (`agruparProductos`,
+  `ordenarLotes`).
+- `src/services/voz.test.ts` — ABM por voz: a qué producto se refiere lo
+  dicho, cantidad final, lote que vence primero, fechas inválidas.
+- `src/services/geminiRespaldo.test.ts` — orden y respaldo en paralelo
+  entre modelos de Gemini (`supabase/functions/_shared/gemini.ts`).
+- `src/services/catalogo.test.ts` — sugerencias del catálogo, incluida la
+  subida y el borrado de la foto en Storage.
 
 Los tests mockean Supabase/expo-web-browser/expo-linking — no hacen
 llamadas de red reales ni necesitan `.env` configurado. A medida que se
@@ -139,9 +148,9 @@ conviene sumarle su test al lado, en el mismo commit.
 
 Al loguearse, la pantalla principal (`src/screens/HomeScreen.tsx`) muestra
 un header con saludo + logo, la sección "Tus hogares activos", y una barra
-de navegación inferior fija (Inicio/Búsqueda/Notificaciones/Perfil) sin
-comportamiento propio todavía (Búsqueda/Notificaciones/Perfil son
-placeholders). Debajo de "Tus hogares activos" hay dos botones directos, de
+de navegación inferior fija (Inicio/Búsqueda/Notificaciones/Perfil). La
+lupa abre el buscador de la despensa del hogar seleccionado;
+Notificaciones/Perfil todavía son placeholders. Debajo de "Tus hogares activos" hay dos botones directos, de
 un solo toque:
 
 - **Crear hogar** → `HogarFormModal` (modo `crear`).

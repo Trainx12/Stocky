@@ -97,6 +97,12 @@ function esReintentable(error: unknown): boolean {
   return esTimeout || (error instanceof ErrorGemini && ESTADOS_REINTENTABLES.includes(error.estado));
 }
 
+// Deno.env leído vía globalThis: así este módulo también corre en Jest (Node)
+// para testear la lógica de respaldo, igual que _shared/ticket.ts.
+function variableDeEntorno(nombre: string): string | undefined {
+  return (globalThis as { Deno?: { env: { get(clave: string): string | undefined } } }).Deno?.env.get(nombre);
+}
+
 // Prueba los modelos en orden y devuelve la primera respuesta. Un modelo
 // arranca cuando el anterior falla o cuando lleva ESPERA_ANTES_DEL_RESPALDO_MS
 // sin contestar (sin cortar al anterior, que puede seguir y ganar). Al
@@ -108,7 +114,7 @@ export function consultarGemini<T>(
   apiKey: string,
   etiqueta: string
 ): Promise<T> {
-  const configurados = (Deno.env.get('GEMINI_MODEL') ?? '').split(',').map((m) => m.trim()).filter(Boolean);
+  const configurados = (variableDeEntorno('GEMINI_MODEL') ?? '').split(',').map((m) => m.trim()).filter(Boolean);
   const modelos = configurados.length > 0 ? configurados : MODELOS_POR_DEFECTO;
   const cancelador = new AbortController();
 

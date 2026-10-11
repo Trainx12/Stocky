@@ -17,6 +17,7 @@ import {
   accionAplicable,
   aplicarAccionDeVoz,
   armarAccionesDeVoz,
+  buscarProductosDichos,
   cantidadFinal,
   elegirProducto,
   fechaDeHoy,
@@ -147,6 +148,12 @@ describe('armarAccionesDeVoz: baja y modificación', () => {
     expect(accion).toMatchObject({ cantidad: '2', fecha: '2026-10-20', unidad: 'l' });
   });
 
+  it('modificación con cantidad pero sin operación: no adivina, deja la cantidad y avisa', () => {
+    const [accion] = armar([{ accion: 'modificacion', nombre: 'Leche', producto_id: 'p-leche', cantidad: 3 }], [leche]);
+    expect(accion.cantidad).toBe('3');
+    expect(accion.aviso).toMatch(/cantidad final/);
+  });
+
   it('modificación de vencimiento: cambia la fecha y deja la cantidad', () => {
     const [accion] = armar(
       [{ accion: 'modificacion', nombre: 'Leche', producto_id: 'p-leche', fecha_vencimiento: '2026-12-01' }],
@@ -183,6 +190,32 @@ describe('armarAccionesDeVoz: baja y modificación', () => {
     const otraLeche = producto('p-leche-2', 'Leche', { marca: 'Sancor' });
     const [accion] = armar([{ accion: 'baja', nombre: 'Leche', marca: 'sancor' }], [leche, otraLeche]);
     expect(accion.producto?.id).toBe('p-leche-2');
+  });
+});
+
+describe('buscarProductosDichos', () => {
+  const leche = producto('p-leche', 'Leche');
+  const lecheSancor = producto('p-leche-2', 'Leche', { marca: 'Sancor' });
+  const yogures = producto('p-yogur', 'Yogures');
+
+  it('prioriza el id que eligió el modelo', () => {
+    expect(buscarProductosDichos({ producto_id: 'p-leche-2', nombre: 'Leche' }, [leche, lecheSancor])).toEqual([lecheSancor]);
+  });
+
+  it('sin id, devuelve todos los que coinciden por nombre (tolerando plural)', () => {
+    expect(buscarProductosDichos({ nombre: 'leches' }, [leche, lecheSancor, yogures]).map((p) => p.id)).toEqual([
+      'p-leche',
+      'p-leche-2',
+    ]);
+    expect(buscarProductosDichos({ nombre: 'yogur' }, [leche, yogures]).map((p) => p.id)).toEqual(['p-yogur']);
+  });
+
+  it('si dijo una marca que no coincide con ninguno, no descarta los que coinciden por nombre', () => {
+    expect(buscarProductosDichos({ nombre: 'Leche', marca: 'La Serenísima' }, [leche, lecheSancor])).toHaveLength(2);
+  });
+
+  it('no encuentra nada si el producto no está', () => {
+    expect(buscarProductosDichos({ nombre: 'Manteca' }, [leche, yogures])).toEqual([]);
   });
 });
 

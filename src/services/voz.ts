@@ -182,8 +182,16 @@ function armarAccion(interpretada: AccionDeVozInterpretada, indice: number, prod
   }
 
   const encontrados = buscarProductosDichos(interpretada, productos);
+  // Cantidad dicha sin saber si sumar, restar o dejar ese número (el modelo a
+  // veces omite la operación): la cantidad queda como estaba y se avisa, en
+  // vez de adivinar (ver docs/incidentes-sprint8.md #9).
+  const avisoCantidad =
+    interpretada.accion === 'modificacion' && base.cantidadDicha !== null && !base.operacionCantidad
+      ? `No quedó claro qué hacer con "${base.cantidadDicha}": poné la cantidad final a mano.`
+      : null;
+
   if (encontrados.length === 1) {
-    return { ...elegirProducto(base, encontrados[0]), aviso: avisoFecha };
+    return { ...elegirProducto(base, encontrados[0]), aviso: avisoCantidad ?? avisoFecha };
   }
   if (encontrados.length > 1) {
     // "Usé 2 manzanas" con varios lotes: se consume primero lo que vence

@@ -352,6 +352,36 @@ versión de ABM de productos por voz.
 
 **Regresión obligatoria:** Sprints 1 a 7 completos.
 
+**Lo que efectivamente se implementó en el Sprint 8** (PR #13; detalle y
+errores en [incidentes-sprint8.md](incidentes-sprint8.md)): ABM de
+productos y vencimientos por voz con Gemini, lotes agrupados en la lista,
+lupa → buscador, sugerir productos con foto y fotos para todo el catálogo.
+ABM de usuarios (admin) y alerta de stock mínimo **no** entraron: quedan
+para el sprint siguiente. Checklist de QA para lo que sí entró:
+
+- Voz (requiere build nuevo del dev client: `expo-audio` es nativo):
+  - "Compré 2 leches La Serenísima que vencen el 15 de noviembre" → alta
+    con marca, cantidad y fecha; "usé 3 huevos" → resta; "eliminá el
+    yogur" → baja; "la manteca vence el viernes" → cambio de fecha.
+  - "Sacá la leche" (baja) vs. "sacá una leche" (resta 1).
+  - Producto que no está en la despensa → aviso, no se aplica.
+  - Audio vacío o con ruido → "No entendimos", no guarda nada.
+  - Cancelar la revisión → no guarda nada parcial.
+  - Permiso de micrófono denegado → mensaje claro.
+  - Respuesta en pocos segundos (si tarda más de ~10 s, mirar los logs de
+    `voz-a-texto`: indican qué modelo respondió y en cuánto).
+- Fecha dictada en el formulario → mismo resultado que cargarla a mano.
+- Lotes: dos lotes del mismo producto (uno con marca y otro sin) se ven en
+  una sola tarjeta con el total; +/−, editar y eliminar actúan solo sobre
+  ese lote; a 360 px de ancho ningún renglón se parte en dos líneas.
+- La lupa de la barra de abajo abre el buscador con el teclado.
+- Sugerir producto: desde Home y desde el pie del selector del catálogo,
+  con foto (cámara y galería) y sin foto; el admin ve la foto, al aprobar
+  aparece en el catálogo y al rechazar desaparece. Un usuario común no
+  puede aprobar.
+- El catálogo muestra foto en los 257 productos; "Achicoria" reemplaza a
+  "Radicheta".
+
 ---
 
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)

@@ -52,11 +52,16 @@ const ESQUEMA_COMANDO = {
           operacion_cantidad: { type: 'STRING', nullable: true, enum: ['fijar', 'sumar', 'restar'] },
           fecha_vencimiento: { type: 'STRING', nullable: true },
         },
-        required: ['accion', 'nombre'],
+        // Todos obligatorios (aunque puedan ser null): si son opcionales, el
+        // modelo tiende a omitirlos y se perdían la fecha dicha o el "restar"
+        // de "usé 3 huevos" (ver docs/incidentes-sprint8.md #9).
+        required: ['accion', 'producto_id', 'nombre', 'marca', 'cantidad', 'unidad', 'operacion_cantidad', 'fecha_vencimiento'],
+        propertyOrdering: ['accion', 'producto_id', 'nombre', 'marca', 'cantidad', 'unidad', 'operacion_cantidad', 'fecha_vencimiento'],
       },
     },
   },
   required: ['transcripcion', 'acciones'],
+  propertyOrdering: ['transcripcion', 'acciones'],
 };
 
 const ESQUEMA_FECHA = {
@@ -129,8 +134,20 @@ y respondé ÚNICAMENTE el JSON pedido.
    - "unidad": una de ${UNIDADES.join(', ')}, solo si se deduce de lo dicho
      ("2 kilos de papa" -> kg, "un litro y medio de leche" -> l 1.5).
    - "fecha_vencimiento": AAAA-MM-DD si la dijo, si no null.
+   - Revisá cada acción antes de responder: si la persona dijo una fecha
+     para ese producto, fecha_vencimiento NO puede ser null; si una
+     modificación tiene cantidad, operacion_cantidad NO puede ser null.
 3. Si el audio no se entiende, está vacío o no habla de productos de la
    despensa, devolvé "acciones": [] (nunca adivines ni inventes productos).
+
+Ejemplo (si hoy fuera 2026-10-05 y el inventario tuviera huevos con id
+"h1" y yogur con id "y1"): "agregá dos leches La Serenísima que vencen el 15
+de noviembre, usé tres huevos y eliminá el yogur" ->
+{"transcripcion": "...", "acciones": [
+ {"accion": "alta", "producto_id": null, "nombre": "Leche", "marca": "La Serenísima", "cantidad": 2, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": "2026-11-15"},
+ {"accion": "modificacion", "producto_id": "h1", "nombre": "Huevo", "marca": null, "cantidad": 3, "unidad": null, "operacion_cantidad": "restar", "fecha_vencimiento": null},
+ {"accion": "baja", "producto_id": "y1", "nombre": "Yogur", "marca": null, "cantidad": null, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": null}
+]}
 
 ${REGLAS_FECHAS.replace('{HOY}', hoy)}
 
