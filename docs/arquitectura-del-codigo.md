@@ -15,7 +15,7 @@ ves algo acá que ya no coincide con el código, avisá para corregirlo.
 
 Stocky no tiene un servidor propio: la app (React Native/Expo) habla
 **directo** con Supabase, que hace de backend completo (base de datos,
-autenticación, y en el futuro las Edge Functions para OCR/voz). La
+autenticación y las Edge Functions de OCR/voz). La
 seguridad de "quién puede ver/tocar qué dato" no vive en la app —
 vive en la base de datos, en forma de **RLS (Row Level Security)**. Esto
 es importante tenerlo claro: la app confía en que Postgres va a
@@ -26,7 +26,7 @@ necesita "acordarse" de filtrar por hogar a mano.
 App (Expo)  ──consultas──>  Supabase
    │                          ├─ Auth (login con Google)
    │                          ├─ Postgres (tablas + RLS)
-   │                          └─ Edge Functions (OCR, voz — hoy son stubs)
+   │                          └─ Edge Functions (OCR.space y Gemini: ticket, vencimiento, voz)
    └─ AsyncStorage (guarda la sesión localmente)
 ```
 
@@ -372,21 +372,65 @@ UPDATE/DELETE exigen `es_administrador()`. Un índice único sobre
 `lower(nombre)` evita duplicados tipo "Leche" / "leche" si dos personas
 sugieren lo mismo o un admin aprueba sin fijarse.
 
+**Sugerir con foto (Sprint 8):** `sugerirProducto` acepta una foto
+opcional (`fotoBase64`). Se sube primero al bucket público de Storage
+`catalogo-sugerencias`, en la carpeta del usuario (`<auth.uid()>/<fecha>.jpg`),
+y la sugerencia guarda su URL pública en `imagen_url`; si después falla el
+alta, se borra la foto. La policy de INSERT exige que esa URL sea de la
+carpeta propia en ese bucket (nada de enlaces externos). Al rechazar,
+`responderSugerencia` borra también la foto (`rutaDeFotoSugerencia` saca la
+ruta de la URL); al aprobar, queda como foto del producto en el catálogo
+(`imagenDeCatalogo` usa `imagen_url` cuando no hay foto local). Ver
+migración `20260916120000_fotos_sugerencias.sql` e
+[incidentes-sprint8.md](incidentes-sprint8.md) #4 y #5.
+
+Para que se encuentre: pie fijo "¿No encontrás tu producto? Sugerilo" en
+`CatalogoSelectorModal` y acceso rápido "Sugerir producto" en HomeScreen
+(abre el modal con `soloSugerir`).
+
 `categoriasDelCatalogo()`/`filtrarCatalogo()` son la misma lógica pura
 (sacada para poder testearla con Jest) que `categoriasEnUso()`/
 `filtrarProductos()` en `productos.ts`, aplicada al catálogo en vez de al
 inventario de un hogar.
 
-### `externalApis.ts` — stubs de OCR/voz (RF4, RF8)
+### `externalApis.ts` — wrappers de OCR/voz (RF4, RF8)
 
-Define la **forma** de las funciones (`reconocerProductosDeTicket`,
-`reconocerVencimientoDeFoto`, `interpretarComandoDeVoz`) que en los
-sprints 5-8 van a llamar a las Edge Functions reales. Hoy cada una
-llama a su función en `supabase/functions/` (ver sección 8), que
-todavía no tiene lógica — devuelven respuestas vacías. La idea es que
-cuando llegue el momento de integrar el proveedor de OCR/voz elegido,
-solo haya que completar el cuerpo de la Edge Function, sin tocar las
-pantallas que ya consuman estas funciones.
+Una función por Edge Function (`reconocerProductosDeTicket`,
+`reconocerVencimientoDeFoto`, `interpretarComandoDeVoz`,
+`reconocerFechaPorVoz`). Ninguna guarda nada: devuelven lo que entendió
+el proveedor y la pantalla lo muestra para que el usuario confirme.
+
+### `voz.ts` + `lib/grabacion.ts` — ABM de productos por voz (RF8, Sprints 7/8)
+
+`lib/grabacion.ts` (`useGrabadorDeVoz`) graba un mensaje corto con
+`expo-audio` (tocar para empezar, tocar para terminar, corte a los 30 s)
+y lo devuelve en base64: AAC en Android, WAV en iOS, WebM/MP4 en web.
+`voz-a-texto` le manda el audio y el inventario del hogar a Gemini, que
+transcribe e interpreta en una sola llamada (alta / baja / modificación,
+cantidades, marca y fecha de vencimiento). `voz.ts` cruza esa respuesta
+con el inventario y el catálogo (a qué producto se refiere, cantidad
+final, fechas válidas) y, recién cuando el usuario confirma en
+`ComandoVozModal`, aplica cada acción con las mismas funciones del ABM
+manual (`crearProducto`/`editarProducto`/`eliminarProducto`). El mismo
+grabador se usa en `ProductoFormModal` para dictar solo la fecha.
+
+Reglas que conviene conocer: "sacá la leche" (sin cantidad) es una baja y
+"sacá una leche" una resta; si lo dicho coincide con varios lotes
+(`buscarProductosDichos`), una resta descuenta del que vence primero
+(`ordenarLotes`) y una baja o un cambio de fecha piden elegir cuál. Nada se
+guarda sin que el usuario confirme en la revisión.
+
+### Lotes agrupados en la lista (`agruparProductos`, Sprint 8)
+
+En la base, el mismo producto con otra marca o vencimiento es otra fila
+(un "lote"), a propósito: así la alerta de vencimiento de cada uno es
+exacta. En `ProductosScreen` se muestran juntos: `agruparProductos` agrupa
+por nombre normalizado + unidad (no mezcla kg con paquetes) y suma el total,
+y cada producto es una tarjeta con franja violeta (nombre, categoría,
+total) y sus lotes adentro, ordenados por `ordenarLotes` (vence antes
+primero; sin fecha al final). Todos los productos se ven como tarjeta,
+aunque tengan un solo lote. `filtrarProductos` busca también por marca.
+Ver [incidentes-sprint8.md](incidentes-sprint8.md) #2 y #3.
 
 ---
 
@@ -553,16 +597,35 @@ ver [docs/incidentes-sprint1.md](incidentes-sprint1.md):
 
 ---
 
-## 12. `supabase/functions/` — Edge Functions (hoy son stubs)
+## 12. `supabase/functions/` — Edge Functions
 
 `ocr-ticket`, `vencimiento-foto` y `voz-a-texto` son los "receptores" de
 lo que va a llamar `services/externalApis.ts`. Corren en Deno (no en
 Node), por eso tienen su propio `deno.json` y están **excluidos** del
 `tsconfig.json` de la raíz (si no, TypeScript se queja de que no
-conoce el global `Deno`). Cada uno hoy valida que le llegue el dato
-esperado (imagen/audio en base64) y devuelve una respuesta vacía con un
-comentario `TODO` apuntando a qué sprint le toca la lógica real.
-`_shared/cors.ts` son los headers CORS que comparten las tres.
+conoce el global `Deno`). `ocr-ticket` usa OCR.space; `vencimiento-foto`
+y `voz-a-texto` usan Gemini a través de `_shared/gemini.ts` (misma key
+`GEMINI_API_KEY`, modelos de respaldo configurables con el secret
+`GEMINI_MODEL`). `_shared/cors.ts` son los headers CORS que comparten
+las tres.
+
+`_shared/gemini.ts` prueba los modelos en orden (`3.5-flash` →
+`3.5-flash-lite` → `3.8-flash`): si uno no contesta en 5 s consulta en
+paralelo al siguiente y gana el primero que responda (los demás se
+cancelan); un 503/429/404/500 pasa al siguiente enseguida y cualquier otro
+error corta. Loguea qué modelo respondió y en cuánto, para revisar el orden
+con datos (ver [incidentes-sprint8.md](incidentes-sprint8.md) #1). Lee
+`Deno.env` vía `globalThis` para poder testearlo con Jest
+(`src/services/geminiRespaldo.test.ts`), igual que `_shared/ticket.ts`.
+
+`voz-a-texto` tiene dos modos: `comando` (recibe el audio, la fecha de hoy
+del celular y el inventario del hogar; devuelve transcripción + acciones)
+y `fecha` (solo una fecha dictada). Nunca guarda nada.
+
+**Antes de desplegar:** `npx deno check <función>/index.ts` (el despliegue
+no valida tipos) y, desde la MCP de Supabase, pasar
+`import_map_path: "deno.json"` al redesplegar una función existente (ver
+[incidentes-sprint8.md](incidentes-sprint8.md), errores de proceso #1).
 
 ---
 
@@ -605,6 +668,12 @@ mirar la carpeta. Ver [README](../README.md#tests) para correrlos y qué
 cubren hoy. Todos mockean sus dependencias externas
 (`jest.mock('../lib/supabase')`, etc.): son tests de la lógica propia,
 no de integración real contra Supabase.
+
+Los módulos compartidos de las Edge Functions que no dependen de Deno
+(`_shared/ticket.ts`, `_shared/gemini.ts`) también se testean con Jest,
+importándolos desde `src/services/*.test.ts`. Jest ignora `.claude/`
+(`testPathIgnorePatterns` en `package.json`): ahí Claude Code guarda copias
+del repo cuyos tests no deben correr.
 
 ---
 

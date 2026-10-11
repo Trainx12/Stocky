@@ -29,10 +29,19 @@ const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
 const mockDeleteEq = jest.fn();
 const mockDelete = jest.fn(() => ({ eq: mockDeleteEq }));
 
+// Storage (fotos de las sugerencias).
+const mockUpload = jest.fn();
+const mockRemove = jest.fn();
+const mockGetPublicUrl = jest.fn((ruta: string) => ({
+  data: { publicUrl: `https://x.supabase.co/storage/v1/object/public/catalogo-sugerencias/${ruta}` },
+}));
+const mockStorageFrom = jest.fn((_bucket: string) => ({ upload: mockUpload, remove: mockRemove, getPublicUrl: mockGetPublicUrl }));
+
 jest.mock('../lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({ select: mockSelect, insert: mockInsert, update: mockUpdate, delete: mockDelete })),
     auth: { getUser: jest.fn() },
+    storage: { from: (bucket: string) => mockStorageFrom(bucket) },
   },
 }));
 
@@ -43,6 +52,7 @@ import {
   listarCatalogoAprobado,
   listarSugerenciasPendientes,
   responderSugerencia,
+  rutaDeFotoSugerencia,
   sugerirProducto,
 } from './catalogo';
 import type { DatosSugerencia } from './catalogo';
@@ -59,6 +69,9 @@ const datosValidos: DatosSugerencia = {
 
 beforeEach(() => {
   from.mockClear();
+  mockStorageFrom.mockClear();
+  mockUpload.mockReset();
+  mockRemove.mockReset();
   mockSelect.mockClear();
   mockEq.mockClear();
   mockOrder.mockClear();
@@ -179,7 +192,77 @@ describe('listarSugerenciasPendientes', () => {
   });
 });
 
+describe('sugerirProducto con foto', () => {
+  // "hola" en base64.
+  const foto = 'aG9sYQ==';
+
+  it('sube la foto a la carpeta del usuario y guarda su URL en la sugerencia', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockUpload.mockResolvedValue({ error: null });
+    mockSingle.mockResolvedValue({ data: { id: 's1' }, error: null });
+
+    await sugerirProducto({ ...datosValidos, fotoBase64: foto });
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('catalogo-sugerencias');
+    const [ruta, bytes, opciones] = mockUpload.mock.calls[0];
+    expect(ruta).toMatch(/^user-123\/\d+\.jpg$/);
+    expect(Array.from(bytes as Uint8Array)).toEqual([104, 111, 108, 97]);
+    expect(opciones).toEqual({ contentType: 'image/jpeg' });
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ imagen_url: expect.stringContaining('/catalogo-sugerencias/user-123/') }),
+    );
+  });
+
+  it('si falla la subida no crea la sugerencia', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockUpload.mockResolvedValue({ error: new Error('Payload too large') });
+
+    await expect(sugerirProducto({ ...datosValidos, fotoBase64: foto })).rejects.toThrow('No se pudo subir la foto');
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it('si falla el alta, borra la foto ya subida', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null });
+    mockUpload.mockResolvedValue({ error: null });
+    mockRemove.mockResolvedValue({ error: null });
+    mockSingle.mockResolvedValue({ data: null, error: new Error('duplicate key') });
+
+    await expect(sugerirProducto({ ...datosValidos, fotoBase64: foto })).rejects.toThrow('duplicate key');
+    expect(mockRemove).toHaveBeenCalledWith([expect.stringMatching(/^user-123\/\d+\.jpg$/)]);
+  });
+});
+
+describe('rutaDeFotoSugerencia', () => {
+  it('saca la ruta dentro del bucket de una URL pública', () => {
+    expect(rutaDeFotoSugerencia('https://x.supabase.co/storage/v1/object/public/catalogo-sugerencias/u1/123.jpg')).toBe(
+      'u1/123.jpg',
+    );
+  });
+
+  it('ignora URLs que no son del bucket de sugerencias', () => {
+    expect(rutaDeFotoSugerencia('https://images.openfoodfacts.org/foto.jpg')).toBeNull();
+    expect(rutaDeFotoSugerencia(null)).toBeNull();
+  });
+});
+
 describe('responderSugerencia', () => {
+  it('al rechazar, borra también la foto de la sugerencia', async () => {
+    mockDeleteEq.mockResolvedValue({ error: null });
+    mockRemove.mockResolvedValue({ error: null });
+
+    await responderSugerencia('s1', false, 'https://x.supabase.co/storage/v1/object/public/catalogo-sugerencias/u1/1.jpg');
+
+    expect(mockRemove).toHaveBeenCalledWith(['u1/1.jpg']);
+  });
+
+  it('al aprobar, la foto se queda (pasa a ser la del catálogo)', async () => {
+    mockUpdateEq.mockResolvedValue({ error: null });
+
+    await responderSugerencia('s1', true, 'https://x.supabase.co/storage/v1/object/public/catalogo-sugerencias/u1/1.jpg');
+
+    expect(mockRemove).not.toHaveBeenCalled();
+  });
+
   it('al aprobar, actualiza el estado a aprobado', async () => {
     mockUpdateEq.mockResolvedValue({ error: null });
 

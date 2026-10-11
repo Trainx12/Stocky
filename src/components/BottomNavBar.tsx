@@ -19,9 +19,9 @@ interface BottomNavBarProps {
   /** Tab actualmente activo; por ahora solo existe la pantalla Home, así que arranca fijo en 'home'. */
   active?: TabKey;
   /**
-   * Toque corto en cualquier tab que todavía no tiene pantalla propia
-   * (search/notifications/profile). HomeScreen decide qué hacer con eso
-   * (por ahora, un aviso de "próximamente"). Crear/unirse a un hogar ya no
+   * Toque corto en cualquier tab. HomeScreen decide qué hacer: la lupa
+   * (search) abre el buscador de la despensa del hogar seleccionado;
+   * notifications/profile todavía muestran un aviso de "próximamente". Crear/unirse a un hogar ya no
    * pasa por acá (antes era un long-press sobre "Perfil"): son botones
    * directos debajo de "Tus hogares activos" en HomeScreen, sin gestos
    * escondidos.

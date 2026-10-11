@@ -14,6 +14,41 @@ export interface DatosSugerencia {
   nombre: string;
   categoria: string;
   unidad: UnidadProducto;
+  // Foto opcional del producto (JPEG en base64, ver lib/fotos.ts).
+  fotoBase64?: string | null;
+}
+
+// Bucket público donde se guardan las fotos de las sugerencias (ver migración
+// 20260916120000_fotos_sugerencias.sql): cada usuario sube a su carpeta.
+const BUCKET_SUGERENCIAS = 'catalogo-sugerencias';
+
+// 'AAAA...' (base64) -> bytes, para subir a Storage sin pasar por Blob (que
+// en React Native no se arma bien a partir de datos binarios).
+function base64ABytes(base64: string): Uint8Array {
+  const binario = atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return bytes;
+}
+
+// Ruta dentro del bucket a partir de la URL pública de una foto de
+// sugerencia, o null si la URL no es de ese bucket (por ejemplo, una foto del
+// catálogo original) -- así nunca se intenta borrar algo que no es nuestro.
+export function rutaDeFotoSugerencia(url: string | null | undefined): string | null {
+  const marca = `/storage/v1/object/public/${BUCKET_SUGERENCIAS}/`;
+  const posicion = url?.indexOf(marca) ?? -1;
+  if (!url || posicion < 0) return null;
+  return decodeURIComponent(url.slice(posicion + marca.length).split('?')[0]);
+}
+
+// Sube la foto a la carpeta del usuario y devuelve su URL pública.
+async function subirFotoSugerencia(userId: string, fotoBase64: string): Promise<string> {
+  const ruta = `${userId}/${Date.now()}.jpg`;
+  const { error } = await supabase.storage
+    .from(BUCKET_SUGERENCIAS)
+    .upload(ruta, base64ABytes(fotoBase64), { contentType: 'image/jpeg' });
+  if (error) throw new Error(`No se pudo subir la foto: ${error.message}`);
+  return supabase.storage.from(BUCKET_SUGERENCIAS).getPublicUrl(ruta).data.publicUrl;
 }
 
 // Recorta y valida antes de pegarle a Supabase -- mismo criterio que
@@ -57,6 +92,10 @@ export async function sugerirProducto(datos: DatosSugerencia): Promise<ProductoC
   const userId = userData.user?.id;
   if (!userId) throw new Error('No se pudo identificar al usuario logueado');
 
+  // La foto va primero: la sugerencia guarda su URL. Si después falla el
+  // alta, se borra la foto para no dejarla huérfana en el bucket.
+  const imagenUrl = datos.fotoBase64 ? await subirFotoSugerencia(userId, datos.fotoBase64) : null;
+
   const { data, error } = await supabase
     .from('productos_catalogo')
     .insert({
@@ -65,11 +104,16 @@ export async function sugerirProducto(datos: DatosSugerencia): Promise<ProductoC
       unidad: datos.unidad,
       estado: 'pendiente',
       sugerido_por: userId,
+      ...(imagenUrl ? { imagen_url: imagenUrl } : {}),
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    const ruta = rutaDeFotoSugerencia(imagenUrl);
+    if (ruta) await supabase.storage.from(BUCKET_SUGERENCIAS).remove([ruta]);
+    throw error;
+  }
   return data;
 }
 
@@ -93,14 +137,19 @@ export async function listarSugerenciasPendientes(): Promise<ProductoCatalogo[]>
 // (lo valida la policy de UPDATE/DELETE del lado del servidor, no acá).
 // Aprobar pasa la fila a 'aprobado' (ya aparece en el selector de todos);
 // rechazar borra la fila directamente -- quien la sugirió puede volver a
-// mandarla más adelante si quiere.
-export async function responderSugerencia(id: string, aprobar: boolean): Promise<void> {
+// mandarla más adelante si quiere. Al rechazar también se borra su foto (al
+// aprobar se queda: pasa a ser la foto del producto en el catálogo).
+export async function responderSugerencia(id: string, aprobar: boolean, imagenUrl?: string | null): Promise<void> {
   if (aprobar) {
     const { error } = await supabase.from('productos_catalogo').update({ estado: 'aprobado' }).eq('id', id);
     if (error) throw error;
   } else {
     const { error } = await supabase.from('productos_catalogo').delete().eq('id', id);
     if (error) throw error;
+    const ruta = rutaDeFotoSugerencia(imagenUrl);
+    // Si no se puede borrar la foto, la sugerencia igual quedó rechazada:
+    // una foto suelta en el bucket no rompe nada.
+    if (ruta) await supabase.storage.from(BUCKET_SUGERENCIAS).remove([ruta]);
   }
 }
 

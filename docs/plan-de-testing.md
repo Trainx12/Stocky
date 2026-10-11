@@ -231,20 +231,28 @@ como "testing":
   buen contraste, el caso donde un OCR clásico rinde bien sin necesitar
   "entendimiento" de la imagen. Free tier: 25.000 requests/mes.
 - `vencimiento-foto` (fecha de vencimiento en el envase) → **Gemini
-  2.5 Flash**. Un OCR clásico no distingue la fecha de vencimiento de
+  Flash** (hoy `gemini-3.8-flash`; ver nota abajo). Un OCR clásico no distingue la fecha de vencimiento de
   otros números impresos en el envase (lote, código de barras); un
   modelo de visión permite pedir explícitamente "encontrá la fecha de
   vencimiento" en vez de solo extraer texto crudo.
 
-**Límite real medido del free tier de Gemini 2.5 Flash** (cuenta de
-Google AI Studio, verificado el 2026-09-14 en
-aistudio.google.com/rate-limit): **5 RPM, ~250K TPM, 20 RPD**. El RPD
+**Límite real medido del free tier de Gemini Flash** (cuenta de
+Google AI Studio, verificado en aistudio.google.com/rate-limit el
+2026-09-14 para 2.5 Flash y el 2026-10-04 para 3.8 Flash, mismos valores
+en ambos): **5 RPM, ~250K TPM, 20 RPD**. El RPD
 de 20 solicitudes/día (total del proyecto, no por usuario) alcanza sin
 problema para la evaluación del Sprint 5, pero es una limitación real
 a resolver en el Sprint 6: si el uso en producción supera 20 fotos de
 vencimiento por día, va a hacer falta habilitar facturación en el
 proyecto de Google Cloud (Flash sigue siendo muy barato en el tier
 pago) o limitar el uso mientras se esté en el tier gratuito.
+
+**Cambio de modelo (2026-10-04):** `gemini-2.5-flash` empezó a devolver 404
+("ya no está disponible para usuarios nuevos"), así que `vencimiento-foto`
+pasó a `gemini-3.8-flash`. El modelo se cambia sin tocar código con el
+secret `GEMINI_MODEL` (`supabase secrets set GEMINI_MODEL=...`): Google
+retira modelos viejos con el tiempo, así que si vuelve a fallar con 404 en
+los logs de la función, es lo primero a revisar.
 
 ---
 
@@ -343,6 +351,36 @@ versión de ABM de productos por voz.
   "menor o igual").
 
 **Regresión obligatoria:** Sprints 1 a 7 completos.
+
+**Lo que efectivamente se implementó en el Sprint 8** (PR #13; detalle y
+errores en [incidentes-sprint8.md](incidentes-sprint8.md)): ABM de
+productos y vencimientos por voz con Gemini, lotes agrupados en la lista,
+lupa → buscador, sugerir productos con foto y fotos para todo el catálogo.
+ABM de usuarios (admin) y alerta de stock mínimo **no** entraron: quedan
+para el sprint siguiente. Checklist de QA para lo que sí entró:
+
+- Voz (requiere build nuevo del dev client: `expo-audio` es nativo):
+  - "Compré 2 leches La Serenísima que vencen el 15 de noviembre" → alta
+    con marca, cantidad y fecha; "usé 3 huevos" → resta; "eliminá el
+    yogur" → baja; "la manteca vence el viernes" → cambio de fecha.
+  - "Sacá la leche" (baja) vs. "sacá una leche" (resta 1).
+  - Producto que no está en la despensa → aviso, no se aplica.
+  - Audio vacío o con ruido → "No entendimos", no guarda nada.
+  - Cancelar la revisión → no guarda nada parcial.
+  - Permiso de micrófono denegado → mensaje claro.
+  - Respuesta en pocos segundos (si tarda más de ~10 s, mirar los logs de
+    `voz-a-texto`: indican qué modelo respondió y en cuánto).
+- Fecha dictada en el formulario → mismo resultado que cargarla a mano.
+- Lotes: dos lotes del mismo producto (uno con marca y otro sin) se ven en
+  una sola tarjeta con el total; +/−, editar y eliminar actúan solo sobre
+  ese lote; a 360 px de ancho ningún renglón se parte en dos líneas.
+- La lupa de la barra de abajo abre el buscador con el teclado.
+- Sugerir producto: desde Home y desde el pie del selector del catálogo,
+  con foto (cámara y galería) y sin foto; el admin ve la foto, al aprobar
+  aparece en el catálogo y al rechazar desaparece. Un usuario común no
+  puede aprobar.
+- El catálogo muestra foto en los 257 productos; "Achicoria" reemplaza a
+  "Radicheta".
 
 ---
 

@@ -1,9 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { CalendarioPicker } from './CalendarioPicker';
 import { CatalogoSelectorModal } from './CatalogoSelectorModal';
+import { avisar } from '../lib/alert';
+import { obtenerFotoBase64 } from '../lib/fotos';
+import { useGrabadorDeVoz } from '../lib/grabacion';
+import { fechaUtilizable } from '../services/escaneo';
+import { reconocerFechaPorVoz, reconocerVencimientoDeFoto } from '../services/externalApis';
+import type { AudioGrabado } from '../services/externalApis';
+import { fechaDeHoy } from '../services/voz';
 import { crearProducto, editarProducto, formatearFechaInput, parsearNumero } from '../services/productos';
 import type { Producto, ProductoCatalogo } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
@@ -45,6 +52,9 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // de RN no impide pegar texto no numérico) y se parsean recién al
   // submitear -- así el usuario puede borrar el campo entero sin que
   // Number('') explote la UI a mitad de tipeo.
+  // Marca opcional en texto libre ("Lucchetti"): distingue dos paquetes del
+  // mismo producto con vencimientos distintos.
+  const [marca, setMarca] = useState('');
   const [cantidad, setCantidad] = useState('0');
   const [stockMinimo, setStockMinimo] = useState('0');
   // RF2/RF3: fecha de vencimiento cargada a mano (texto libre 'AAAA-MM-DD',
@@ -55,6 +65,10 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // Si el CalendarioPicker está desplegado debajo del campo de fecha (ver
   // botón de calendario).
   const [calendarioVisible, setCalendarioVisible] = useState(false);
+  // Leyendo la fecha de una foto del envase (Gemini, ver vencimiento-foto).
+  const [leyendoFecha, setLeyendoFecha] = useState(false);
+  // Entendiendo una fecha dictada por voz (Gemini, ver voz-a-texto).
+  const [escuchandoFecha, setEscuchandoFecha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +77,14 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   useEffect(() => {
     if (!visible) return;
     if (producto) {
+      setMarca(producto.marca ?? '');
       setCantidad(String(producto.cantidad));
       setStockMinimo(String(producto.stock_minimo));
       setFechaVencimiento(producto.fecha_vencimiento ?? '');
       setAlertaVencimientoHabilitada(producto.alerta_vencimiento_habilitada);
     } else {
       setCatalogoSeleccionado(null);
+      setMarca('');
       setCantidad('0');
       setStockMinimo('0');
       setFechaVencimiento('');
@@ -80,6 +96,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   }, [visible, producto]);
 
   function handleClose() {
+    grabadorFecha.cancelar();
     setError(null);
     onClose();
   }
@@ -105,6 +122,65 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     setCalendarioVisible(false);
   }
 
+  // Foto del envase -> fecha sugerida por Gemini. Solo se vuelca al campo (que
+  // sigue siendo editable y hay que guardar a mano), nunca se guarda sola;
+  // si el modelo no está seguro, se avisa y se carga a mano. En web no hay
+  // cámara confiable, se abre el selector de archivos.
+  async function handleFotoVencimiento() {
+    setError(null);
+    setLeyendoFecha(true);
+    try {
+      const imagen = await obtenerFotoBase64(Platform.OS === 'web' ? 'galeria' : 'camara');
+      if (!imagen) return;
+
+      const fecha = fechaUtilizable(await reconocerVencimientoDeFoto(imagen));
+      if (fecha) {
+        setFechaVencimiento(fecha);
+        setCalendarioVisible(false);
+      } else {
+        avisar('No pudimos leer la fecha', 'Probá con otra foto bien enfocada de la zona donde está impresa, o ingresala a mano.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo leer la fecha de la foto.');
+    } finally {
+      setLeyendoFecha(false);
+    }
+  }
+
+  // Sprint 8 — fecha dictada por voz: mismo criterio que la foto, solo se
+  // vuelca al campo si es una fecha válida y el modelo está seguro.
+  const procesarFechaDictada = useCallback(async (audio: AudioGrabado) => {
+    setEscuchandoFecha(true);
+    try {
+      const resultado = await reconocerFechaPorVoz(audio, fechaDeHoy());
+      const fecha = fechaUtilizable(resultado);
+      if (fecha) {
+        setFechaVencimiento(fecha);
+        setCalendarioVisible(false);
+      } else {
+        avisar(
+          'No entendimos la fecha',
+          resultado.transcripcion
+            ? `Escuchamos: "${resultado.transcripcion}". Probá decirla de nuevo (por ejemplo "15 de noviembre") o ingresala a mano.`
+            : 'Probá decirla de nuevo (por ejemplo "15 de noviembre") o ingresala a mano.',
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo entender la fecha dictada.');
+    } finally {
+      setEscuchandoFecha(false);
+    }
+  }, []);
+
+  const alFallarGrabacion = useCallback((mensaje: string) => setError(mensaje), []);
+  const grabadorFecha = useGrabadorDeVoz(procesarFechaDictada, alFallarGrabacion);
+
+  function handleVozFecha() {
+    setError(null);
+    if (grabadorFecha.grabando) grabadorFecha.detener();
+    else grabadorFecha.iniciar();
+  }
+
   async function handleSubmit() {
     // Solo puede pasar en modo "crear" sin haber elegido nada todavía --
     // el botón ya queda disabled, esto es una guarda extra por las dudas.
@@ -123,6 +199,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             fechaVencimiento: fechaVencimiento || null,
             alertaVencimientoHabilitada,
             catalogoId: producto!.catalogo_id,
+            marca,
           }
         : {
             nombre: catalogoSeleccionado!.nombre,
@@ -133,6 +210,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             fechaVencimiento: fechaVencimiento || null,
             alertaVencimientoHabilitada,
             catalogoId: catalogoSeleccionado!.id,
+            marca,
           };
       const resultado = editando ? await editarProducto(producto!.id, datos) : await crearProducto(hogarId, datos);
       onSuccess(resultado);
@@ -194,12 +272,23 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               </Pressable>
             )}
 
+            <Text style={styles.label}>Marca (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: Lucchetti"
+              placeholderTextColor={colors.textSecondary}
+              value={marca}
+              onChangeText={setMarca}
+              maxLength={40}
+              editable={!loading}
+            />
+
             <View style={styles.fila}>
               <View style={styles.mitad}>
                 <Text style={styles.label}>Cantidad</Text>
                 <TextInput
                   style={styles.input}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   value={cantidad}
                   onChangeText={setCantidad}
                   onFocus={() => handleFocusNumerico(cantidad, setCantidad)}
@@ -211,7 +300,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 <Text style={styles.label}>Stock mínimo</Text>
                 <TextInput
                   style={styles.input}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   value={stockMinimo}
                   onChangeText={setStockMinimo}
                   onFocus={() => handleFocusNumerico(stockMinimo, setStockMinimo)}
@@ -244,7 +333,42 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               >
                 <Ionicons name="calendar-outline" size={22} color={colors.primary} />
               </Pressable>
+              <Pressable
+                onPress={handleFotoVencimiento}
+                style={styles.calendarioButton}
+                disabled={loading || leyendoFecha}
+                accessibilityRole="button"
+                accessibilityLabel="Leer la fecha de vencimiento desde una foto del envase"
+              >
+                {leyendoFecha ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Ionicons name="camera-outline" size={22} color={colors.primary} />
+                )}
+              </Pressable>
+              <Pressable
+                onPress={handleVozFecha}
+                style={styles.calendarioButton}
+                disabled={loading || escuchandoFecha}
+                accessibilityRole="button"
+                accessibilityLabel={grabadorFecha.grabando ? 'Terminar de dictar la fecha' : 'Dictar la fecha de vencimiento por voz'}
+              >
+                {escuchandoFecha ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Ionicons
+                    name={grabadorFecha.grabando ? 'stop-circle' : 'mic-outline'}
+                    size={22}
+                    color={grabadorFecha.grabando ? colors.danger : colors.primary}
+                  />
+                )}
+              </Pressable>
             </View>
+            {grabadorFecha.grabando && (
+              <Text style={styles.grabandoTexto}>
+                Decí la fecha (por ejemplo "15 de noviembre") y tocá de nuevo para terminar · {grabadorFecha.segundos} s
+              </Text>
+            )}
 
             {calendarioVisible && (
               <CalendarioPicker valor={fechaVencimiento || null} onSeleccionar={handleSeleccionarFecha} />
@@ -286,6 +410,10 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
 }
 
 const styles = StyleSheet.create({
+  grabandoTexto: {
+    ...typography.caption,
+    color: colors.danger,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

@@ -1,5 +1,5 @@
 // RF2 (complemento) — Foto del envase -> fecha de vencimiento detectada.
-// Proveedor: Gemini 2.5 Flash (ver decisión en docs/plan-de-testing.md,
+// Proveedor: Gemini Flash (varios modelos con respaldo, ver _shared/gemini.ts) (ver decisión en docs/plan-de-testing.md,
 // Sprint 5). Un OCR clásico no distingue la fecha de vencimiento de otros
 // números impresos en el envase (lote, código de barras); un modelo de
 // visión permite pedir explícitamente "encontrá la fecha de vencimiento"
@@ -10,6 +10,7 @@
 // fecha con confianza si no está seguro — por eso se le pide explícitamente
 // `null` + confianza baja en ese caso, en vez de forzar una respuesta.
 import { corsHeaders } from '../_shared/cors.ts';
+import { consultarGemini } from '../_shared/gemini.ts';
 
 interface ResultadoVencimiento {
   fecha_vencimiento: string | null;
@@ -28,50 +29,22 @@ Si no encontrás una fecha de vencimiento o no estás razonablemente
 seguro de haberla leído bien, devolvé fecha_vencimiento: null y
 confianza baja. Nunca inventes una fecha.`;
 
-async function detectarVencimientoConGemini(
-  imagenBase64: string,
-  apiKey: string
-): Promise<ResultadoVencimiento> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+const ESQUEMA = {
+  type: 'OBJECT',
+  properties: {
+    fecha_vencimiento: { type: 'STRING', nullable: true },
+    confianza: { type: 'NUMBER' },
+  },
+  required: ['fecha_vencimiento'],
+};
 
-  const respuesta = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { inline_data: { mime_type: 'image/jpeg', data: imagenBase64 } },
-            { text: PROMPT },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            fecha_vencimiento: { type: 'STRING', nullable: true },
-            confianza: { type: 'NUMBER' },
-          },
-          required: ['fecha_vencimiento'],
-        },
-      },
-    }),
-  });
-
-  if (!respuesta.ok) {
-    const detalle = await respuesta.text();
-    throw new Error(`Gemini respondió ${respuesta.status}: ${detalle}`);
-  }
-
-  const data = await respuesta.json();
-  const texto = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!texto) {
-    throw new Error('Gemini no devolvió contenido.');
-  }
-
-  const parseado = JSON.parse(texto) as ResultadoVencimiento;
+async function detectarVencimientoConGemini(imagenBase64: string, apiKey: string): Promise<ResultadoVencimiento> {
+  const parseado = await consultarGemini<ResultadoVencimiento>(
+    [{ inline_data: { mime_type: 'image/jpeg', data: imagenBase64 } }, { text: PROMPT }],
+    ESQUEMA,
+    apiKey,
+    'vencimiento-foto'
+  );
   return {
     fecha_vencimiento: parseado.fecha_vencimiento ?? null,
     confianza: parseado.confianza,
@@ -104,8 +77,11 @@ Deno.serve(async (req: Request) => {
   try {
     resultado = await detectarVencimientoConGemini(imagen, apiKey);
   } catch (error) {
+    // El detalle técnico queda en los logs de la función; al usuario le
+    // llega un mensaje entendible (y la salida es cargar la fecha a mano).
+    console.error('[vencimiento-foto]', error instanceof Error ? error.message : error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Error de Gemini' }),
+      JSON.stringify({ error: 'No pudimos leer la fecha en este momento. Ingresala a mano.' }),
       { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

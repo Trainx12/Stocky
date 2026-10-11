@@ -1,18 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { categoriasDelCatalogo, filtrarCatalogo, listarCatalogoAprobado, sugerirProducto } from '../services/catalogo';
 import type { ProductoCatalogo } from '../types/database';
 import type { UnidadProducto } from '../types/database';
 import { avisar } from '../lib/alert';
+import { obtenerFotoBase64 } from '../lib/fotos';
+import type { OrigenFoto } from '../lib/fotos';
+import { imagenDeCatalogo } from '../lib/catalogoImagenes';
 import { colors, radius, spacing, typography } from '../theme';
 
 interface CatalogoSelectorModalProps {
   visible: boolean;
   onClose: () => void;
   /** Se llama cuando el usuario toca un producto del catálogo para elegirlo. */
-  onSeleccionar: (producto: ProductoCatalogo) => void;
+  onSeleccionar?: (producto: ProductoCatalogo) => void;
+  /**
+   * Abre directo el formulario de sugerencia, sin el selector (acceso rápido
+   * "Sugerir producto" de HomeScreen). Al mandar o cancelar se cierra el modal.
+   */
+  soloSugerir?: boolean;
 }
 
 // Mismas unidades que ProductoFormModal, para el formulario de sugerencia.
@@ -32,7 +40,7 @@ const UNIDADES: { valor: UnidadProducto; label: string }[] = [
  * producto buscado no está, se puede sugerir (queda pendiente de que un
  * admin lo apruebe, ver AdminSugerenciasScreen) en vez de cargarlo directo.
  */
-export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: CatalogoSelectorModalProps) {
+export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSugerir = false }: CatalogoSelectorModalProps) {
   const [catalogo, setCatalogo] = useState<ProductoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -45,6 +53,10 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
   const [categoriaSugerida, setCategoriaSugerida] = useState('');
   const [unidadSugerida, setUnidadSugerida] = useState<UnidadProducto>('unidad');
   const [sugiriendo, setSugiriendo] = useState(false);
+  // Foto opcional del producto sugerido (JPEG en base64), y si se está
+  // sacando/eligiendo en este momento.
+  const [fotoSugerida, setFotoSugerida] = useState<string | null>(null);
+  const [cargandoFoto, setCargandoFoto] = useState(false);
 
   // Se recarga cada vez que se abre, para reflejar sugerencias aprobadas
   // desde la última vez (por ejemplo, si un admin aprobó una mientras el
@@ -53,7 +65,13 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
     if (!visible) return;
     setBusqueda('');
     setCategoriaSeleccionada(null);
-    setSugerirVisible(false);
+    if (soloSugerir) {
+      setNombreSugerido('');
+      setCategoriaSugerida('');
+      setUnidadSugerida('unidad');
+    }
+    setFotoSugerida(null);
+    setSugerirVisible(soloSugerir);
     (async () => {
       setLoading(true);
       try {
@@ -64,7 +82,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
         setLoading(false);
       }
     })();
-  }, [visible]);
+  }, [visible, soloSugerir]);
 
   const categorias = useMemo(() => categoriasDelCatalogo(catalogo), [catalogo]);
   const catalogoFiltrado = useMemo(
@@ -76,18 +94,38 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
     setNombreSugerido(busqueda.trim());
     setCategoriaSugerida('');
     setUnidadSugerida('unidad');
+    setFotoSugerida(null);
     setSugerirVisible(true);
+  }
+
+  // 600 px de ancho alcanza para mostrarla en el catálogo (no se lee con OCR).
+  async function handleElegirFoto(origen: OrigenFoto) {
+    setCargandoFoto(true);
+    try {
+      const foto = await obtenerFotoBase64(origen, 600);
+      if (foto) setFotoSugerida(foto);
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo cargar la foto.');
+    } finally {
+      setCargandoFoto(false);
+    }
   }
 
   async function handleSugerir() {
     setSugiriendo(true);
     try {
-      await sugerirProducto({ nombre: nombreSugerido, categoria: categoriaSugerida, unidad: unidadSugerida });
+      await sugerirProducto({
+        nombre: nombreSugerido,
+        categoria: categoriaSugerida,
+        unidad: unidadSugerida,
+        fotoBase64: fotoSugerida,
+      });
       avisar(
         'Sugerencia enviada',
         `Le avisamos a los administradores. Vas a poder elegir "${nombreSugerido.trim()}" apenas lo aprueben.`,
       );
       setSugerirVisible(false);
+      if (soloSugerir) onClose();
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo enviar la sugerencia.');
     } finally {
@@ -100,18 +138,20 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.title}>Elegí un producto</Text>
+          <Text style={styles.title}>{sugerirVisible ? 'Sugerir un producto' : 'Elegí un producto'}</Text>
 
-          <TextInput
-            style={styles.buscador}
-            placeholder="Buscar producto..."
-            placeholderTextColor={colors.textSecondary}
-            value={busqueda}
-            onChangeText={setBusqueda}
-            autoCapitalize="none"
-          />
+          {!sugerirVisible && (
+            <TextInput
+              style={styles.buscador}
+              placeholder="Buscar producto..."
+              placeholderTextColor={colors.textSecondary}
+              value={busqueda}
+              onChangeText={setBusqueda}
+              autoCapitalize="none"
+            />
+          )}
 
-          {categorias.length > 0 && (
+          {!sugerirVisible && categorias.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriasScroll} contentContainerStyle={styles.categoriasRow}>
               <Pressable
                 onPress={() => setCategoriaSeleccionada(null)}
@@ -178,6 +218,51 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                 ))}
               </View>
 
+              <Text style={styles.label}>Foto (opcional)</Text>
+              {fotoSugerida ? (
+                <View style={styles.fotoFila}>
+                  <Image source={{ uri: `data:image/jpeg;base64,${fotoSugerida}` }} style={styles.fotoVista} resizeMode="contain" />
+                  <Pressable
+                    onPress={() => setFotoSugerida(null)}
+                    disabled={sugiriendo}
+                    style={styles.fotoQuitar}
+                    accessibilityRole="button"
+                    accessibilityLabel="Quitar la foto"
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                    <Text style={styles.fotoQuitarTexto}>Quitar</Text>
+                  </Pressable>
+                </View>
+              ) : cargandoFoto ? (
+                <ActivityIndicator color={colors.primary} style={styles.fotoCargando} />
+              ) : (
+                <View style={styles.fotoFila}>
+                  {/* En web no hay cámara confiable: un solo botón que abre el selector de archivos. */}
+                  {Platform.OS !== 'web' && (
+                    <Pressable
+                      onPress={() => handleElegirFoto('camara')}
+                      disabled={sugiriendo}
+                      style={styles.fotoBoton}
+                      accessibilityRole="button"
+                      accessibilityLabel="Sacar una foto del producto"
+                    >
+                      <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                      <Text style={styles.fotoBotonTexto}>Sacar foto</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={() => handleElegirFoto('galeria')}
+                    disabled={sugiriendo}
+                    style={styles.fotoBoton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Elegir una foto del producto"
+                  >
+                    <Ionicons name="image-outline" size={20} color={colors.primary} />
+                    <Text style={styles.fotoBotonTexto}>{Platform.OS === 'web' ? 'Subir foto' : 'Galería'}</Text>
+                  </Pressable>
+                </View>
+              )}
+
               <Text style={styles.sugerenciaAyuda}>
                 Un administrador tiene que aprobarlo antes de que puedas cargarlo en un hogar.
               </Text>
@@ -186,7 +271,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                 <Button
                   label="Cancelar"
                   variant="outline"
-                  onPress={() => setSugerirVisible(false)}
+                  onPress={() => (soloSugerir ? onClose() : setSugerirVisible(false))}
                   disabled={sugiriendo}
                   style={styles.sugerirAccionButton}
                 />
@@ -216,13 +301,13 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                   <Pressable
                     key={item.id}
                     style={styles.item}
-                    onPress={() => onSeleccionar(item)}
+                    onPress={() => onSeleccionar?.(item)}
                     accessibilityRole="button"
                     accessibilityLabel={`Elegir ${item.nombre}`}
                   >
                     <View style={styles.itemFoto}>
-                      {item.imagen_url ? (
-                        <Image source={{ uri: item.imagen_url }} style={styles.itemImagen} resizeMode="cover" />
+                      {imagenDeCatalogo(item) ? (
+                        <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="contain" />
                       ) : (
                         <Ionicons name="basket-outline" size={28} color={colors.primary} />
                       )}
@@ -235,17 +320,25 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar }: Catal
                 ))}
               </View>
 
-              {/* También se puede sugerir aunque la búsqueda sí haya
-                  encontrado algo (quizás el que busca es otro parecido). */}
-              {busqueda.trim() !== '' && (
-                <Button
-                  label={`Sugerir "${busqueda.trim()}" como producto nuevo`}
-                  variant="outline"
-                  onPress={handleAbrirSugerir}
-                  style={styles.sugerirButtonInline}
-                />
-              )}
             </ScrollView>
+          )}
+
+          {/* Siempre a la vista (no solo cuando la búsqueda no encuentra
+              nada): antes quedaba escondido y nadie encontraba cómo sugerir. */}
+          {!sugerirVisible && !loading && catalogoFiltrado.length > 0 && (
+            <Pressable
+              onPress={handleAbrirSugerir}
+              style={styles.sugerirPie}
+              accessibilityRole="button"
+              accessibilityLabel="Sugerir un producto que no está en el catálogo"
+            >
+              <Ionicons name="bulb-outline" size={18} color={colors.primary} />
+              <Text style={styles.sugerirPieTexto} numberOfLines={1}>
+                {busqueda.trim()
+                  ? `¿No es ninguno? Sugerí "${busqueda.trim()}"`
+                  : '¿No encontrás tu producto? Sugerilo'}
+              </Text>
+            </Pressable>
           )}
         </Pressable>
       </Pressable>
@@ -335,11 +428,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
   },
+  // "contain" (no "cover"): el producto tiene que verse ENTERO. Con "cover" una
+  // botella alta quedaba recortada al medio y no se reconocía.
   itemFoto: {
-    width: 56,
-    height: 56,
+    width: 64,
+    height: 64,
     borderRadius: radius.md,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -374,8 +469,61 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     alignSelf: 'stretch',
   },
-  sugerirButtonInline: {
-    marginTop: spacing.md,
+  fotoFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  fotoVista: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  fotoQuitar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.xs,
+  },
+  fotoQuitarTexto: {
+    ...typography.caption,
+    color: colors.danger,
+  },
+  fotoBoton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  fotoBotonTexto: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  fotoCargando: {
+    alignSelf: 'flex-start',
+    marginVertical: spacing.sm,
+  },
+  sugerirPie: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+  },
+  sugerirPieTexto: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    flexShrink: 1,
   },
   sugerirForm: {
     flex: 1,

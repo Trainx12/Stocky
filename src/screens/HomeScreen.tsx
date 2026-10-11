@@ -8,6 +8,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
+import { CatalogoSelectorModal } from '../components/CatalogoSelectorModal';
 import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
@@ -25,7 +26,7 @@ import {
 import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
 import { listarActividadReciente } from '../services/actividad';
 import type { ActividadItem } from '../services/actividad';
-import { etiquetaVencimiento, estadoVencimiento, listarProductosProximosAVencer } from '../services/productos';
+import { etiquetaVencimiento, estadoVencimiento, listarProductosProximosAVencer, nombreConMarca } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
@@ -60,6 +61,8 @@ export function HomeScreen() {
   // "Tus hogares activos" -- un toque directo, sin gestos escondidos (antes
   // vivían atrás de un long-press sobre "Perfil" en la nav bar).
   const [crearVisible, setCrearVisible] = useState(false);
+  // Formulario "Sugerir producto" del acceso rápido (ver CatalogoSelectorModal).
+  const [sugerirVisible, setSugerirVisible] = useState(false);
   const [unirseVisible, setUnirseVisible] = useState(false);
 
   // Hogares de los que el usuario ya es miembro (puede ser más de uno).
@@ -396,12 +399,18 @@ export function HomeScreen() {
   // uno (RF6), para eso está el selector. "Agregar producto" además le pide
   // a ProductosScreen que abra el modal de carga apenas llega, para no
   // obligar a un segundo toque sobre el FAB.
-  function handleIrAProductos(abrirAgregar: boolean) {
+  function handleIrAProductos(abrirAgregar: boolean, abrirVoz = false, enfocarBusqueda = false) {
     if (!hogarSeleccionado) {
       avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
       return;
     }
-    navigation.navigate('Productos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre, abrirAgregar });
+    navigation.navigate('Productos', {
+      hogarId: hogarSeleccionado.id,
+      hogarNombre: hogarSeleccionado.nombre,
+      abrirAgregar,
+      abrirVoz,
+      enfocarBusqueda,
+    });
   }
 
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
@@ -451,7 +460,12 @@ export function HomeScreen() {
   // (Búsqueda, Notificaciones y Perfil). "Home" no hace nada porque ya
   // estamos ahí.
   function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
-    if (tab === 'search' || tab === 'notifications' || tab === 'profile') {
+    // La lupa lleva al buscador de la despensa del hogar seleccionado.
+    if (tab === 'search') {
+      handleIrAProductos(false, false, true);
+      return;
+    }
+    if (tab === 'notifications' || tab === 'profile') {
       avisar('Próximamente', 'Esta sección todavía no está disponible.');
     }
   }
@@ -668,7 +682,7 @@ export function HomeScreen() {
                       <Pressable key={producto.id} style={styles.hogarRow} onPress={() => handleVerProductoPorVencer(producto)}>
                         <View style={styles.hogarInfo}>
                           <Text style={styles.hogarNombre} numberOfLines={1}>
-                            {producto.nombre}
+                            {nombreConMarca(producto)}
                           </Text>
                           <Text style={styles.hogarCodigo} numberOfLines={1}>
                             {hogar?.nombre ?? ''}
@@ -729,7 +743,11 @@ export function HomeScreen() {
             <SectionCard title="Accesos rápidos">
               <View style={styles.quickAccessRow}>
                 <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos(true)} />
+                <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos(false, true)} />
                 <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos(false)} />
+                {/* Cualquier usuario puede sugerir un producto que falta en el
+                    catálogo; queda pendiente hasta que un admin lo apruebe. */}
+                <QuickAccessButton icon="bulb-outline" label="Sugerir producto" onPress={() => setSugerirVisible(true)} />
                 {/* Primer acceso gateado por rol de la app (ver comentario
                     en AdminSugerenciasScreen): un usuario común ni ve el
                     botón, y aunque fuerce la navegación la RLS tampoco le
@@ -759,6 +777,8 @@ export function HomeScreen() {
       </ScrollView>
 
       <BottomNavBar active="home" onTabPress={handleTabPress} />
+
+      <CatalogoSelectorModal visible={sugerirVisible} soloSugerir onClose={() => setSugerirVisible(false)} />
 
       <HogarFormModal
         visible={crearVisible}
