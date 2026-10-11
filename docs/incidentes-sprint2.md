@@ -14,6 +14,12 @@ a `main`.
 
 Para la configuración vigente (no el historial), ver [README.md](../README.md).
 
+> **Nota (octubre 2026):** hoy el equipo prueba la app con el
+> **development build de [expo.dev](https://expo.dev)** (EAS), no con Expo
+> Go — ver "Development build" en el [README](../README.md). Las menciones a
+> Expo Go de este documento se dejan tal cual porque son el historial de lo
+> que pasó en su momento.
+
 ---
 
 ## 1. Bypass del código de invitación al unirse a un hogar
@@ -207,5 +213,8 @@ Por ejemplo `exp://192.168.18.11:8082`. Si se necesita ver el QR real
 - Si "se cae" el servidor web sin ningún cambio de código de por medio,
   revisar primero si el proceso sigue corriendo (`netstat`) antes de
   buscar un bug — lo más probable es que solo haya que reiniciarlo.
-- Para conectar el celular vía Expo Go sin pasar por el QR (por ejemplo,
-  si te lo levanta Claude), usar la URL manual `exp://<IP local>:<puerto>`.
+- Para conectar el celular sin pasar por el QR (por ejemplo, si te lo
+  levanta Claude): hoy, con el development build de expo.dev, se corre
+  `npx expo start --dev-client` y en la app instalada se elige "Enter URL
+  manually" con `http://<IP local>:<puerto>`. (Con Expo Go, que se usaba en
+  este sprint, era `exp://<IP local>:<puerto>`.)

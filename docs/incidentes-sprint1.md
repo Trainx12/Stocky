@@ -8,6 +8,12 @@ redescubrirlo de cero.
 
 Para la configuración vigente (no el historial), ver [README.md](../README.md).
 
+> **Nota (octubre 2026):** hoy el equipo prueba la app con el
+> **development build de [expo.dev](https://expo.dev)** (EAS), no con Expo
+> Go — ver "Development build" en el [README](../README.md). Las menciones a
+> Expo Go de este documento se dejan tal cual porque son el historial de lo
+> que pasó en su momento.
+
 ---
 
 ## 1. Expo Go no se podía instalar desde Play Store

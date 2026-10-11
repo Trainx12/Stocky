@@ -14,7 +14,7 @@ parecido vuelve a aparecer, no haya que redescubrirlo de cero.
 **Síntoma:** el botón "Salir" de un hogar (y cualquier otro `Alert.alert`
 con más de un botón) no producía ningún efecto visible al tocarlo en
 `npx expo start --web` — ni se mostraba un diálogo de confirmación ni se
-disparaba la acción. En Expo Go / development build (nativo) sí funcionaba
+disparaba la acción. En el celular (Expo Go en ese momento; hoy el development build de expo.dev) sí funcionaba
 bien.
 
 **Causa raíz:** la implementación de `Alert` de `react-native-web` (el

@@ -46,6 +46,12 @@ export interface DatosProducto {
 export const DIAS_AVISO_MINIMO = 1;
 export const DIAS_AVISO_MAXIMO = 60;
 
+// Suma `delta` a los días de aviso sin salirse del rango permitido (los
+// botones − / + de la campanita).
+export function ajustarDiasAviso(dias: number, delta: number): number {
+  return Math.min(DIAS_AVISO_MAXIMO, Math.max(DIAS_AVISO_MINIMO, dias + delta));
+}
+
 // true si `dias` es un valor válido de días de aviso: entero entre 1 y 60.
 export function esDiasAvisoValido(dias: number): boolean {
   return Number.isInteger(dias) && dias >= DIAS_AVISO_MINIMO && dias <= DIAS_AVISO_MAXIMO;
@@ -507,6 +513,14 @@ export async function listarProductosConStockBajo(hogarIds: string[]): Promise<A
 
   if (error) throw error;
   return productosConStockBajo(data ?? []);
+}
+
+// Texto del pie "Ver todos" de las tarjetas de alertas del Home: con varios
+// hogares nombra a cuál lleva (la despensa es por hogar); con uno solo,
+// muestra cuántas hay si no entran todas en la tarjeta (`maximo`).
+export function textoVerTodos(total: number, hogarNombre: string | null, maximo: number): string {
+  if (hogarNombre) return `Ver todos en ${hogarNombre}`;
+  return total > maximo ? `Ver todos (${total})` : 'Ver en la despensa';
 }
 
 // 'AAAA-MM-DD' -> 'DD/MM/AAAA', como se lee una fecha en Argentina.

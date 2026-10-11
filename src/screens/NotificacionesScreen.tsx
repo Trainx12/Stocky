@@ -17,7 +17,7 @@ import {
 } from '../services/notificaciones';
 import type { FamiliaNotificacion } from '../services/notificaciones';
 import { listarMisHogares } from '../services/hogares';
-import { DIAS_AVISO_MAXIMO, DIAS_AVISO_MINIMO, DIAS_AVISO_POR_DEFECTO } from '../services/productos';
+import { ajustarDiasAviso, DIAS_AVISO_MAXIMO, DIAS_AVISO_MINIMO, DIAS_AVISO_POR_DEFECTO } from '../services/productos';
 import type { Notificacion } from '../types/database';
 import { avisar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -128,7 +128,7 @@ export function NotificacionesScreen({ navigation }: Props) {
   // Cambia los días con los botones − / + y guarda al toque (sin botón
   // "Guardar" aparte: es una preferencia, no un formulario).
   async function handleCambiarDias(delta: number) {
-    const nuevo = Math.min(DIAS_AVISO_MAXIMO, Math.max(DIAS_AVISO_MINIMO, dias + delta));
+    const nuevo = ajustarDiasAviso(dias, delta);
     if (nuevo === dias) return;
     const anterior = dias;
     setDias(nuevo);

@@ -46,8 +46,8 @@ vez.
    (no debería pedir loguearse de nuevo).
 
 **Testing de quien desarrolla:**
-- Probar el flujo completo al menos una vez en Expo Go/dev client real,
-  no solo en web.
+- Probar el flujo completo al menos una vez en el development build de
+  expo.dev instalado en un celular real, no solo en web.
 - Verificar en Supabase (Table Editor) que el login crea la fila en
   `usuarios` con el rol y email correctos.
 - Probar qué pasa si se cancela el login a mitad de camino (no debería
@@ -477,7 +477,7 @@ vencimientos igual llegan por el plan B local.
    recibir push de A.
 
 **Testing de quien desarrolla (hecho por Claude):** `tsc --noEmit` limpio,
-`npm test` (17 suites / 381 tests: `notificaciones.test.ts`,
+`npm test` (al cierre del sprint: 20 suites / 403 tests, incluidos `notificaciones.test.ts`,
 `notificacionesPush.test.ts`, cartelitos en `alert.test.ts`, días de aviso
 en `productos.test.ts`, tareas previas al cierre de sesión en
 `auth.test.ts`), la app compila para web y arranca sin errores de consola.
@@ -489,6 +489,37 @@ agregó una tarea antes del `signOut`), aceptar/rechazar/expulsar (los avisos
 de Home ahora vienen de la campanita), ABM de productos y +/− (trigger de
 stock nuevo en `productos`), y vencimientos (la ventana ya no es fija en 7
 días).
+
+---
+
+## Términos y Condiciones (Sprint 10)
+
+Rama `feature/terminos-y-condiciones`. Requiere la migración
+`20261013120000_terminos_aceptados.sql` aplicada.
+
+**Ruta crítica:**
+1. Sin sesión: Bienvenida → Onboarding → **Términos**. "Aceptar y continuar"
+   está deshabilitado hasta tildar la casilla; al aceptar va al Login.
+2. Login → entra directo a la app (no vuelve a pedir los términos) y en la
+   base queda `terminos_version` y `terminos_aceptados_at` (Claude lo puede
+   verificar por SQL).
+3. Una cuenta que ya existía (sin `terminos_version`) → al abrir la app ve
+   los términos con el aviso "Actualizamos los términos" y no puede usar la
+   app hasta aceptarlos.
+4. Home → enlace "Términos y Condiciones" → solo lectura, con flecha para
+   volver.
+5. Créditos al final: "Ver los 257 créditos de fotos" despliega la lista;
+   tocar una foto abre su página de origen.
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, tests de
+`services/terminos.ts` y de `src/legal/` (incluido que cada foto del
+`creditos.json` real tenga autor, licencia y enlace), y probado en el
+navegador el paso 1 completo (incluida la pantalla a 375 px) y que la versión
+aceptada queda guardada. **No hecho:** pasos 2 y 3 (requieren login con Google).
+
+**Regresión obligatoria:** login y onboarding (Sprint 1) y la entrada a la app
+de una cuenta deshabilitada (sigue viendo "Cuenta deshabilitada", no los
+términos).
 
 ---
 

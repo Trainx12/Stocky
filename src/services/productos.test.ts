@@ -37,6 +37,7 @@ import {
   ajustarCantidadProducto,
   buscarDuplicado,
   categoriasEnUso,
+  ajustarDiasAviso,
   crearProducto,
   diasAvisoDe,
   esDiasAvisoValido,
@@ -65,6 +66,7 @@ import {
   productosConVencimiento,
   productosProximosAVencer,
   stockMinimoDelGrupo,
+  textoVerTodos,
 } from './productos';
 import type { DatosProducto } from './productos';
 import type { Producto } from '../types/database';
@@ -1002,5 +1004,28 @@ describe('días de aviso de vencimiento (Sprint 10)', () => {
     mockSingle.mockResolvedValue({ data: producto({ id: 'p1' }), error: null });
     await editarProducto('p1', { ...datosValidos, diasAvisoVencimiento: 3 });
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ dias_aviso_vencimiento: 3 }));
+  });
+});
+
+describe('textoVerTodos', () => {
+  it('con varios hogares nombra a cuál lleva', () => {
+    expect(textoVerTodos(2, 'Casa', 4)).toBe('Ver todos en Casa');
+  });
+
+  it('con un solo hogar muestra el total solo si no entran todas', () => {
+    expect(textoVerTodos(7, null, 4)).toBe('Ver todos (7)');
+    expect(textoVerTodos(4, null, 4)).toBe('Ver en la despensa');
+  });
+});
+
+describe('ajustarDiasAviso', () => {
+  it('suma o resta dentro del rango 1-60', () => {
+    expect(ajustarDiasAviso(7, 1)).toBe(8);
+    expect(ajustarDiasAviso(7, -1)).toBe(6);
+  });
+
+  it('no baja de 1 ni sube de 60', () => {
+    expect(ajustarDiasAviso(1, -1)).toBe(1);
+    expect(ajustarDiasAviso(60, 1)).toBe(60);
   });
 });

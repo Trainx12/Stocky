@@ -49,8 +49,8 @@ Qué genera una notificación:
 
 **Contexto (doc de expo-notifications, SDK 57):** el push remoto **no existe
 en Expo Go para Android** desde el SDK 53; necesita un *development build*.
-El equipo ya usa development build (EAS), así que se puede, pero hay dos
-pasos que no puede hacer Claude:
+El equipo usa el development build de expo.dev (EAS), así que se puede, pero
+hay dos pasos que no puede hacer Claude:
 
 1. **Firebase (Android):** crear un proyecto en
    [console.firebase.google.com](https://console.firebase.google.com), agregar
@@ -195,6 +195,98 @@ extensions`.
    `expo-notifications` no sirvió porque `import * as` copia las propiedades al
    importar. Solución: mocks definidos dentro de la factory y leídos con
    `jest.requireMock`, y un getter para `Device.isDevice` (ver
-   `notificacionesPush.test.ts`).
+   `notificacionesPush.test.ts`). Volvió a pasar con
+   `createNavigationContainerRef` en `navegacion.test.ts` (el ref se crea al
+   importar): mismo arreglo. **Regla:** si el módulo bajo prueba usa el mock
+   al importarse, el mock va entero dentro de la factory.
 3. **`to_char` con decimales** dejaba "3." en enteros en el mensaje de stock;
    se cambió por `trim_scale()` antes de aplicar la migración.
+
+---
+
+# Términos y Condiciones (también Sprint 10)
+
+Rama `feature/terminos-y-condiciones`, apilada sobre el PR de notificaciones.
+Migración: [20261013120000_terminos_aceptados.sql](../supabase/migrations/20261013120000_terminos_aceptados.sql).
+**Ya aplicada** en el proyecto de Supabase (2026-10-11): verificado por SQL que
+existen las dos columnas, que `authenticated` no puede editarlas directo y que
+`aceptar_terminos` solo la ejecutan usuarios logueados. `get_advisors`: sin
+hallazgos nuevos (solo `aceptar_terminos` en el warning ya aceptado de
+"SECURITY DEFINER ejecutable").
+
+## Qué entró
+
+- **Carpeta `src/legal/`**: todo el texto legal como datos
+  (`terminos.ts`: versión, secciones, servicios y software usados) y los
+  créditos de las fotos (`creditos.ts`, que importa
+  `assets/catalogo/creditos.json`, la misma fuente que `CREDITOS.md`).
+- **Flujo:** Bienvenida → Onboarding → **Términos** (hay que tildar "Leí y
+  acepto") → Login. Desde el Home hay un enlace para volver a leerlos.
+- **Constancia:** `usuarios.terminos_version` + `terminos_aceptados_at` (hora
+  del servidor), por la RPC `aceptar_terminos`. Lo aceptado antes del login
+  se anota en el celular y se registra en la base apenas inicia sesión.
+- **Usuarios existentes y versiones nuevas:** si la versión aceptada no es la
+  vigente (`VERSION_TERMINOS`), al entrar se muestran los términos y no se
+  puede usar la app hasta aceptarlos. Para publicar un cambio de fondo, subir
+  `VERSION_TERMINOS` en `src/legal/terminos.ts`.
+- **Al final, créditos:** servicios (Supabase, Google, Gemini, OCR.space,
+  Expo, Open Food Facts, Wikimedia), software de código abierto con su
+  licencia, y las 257 fotos del catálogo con autor, licencia y enlace
+  (requisito de atribución de CC BY / CC BY-SA), plegadas detrás de "Ver los
+  257 créditos de fotos".
+
+Contenido cubierto (pedido del equipo): qué datos se usan y para qué, que la
+información cargada puede usarse (agregada o sin identificar a nadie) para
+mejorar Stocky, el catálogo y productos futuros, licencia sobre las fotos y
+sugerencias que mandan los usuarios, que las sugerencias las revisan los
+administradores, servicios de terceros, hogares compartidos, derechos de la
+Ley 25.326, aviso de que la lectura automática puede equivocarse (revisar
+vencimientos), uso aceptable, limitación de responsabilidad, cambios y ley
+aplicable (Argentina).
+
+## 5. El Login prometía algo que la app no hace
+
+**Síntoma (encontrado al revisar el texto):** `LoginScreen` decía "Podés
+eliminar tu cuenta cuando quieras", pero no existe ninguna forma de borrar la
+cuenta desde la app.
+
+**Solución:** el texto del Login ahora remite a los Términos aceptados, y los
+Términos dicen que la eliminación se pide al equipo (punto 8).
+
+## 6. Menciones a Expo Go en la documentación
+
+**Síntoma:** el README y la arquitectura decían que el equipo probaba con
+Expo Go, pero el equipo usa el **development build de expo.dev** (y desde las
+notificaciones es obligatorio: Expo Go en Android no soporta push).
+
+**Solución:** se actualizaron README, `arquitectura-del-codigo.md`,
+`plan-de-testing.md` y los comentarios de código para decir que se usa el
+development build de expo.dev y cuándo hay que rearmarlo. En los incidentes
+de los Sprints 1-3 **no se reescribió lo que pasó** (en ese momento sí se
+usaba Expo Go): se agregó una nota arriba aclarando que es historial.
+
+## Lo que no tiene test (y por qué)
+
+- `src/lib/grabacion.ts` (`useGrabadorDeVoz`, Sprint 8) y
+  `context/NotificacionesContext.tsx` son hooks/componentes de React que
+  dependen de módulos nativos y de Realtime; el proyecto no tiene
+  infraestructura de tests de componentes (solo de lógica). Su lógica pura
+  sí está testeada aparte (`calcularAvisosLocales`, `aparienciaNotificacion`,
+  `destinoNotificacion`, etc.). Si se suma `@testing-library/react-native`,
+  son los primeros candidatos.
+- Las pantallas (`*Screen.tsx`) tampoco tienen tests, por el mismo motivo:
+  la lógica que tenían adentro se sacó a `services/` para poder testearla
+  (por ejemplo `textoVerTodos` y `ajustarDiasAviso`).
+
+## Pendientes antes de publicar (para el equipo)
+
+- **Revisión legal:** el texto es un borrador del equipo, no asesoramiento
+  legal. Conviene que lo revise un profesional antes de publicar en las
+  tiendas.
+- **Contacto:** los términos dicen "contactando al equipo de Stocky" sin un
+  correo concreto. Falta definir un correo de contacto y agregarlo al punto 8.
+- **Eliminar la cuenta:** hoy no hay una función para borrar la cuenta; se
+  hace a mano. Las tiendas suelen exigir una opción dentro de la app.
+- **7 fotos "aportadas por el equipo"** figuran con licencia "a confirmar"
+  (ver incidentes-sprint5-6.md #18 e incidentes-sprint8.md #7; la de Leche de
+  Coco parece una imagen publicitaria). Confirmar su origen o reemplazarlas.

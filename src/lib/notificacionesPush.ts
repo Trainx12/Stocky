@@ -14,9 +14,10 @@ import type { Producto } from '../types/database';
  *      `push_tokens` (RPC registrar_push_token). Cada notificación nueva de
  *      la campanita sale como push desde la base (trigger + pg_net, ver
  *      migración 20261012120000_notificaciones.sql). Llega con la app
- *      cerrada. Necesita un development build (en Expo Go Android no
- *      existe desde el SDK 53) y las credenciales de Firebase cargadas en
- *      EAS -- ver docs/incidentes-sprint10.md.
+ *      cerrada. Necesita el development build de expo.dev (el que usa
+ *      el equipo; en Expo Go Android no existe desde el SDK 53) y las
+ *      credenciales de Firebase cargadas en EAS -- ver
+ *      docs/incidentes-sprint10.md.
  *   2. Plan B, local: si no se pudo obtener el token, los avisos de
  *      vencimiento se programan en el propio celular (llegan con la app
  *      cerrada, pero solo vencimientos: lo que hace otra persona -- una

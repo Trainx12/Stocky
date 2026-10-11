@@ -35,6 +35,7 @@ import {
   listarProductosConStockBajo,
   listarProductosProximosAVencer,
   nombreConMarca,
+  textoVerTodos,
 } from '../services/productos';
 import type { AlertaStock } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
@@ -891,6 +892,11 @@ export function HomeScreen() {
         {/* Se mantiene visible mientras no exista una pantalla de Perfil
             propia desde donde cerrar sesión. */}
         <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} style={styles.signOutButton} />
+        {/* Los términos siempre se pueden volver a leer (también lo dicen
+            ellos mismos, punto 12). */}
+        <Pressable onPress={() => navigation.navigate('Terminos')} style={styles.terminosLink} accessibilityRole="link">
+          <Text style={styles.terminosLinkTexto}>Términos y Condiciones</Text>
+        </Pressable>
       </ScrollView>
 
       <BottomNavBar active="home" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
@@ -986,11 +992,7 @@ interface EmptyStateProps {
 // Pie de las tarjetas de alertas: lleva a la lista completa (filtro de
 // ProductosScreen). Con un solo hogar no hace falta nombrarlo.
 function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarNombre: string | null; onPress: () => void }) {
-  const texto = hogarNombre
-    ? `Ver todos en ${hogarNombre}`
-    : total > MAX_ALERTAS_DASHBOARD
-      ? `Ver todos (${total})`
-      : 'Ver en la despensa';
+  const texto = textoVerTodos(total, hogarNombre, MAX_ALERTAS_DASHBOARD);
   return (
     <Pressable onPress={onPress} style={styles.verTodosButton} accessibilityRole="button">
       <Text style={styles.verTodosTexto}>{texto}</Text>
@@ -1215,6 +1217,15 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.primary,
     textAlign: 'center',
+  },
+  terminosLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+  },
+  terminosLinkTexto: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
   },
   signOutButton: {
     marginTop: spacing.md,
