@@ -432,6 +432,55 @@ primero; sin fecha al final). Todos los productos se ven como tarjeta,
 aunque tengan un solo lote. `filtrarProductos` busca también por marca.
 Ver [incidentes-sprint8.md](incidentes-sprint8.md) #2 y #3.
 
+### Alerta de stock mínimo y filtros de alertas (Sprint 9)
+
+`productos.stock_minimo` se cargaba desde el Sprint 1 pero recién ahora
+genera una alerta. Se evalúa **por producto** (el grupo de
+`agruparProductos`), no por lote: `estadoStockDeGrupo` compara el total de
+los lotes contra `stockMinimoDelGrupo` (el mayor mínimo cargado entre ellos).
+`estadoStock(cantidad, minimo)` es la única fuente de verdad del umbral:
+`'agotado'` (0 con mínimo), `'bajo'` (estrictamente menor al mínimo) o
+`null` (sin mínimo cargado, o con stock suficiente). `etiquetaStock` arma el
+texto; el color lo pone cada pantalla con `colors.stockStatus.low` (ámbar,
+distinto del coral de vencimientos). `productosConStockBajo` /
+`listarProductosConStockBajo(hogarIds)` hacen lo mismo para varios hogares a
+la vez (dashboard), filtrando explícito por `hogarIds` como el resto de las
+queries "mis X".
+
+En `ProductosScreen`, el badge de stock va en el encabezado del producto
+(calculado sobre el inventario completo, así buscar o filtrar no lo cambia),
+y dos chips de filtro se combinan con la búsqueda y la categoría: **Por
+vencer** (todos los lotes con fecha de vencimiento, aunque falte mucho o
+tengan la alerta apagada, en el orden en que vencen, con
+`productosConVencimiento`) y **Stock bajo** (solo los productos por debajo
+del mínimo). `HomeScreen` sigue mostrando solo lo urgente
+(`productosProximosAVencer`, las primeras 4 alertas de cada tipo) y un "Ver
+todos" que abre `Productos` con `filtroInicial` ya aplicado.
+
+### `usuarios.ts` — ABM de usuarios para administradores (RF9 parcial)
+
+`listarUsuarios`, `cambiarHabilitado` y `cambiarRol` van todas por RPC
+(`admin_listar_usuarios`, `admin_set_usuario_habilitado`,
+`admin_set_rol_usuario`, ver
+[20261011120000_abm_usuarios_y_habilitado.sql](../supabase/migrations/20261011120000_abm_usuarios_y_habilitado.sql)):
+nadie tiene UPDATE sobre `usuarios.rol`/`habilitado` a nivel tabla (antes
+cualquiera podía hacerse admin, ver
+[incidentes-sprint9.md](incidentes-sprint9.md) #1). Las RPCs exigen
+`es_administrador()` y no dejan que un admin se deshabilite ni se quite el
+rol a sí mismo. No hay "alta" (las cuentas se crean al loguearse con
+Google) y la baja es lógica (`habilitado = false`, reversible).
+
+**Cuenta deshabilitada = bloqueada en la base, no solo en la UI:** los
+helpers `es_administrador`/`es_miembro_de`/`es_dueno_de`/`hogar_id_actual`
+exigen `usuario_habilitado()`, y un trigger `bloquear_deshabilitado` frena
+cualquier escritura en `hogares`, `hogar_miembros`, `productos` y
+`productos_catalogo` (incluso desde RPCs `SECURITY DEFINER`). La app solo
+acompaña: `RootNavigator` muestra `CuentaDeshabilitadaScreen` si
+`usuario.habilitado === false`, y `AuthContext` escucha por Realtime los
+UPDATE de la fila propia para que eso pase al instante.
+`filtrarUsuarios` (búsqueda + Todos/Administradores/Deshabilitados) es lógica
+pura testeada aparte.
+
 ---
 
 ## 6. `src/context/AuthContext.tsx` — quién está logueado y con qué rol
@@ -453,7 +502,10 @@ resto de la app. Expone:
 
 Internamente usa `supabase.auth.onAuthStateChange` para enterarse en
 tiempo real de login/logout, y cada vez que cambia la sesión, dispara
-`fetchUsuario()` para traer el perfil actualizado.
+`fetchUsuario()` para traer el perfil actualizado. Además se suscribe por
+Realtime a los UPDATE de su propia fila de `usuarios`: si un admin la
+deshabilita o le cambia el rol con la app abierta, `usuario` se actualiza
+solo (ver `usuarios.ts` más arriba).
 
 **Nota de un bug ya corregido** (ver incidentes, punto 8): antes,
 `fetchUsuario` tragaba el error en silencio (`setUsuario(null)` sin más).
@@ -553,6 +605,13 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
   rechazar. Primera pantalla de la app con acceso restringido por rol
   (ver la nota de `RootNavigator` en la sección 7 y
   [incidentes-sprint4.md](incidentes-sprint4.md) #2).
+- **`AdminUsuariosScreen`**: ABM de usuarios para admins (búsqueda, filtro,
+  switch de habilitado y botón de rol; sin acciones sobre la cuenta propia).
+  Mismo gateo que `AdminSugerenciasScreen`: el acceso solo aparece en
+  HomeScreen para admins, y la barrera real son las RPCs `admin_*`.
+- **`CuentaDeshabilitadaScreen`**: lo único que ve una cuenta deshabilitada
+  (mensaje + cerrar sesión). La muestra `RootNavigator` en lugar del stack
+  principal.
 
 ---
 

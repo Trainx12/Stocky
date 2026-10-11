@@ -372,6 +372,104 @@ export function ordenarLotes(lotes: Producto[]): Producto[] {
   return [...lotes].sort(compararLotes);
 }
 
+/**
+ * Alerta de stock mínimo (RF9/Sprint 8-9). `productos.stock_minimo` existe
+ * desde el Sprint 1 y ya se cargaba en ProductoFormModal, pero nada lo
+ * miraba. Se evalúa por PRODUCTO (el grupo de lotes de agruparProductos), no
+ * por lote: si tengo 1 leche que vence mañana y 4 que vencen en un mes, con
+ * mínimo 3 no me falta leche, aunque un lote suelto tenga 1.
+ */
+
+export type EstadoStock = 'bajo' | 'agotado';
+
+// "Por debajo del mínimo" es ESTRICTO (cantidad < mínimo): con mínimo 3 y 3
+// unidades no hay alerta, con 2 sí -- el mínimo es lo que quiero tener como
+// piso, tenerlo justo no es una falta (ver docs/plan-de-testing.md, Sprint 8:
+// probar el valor exacto, uno arriba y uno abajo). Sin mínimo cargado (0) nunca
+// hay alerta, ni siquiera agotado: ese producto no pidió seguimiento.
+export function estadoStock(cantidad: number, stockMinimo: number): EstadoStock | null {
+  if (!(stockMinimo > 0)) return null;
+  if (cantidad <= 0) return 'agotado';
+  if (cantidad < stockMinimo) return 'bajo';
+  return null;
+}
+
+// El mínimo de un producto con varios lotes: el mayor cargado entre sus
+// lotes (lo normal es que esté en uno solo; si se cargó distinto en varios,
+// se respeta el más exigente).
+export function stockMinimoDelGrupo(grupo: Pick<GrupoProductos, 'lotes'>): number {
+  return grupo.lotes.reduce((max, lote) => Math.max(max, lote.stock_minimo), 0);
+}
+
+// Estado de stock de un producto completo (total de sus lotes vs. su mínimo).
+export function estadoStockDeGrupo(grupo: Pick<GrupoProductos, 'lotes' | 'cantidadTotal'>): EstadoStock | null {
+  return estadoStock(grupo.cantidadTotal, stockMinimoDelGrupo(grupo));
+}
+
+// Texto del badge: "Sin stock" o "Stock bajo (mín. 3)". Como con
+// etiquetaVencimiento, el color lo decide quien pinta (colors.stockStatus.low).
+export function etiquetaStock(estado: EstadoStock | null, stockMinimo: number): string | null {
+  if (estado === 'agotado') return 'Sin stock';
+  if (estado === 'bajo') return `Stock bajo (mín. ${stockMinimo})`;
+  return null;
+}
+
+// Un producto por debajo de su mínimo, para el dashboard.
+export interface AlertaStock {
+  clave: string;
+  hogarId: string;
+  nombre: string;
+  unidad: UnidadProducto;
+  cantidadTotal: number;
+  stockMinimo: number;
+  estado: EstadoStock;
+}
+
+// Productos con stock bajo o agotados de una lista que puede mezclar varios
+// hogares: se agrupa por hogar (la misma "Leche" en dos hogares son dos
+// alertas distintas). Lo más urgente primero: agotados, después los que
+// tienen menos stock en proporción a su mínimo.
+export function productosConStockBajo(productos: Producto[]): AlertaStock[] {
+  const porHogar = new Map<string, Producto[]>();
+  for (const p of productos) porHogar.set(p.hogar_id, [...(porHogar.get(p.hogar_id) ?? []), p]);
+
+  const alertas: AlertaStock[] = [];
+  for (const [hogarId, delHogar] of porHogar) {
+    for (const grupo of agruparProductos(delHogar)) {
+      const estado = estadoStockDeGrupo(grupo);
+      if (!estado) continue;
+      alertas.push({
+        clave: `${hogarId}|${grupo.clave}`,
+        hogarId,
+        nombre: grupo.nombre,
+        unidad: grupo.unidad,
+        cantidadTotal: grupo.cantidadTotal,
+        stockMinimo: stockMinimoDelGrupo(grupo),
+        estado,
+      });
+    }
+  }
+  return alertas.sort((a, b) => a.cantidadTotal / a.stockMinimo - b.cantidadTotal / b.stockMinimo);
+}
+
+// Alertas de stock de varios hogares (los del usuario logueado). Trae TODOS
+// los productos de esos hogares, no solo los que tienen mínimo: el total de
+// un producto suma también los lotes sin mínimo cargado. Filtra por
+// `hogarIds` explícito, no solo RLS (un admin ve todos los hogares -- ver
+// docs/incidentes-sprint2.md #2).
+export async function listarProductosConStockBajo(hogarIds: string[]): Promise<AlertaStock[]> {
+  if (hogarIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('productos')
+    .select('*')
+    .in('hogar_id', hogarIds)
+    .order('nombre', { ascending: true });
+
+  if (error) throw error;
+  return productosConStockBajo(data ?? []);
+}
+
 // 'AAAA-MM-DD' -> 'DD/MM/AAAA', como se lee una fecha en Argentina.
 export function formatearFechaCorta(fecha: string): string {
   const [anio, mes, dia] = fecha.split('-');
@@ -508,6 +606,22 @@ export function productosProximosAVencer(productos: Producto[], hoy: Date = new 
       return estado === 'proximo' || estado === 'vencido';
     })
     .sort((a, b) => (a.fecha_vencimiento ?? '').localeCompare(b.fecha_vencimiento ?? ''));
+}
+
+// Todos los productos que tienen fecha de vencimiento cargada, en el orden en
+// que van a vencer (los ya vencidos primero, porque su fecha es la más vieja).
+// La usa el filtro "Por vencer" de ProductosScreen: a diferencia de
+// productosProximosAVencer (el dashboard, solo lo urgente), acá entra
+// cualquier producto con fecha, aunque falte mucho o tenga la alerta apagada
+// -- es la vista para planificar qué consumir primero. A igual fecha, por
+// nombre, para que el orden sea estable.
+export function productosConVencimiento(productos: Producto[]): Producto[] {
+  return productos
+    .filter((p) => !!p.fecha_vencimiento)
+    .sort(
+      (a, b) =>
+        (a.fecha_vencimiento as string).localeCompare(b.fecha_vencimiento as string) || a.nombre.localeCompare(b.nombre),
+    );
 }
 
 // Productos próximos a vencer o vencidos de varios hogares a la vez (los

@@ -384,6 +384,63 @@ para el sprint siguiente. Checklist de QA para lo que sí entró:
 
 ---
 
+## ABM de usuarios + stock mínimo (pendientes del Sprint 8, entran en el 9)
+
+Rama `feature/abm-usuarios-stock-minimo` (PR apilado sobre el #13). Detalle y
+decisiones en [incidentes-sprint9.md](incidentes-sprint9.md). **Requiere la
+migración `20261011120000_abm_usuarios_y_habilitado.sql` aplicada** en el
+proyecto de Supabase antes de probar (ver incidentes-sprint3 #4 y sprint4 #1).
+
+**Ruta crítica:** la del Sprint 8 puntos 2 a 4 (admin ve la lista, deshabilita
+→ el usuario queda bloqueado de verdad, alerta de stock distinta a la de
+vencimiento), más:
+1. Home muestra como máximo 4 productos por vencer y 4 de stock bajo, con
+   "Ver todos" → abre la despensa con el filtro ya aplicado.
+2. En la despensa, el chip "Por vencer" muestra TODOS los productos con fecha
+   de vencimiento cargada (vencidos, próximos, lejanos y también los que
+   tienen la alerta apagada), en el orden en que vencen; los que no tienen
+   fecha no aparecen. "Stock bajo" deja solo los productos por debajo del
+   mínimo. Tocar el chip de nuevo lo saca.
+
+**Comportamiento esperado al deshabilitar con la sesión abierta:** los datos
+se cortan en el momento (la base rechaza todo); la pantalla pasa a "Cuenta
+deshabilitada" al instante (Realtime) o, si no llega el aviso, al reabrir la
+app.
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc --noEmit` limpio,
+`npm test` (26 tests nuevos: `usuarios.test.ts` y stock en
+`productos.test.ts`, incluidos valor exacto / uno arriba / uno abajo y
+decimales), `expo export --platform web` compila, migración aplicada y
+verificada por SQL, `get_advisors` sin hallazgos nuevos. **No hecho:** la
+simulación SQL completa de permisos simulando cada usuario (bloqueada por permisos de la
+sesión, queda pedida al equipo) y ninguna pantalla probada tocándola (las
+sesiones de Claude no pueden loguearse con Google).
+
+**Testing de QA:**
+- Con una cuenta común, intentar `supabase.from('usuarios').update({ rol:
+  'administrador' })` sobre la propia fila → tiene que fallar (era posible
+  antes, ver incidentes-sprint9 #1).
+- Admin: buscar por nombre/email, filtrar Administradores/Deshabilitados,
+  deshabilitar a alguien (pide confirmación), volver a habilitarlo, hacer y
+  quitar admin. Sobre la propia fila no aparece ninguna acción.
+- Deshabilitado con la app abierta → ve "Cuenta deshabilitada"; al
+  rehabilitarlo y reabrir, vuelve a ver sus hogares y productos intactos.
+- Loguearse con una cuenta deshabilitada → solo "Cuenta deshabilitada".
+- Usuario común: no ve el acceso "Usuarios" en Home.
+- Stock: producto con mínimo 3 y cantidad 3 → sin alerta; 2 → "Stock bajo
+  (mín. 3)"; 0 → "Sin stock"; 4 → sin alerta. Dos lotes (1 + 4) con mínimo 3
+  → sin alerta (se mira el total). Producto sin mínimo y cantidad 0 → sin
+  alerta.
+- El ámbar de stock y el coral de vencimiento no se confunden en Home ni en
+  la despensa.
+
+**Regresión obligatoria:** Sprints 1 a 8 completos, con foco en login
+(cuentas habilitadas siguen entrando normal), ABM de hogar e invitaciones
+(los helpers de RLS cambiaron) y ABM de productos (los +/− y "Limpiar
+agotados" no cambiaron de comportamiento).
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**

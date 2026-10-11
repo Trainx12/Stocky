@@ -22,15 +22,24 @@ export type AppStackParamList = {
   // `abrirVoz`: igual, pero abre la carga por voz (acceso rápido "Cargar por
   // voz", RF8).
   // `enfocarBusqueda`: abre con el buscador activo (lupa de la barra de abajo).
+  // `filtroInicial`: abre con el filtro "Por vencer" o "Stock bajo" ya
+  // aplicado (botones "Ver todos" del dashboard de HomeScreen).
   Productos: {
     hogarId: string;
     hogarNombre: string;
     abrirAgregar?: boolean;
     abrirVoz?: boolean;
     enfocarBusqueda?: boolean;
+    filtroInicial?: FiltroAlerta;
   };
   // Admin: sugerencias de productos nuevos para el catálogo global
   // pendientes de aprobar/rechazar (ver services/catalogo.ts). Sin
   // parámetros -- lista todo lo pendiente, no es por hogar.
   AdminSugerencias: undefined;
+  // Admin: ABM de usuarios de la plataforma (ver services/usuarios.ts).
+  AdminUsuarios: undefined;
 };
+
+// Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer
+// (ordenados por fecha) o solo los productos por debajo del stock mínimo.
+export type FiltroAlerta = 'porVencer' | 'stockBajo';

@@ -20,7 +20,8 @@ const mockSelectEq = jest.fn(() => ({ order: mockOrder }));
 const mockInOrder = jest.fn();
 const mockInNot = jest.fn(() => ({ order: mockInOrder }));
 const mockInEq = jest.fn(() => ({ not: mockInNot }));
-const mockSelectIn = jest.fn(() => ({ eq: mockInEq }));
+// listarProductosConStockBajo encadena select('*').in().order().
+const mockSelectIn = jest.fn(() => ({ eq: mockInEq, order: mockInOrder }));
 const mockSelect = jest.fn(() => ({ eq: mockSelectEq, in: mockSelectIn }));
 
 jest.mock('../lib/supabase', () => ({
@@ -40,7 +41,10 @@ import {
   editarProducto,
   eliminarProducto,
   eliminarProductosAgotados,
+  estadoStock,
+  estadoStockDeGrupo,
   estadoVencimiento,
+  etiquetaStock,
   etiquetaVencimiento,
   filtrarProductos,
   diasDelMesCalendario,
@@ -48,12 +52,16 @@ import {
   formatearFechaCorta,
   formatearFechaISO,
   listarProductos,
+  listarProductosConStockBajo,
   listarProductosProximosAVencer,
   nombreConMarca,
   ordenarLotes,
   parsearNumero,
   productosAgotadosLimpiables,
+  productosConStockBajo,
+  productosConVencimiento,
   productosProximosAVencer,
+  stockMinimoDelGrupo,
 } from './productos';
 import type { DatosProducto } from './productos';
 import type { Producto } from '../types/database';
@@ -814,5 +822,128 @@ describe('eliminarProductosAgotados', () => {
     expect(eqCantidad).toHaveBeenCalledWith('cantidad', 0);
     expect(eqStock).toHaveBeenCalledWith('stock_minimo', 0);
     expect(borrados).toBe(2);
+  });
+});
+
+describe('estadoStock', () => {
+  // Plan de testing, Sprint 8: el valor exacto, uno arriba y uno abajo.
+  it('con el valor justo en el mínimo no hay alerta (es estricto: "por debajo")', () => {
+    expect(estadoStock(3, 3)).toBeNull();
+  });
+
+  it('uno arriba del mínimo no hay alerta', () => {
+    expect(estadoStock(4, 3)).toBeNull();
+  });
+
+  it('uno abajo del mínimo es "bajo"', () => {
+    expect(estadoStock(2, 3)).toBe('bajo');
+  });
+
+  it('funciona con decimales (0,4 kg con mínimo 0,5 kg)', () => {
+    expect(estadoStock(0.4, 0.5)).toBe('bajo');
+    expect(estadoStock(0.5, 0.5)).toBeNull();
+  });
+
+  it('cantidad 0 con mínimo cargado es "agotado"', () => {
+    expect(estadoStock(0, 3)).toBe('agotado');
+  });
+
+  it('sin mínimo cargado nunca alerta, ni siquiera agotado', () => {
+    expect(estadoStock(0, 0)).toBeNull();
+    expect(estadoStock(5, 0)).toBeNull();
+  });
+});
+
+describe('stockMinimoDelGrupo / estadoStockDeGrupo', () => {
+  it('toma el mínimo más exigente entre los lotes', () => {
+    const lotes = [producto({ stock_minimo: 0 }), producto({ stock_minimo: 3 }), producto({ stock_minimo: 2 })];
+    expect(stockMinimoDelGrupo({ lotes })).toBe(3);
+  });
+
+  it('compara el TOTAL de los lotes contra el mínimo, no cada lote suelto', () => {
+    const lotes = [producto({ cantidad: 1, stock_minimo: 3 }), producto({ cantidad: 4, stock_minimo: 0 })];
+    expect(estadoStockDeGrupo({ lotes, cantidadTotal: 5 })).toBeNull();
+    expect(estadoStockDeGrupo({ lotes, cantidadTotal: 2 })).toBe('bajo');
+  });
+});
+
+describe('etiquetaStock', () => {
+  it('arma el texto de cada estado', () => {
+    expect(etiquetaStock('agotado', 3)).toBe('Sin stock');
+    expect(etiquetaStock('bajo', 3)).toBe('Stock bajo (mín. 3)');
+    expect(etiquetaStock(null, 3)).toBeNull();
+  });
+});
+
+describe('productosConStockBajo', () => {
+  it('agrupa por hogar y producto, y pone primero lo más urgente', () => {
+    const lista = [
+      producto({ id: 'a', hogar_id: 'h1', nombre: 'Leche', unidad: 'l', cantidad: 1, stock_minimo: 2 }),
+      producto({ id: 'b', hogar_id: 'h1', nombre: 'Leche', unidad: 'l', cantidad: 3, stock_minimo: 0 }),
+      producto({ id: 'c', hogar_id: 'h1', nombre: 'Huevos', unidad: 'unidad', cantidad: 2, stock_minimo: 12 }),
+      producto({ id: 'd', hogar_id: 'h2', nombre: 'Leche', unidad: 'l', cantidad: 0, stock_minimo: 1 }),
+      producto({ id: 'e', hogar_id: 'h2', nombre: 'Pan', unidad: 'unidad', cantidad: 0, stock_minimo: 0 }),
+    ];
+
+    const resultado = productosConStockBajo(lista);
+
+    // Leche de h1 suma 4 >= 2: sin alerta. Pan sin mínimo: sin alerta.
+    expect(resultado.map((a) => [a.hogarId, a.nombre, a.estado])).toEqual([
+      ['h2', 'Leche', 'agotado'],
+      ['h1', 'Huevos', 'bajo'],
+    ]);
+    expect(resultado[1]).toMatchObject({ cantidadTotal: 2, stockMinimo: 12, unidad: 'unidad' });
+  });
+
+  it('devuelve [] si nada está por debajo del mínimo', () => {
+    expect(productosConStockBajo([producto({ cantidad: 5, stock_minimo: 2 })])).toEqual([]);
+  });
+});
+
+describe('listarProductosConStockBajo', () => {
+  it('no consulta Supabase si no hay hogares', async () => {
+    await expect(listarProductosConStockBajo([])).resolves.toEqual([]);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('filtra explícitamente por los hogarIds recibidos (no solo RLS) y calcula las alertas', async () => {
+    mockInOrder.mockResolvedValue({
+      data: [producto({ hogar_id: 'hogar-1', nombre: 'Yerba', cantidad: 0, stock_minimo: 1 })],
+      error: null,
+    });
+
+    const resultado = await listarProductosConStockBajo(['hogar-1', 'hogar-2']);
+
+    expect(from).toHaveBeenCalledWith('productos');
+    expect(mockSelectIn).toHaveBeenCalledWith('hogar_id', ['hogar-1', 'hogar-2']);
+    expect(resultado.map((a) => a.nombre)).toEqual(['Yerba']);
+  });
+
+  it('propaga el error si falla la consulta', async () => {
+    mockInOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
+    await expect(listarProductosConStockBajo(['hogar-1'])).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('productosConVencimiento', () => {
+  it('incluye todos los que tienen fecha (vencidos, próximos, lejanos y con alerta apagada) en orden de vencimiento', () => {
+    const lejano = producto({ id: 'lejano', nombre: 'Arroz', fecha_vencimiento: '2027-05-01' });
+    const vencido = producto({ id: 'vencido', nombre: 'Yogur', fecha_vencimiento: '2026-09-01' });
+    const sinAlerta = producto({ id: 'sinAlerta', nombre: 'Queso', fecha_vencimiento: '2026-10-20', alerta_vencimiento_habilitada: false });
+    const proximo = producto({ id: 'proximo', nombre: 'Leche', fecha_vencimiento: '2026-09-16' });
+    const sinFecha = producto({ id: 'sinFecha', nombre: 'Sal', fecha_vencimiento: null });
+
+    const resultado = productosConVencimiento([lejano, sinFecha, sinAlerta, vencido, proximo]);
+
+    expect(resultado.map((p) => p.id)).toEqual(['vencido', 'proximo', 'sinAlerta', 'lejano']);
+  });
+
+  it('a igual fecha ordena por nombre y no modifica la lista original', () => {
+    const lista = [
+      producto({ id: 'b', nombre: 'Manteca', fecha_vencimiento: '2026-10-01' }),
+      producto({ id: 'a', nombre: 'Crema', fecha_vencimiento: '2026-10-01' }),
+    ];
+    expect(productosConVencimiento(lista).map((p) => p.id)).toEqual(['a', 'b']);
+    expect(lista.map((p) => p.id)).toEqual(['b', 'a']);
   });
 });
