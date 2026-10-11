@@ -432,3 +432,28 @@ nativa, antes de armar el build.
 --profile development --platform android`): cambian módulos nativos
 (`react-native`, `expo-dev-client`, `expo-asset`, más `expo-notifications`
 y `expo-device` de las notificaciones).
+
+## 11. Links viejos de Open Food Facts en `productos_catalogo.imagen_url`
+
+**Pregunta del equipo:** ¿se sigue usando `imagen_url`? Si se borran los
+links viejos, ¿se pierde el respaldo?
+
+**Lo que había:** 65 filas con `imagen_url`: 64 links a Open Food Facts de
+antes de que las fotos pasaran al repo (`assets/catalogo`), y 1 foto de una
+sugerencia aprobada (Mandioca, en el bucket `catalogo-sugerencias`).
+
+**Análisis:** la app muestra primero la foto local y solo usa `imagen_url` si
+no hay (`imagenDeCatalogo`). Se verificó con la misma regla de nombres que
+usa la app (`slugCatalogo`) que **los 64 tienen foto local** (archivo y
+entrada en el mapa generado), así que esos links no se mostraban nunca. No
+eran un respaldo real: la foto local viaja dentro de la app, y si alguna
+faltara, el "respaldo" mostraría la foto vieja de Open Food Facts, varias de
+ellas reemplazadas por estar mal o tener marca (incidentes-sprint5-6.md #17).
+
+**Solución:** migración
+[20261014120000_quitar_links_open_food_facts.sql](../supabase/migrations/20261014120000_quitar_links_open_food_facts.sql)
+(ya aplicada): pone en null solo los links de Open Food Facts. Queda
+`imagen_url` solo en Mandioca. La columna se mantiene porque es donde quedan
+las fotos de las sugerencias aprobadas. Los créditos de las fotos
+(`creditos.json`) no cambian: los enlaces de ahí son la atribución que exige
+la licencia, no la foto que se muestra.
