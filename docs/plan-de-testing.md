@@ -445,7 +445,7 @@ agotados" no cambiaron de comportamiento).
 
 Rama `feature/notificaciones` (PR apilado sobre el #15). Detalle en
 [incidentes-sprint10.md](incidentes-sprint10.md). **Requiere** la migración
-`20261012120000_notificaciones.sql` aplicada y un **development build nuevo**
+`20261012120000_notificaciones.sql` aplicada (**ya aplicada** el 2026-10-11, con `get_advisors` sin hallazgos nuevos) y un **development build nuevo**
 (`expo-notifications` es nativo). El push con la app cerrada además requiere
 Firebase configurado (pasos en incidentes-sprint10 #1); sin Firebase, los
 vencimientos igual llegan por el plan B local.

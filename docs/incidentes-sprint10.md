@@ -8,7 +8,14 @@ el PR #15. Mismo espíritu que
 [incidentes-sprint9.md](incidentes-sprint9.md).
 
 Migración nueva:
-[20261012120000_notificaciones.sql](../supabase/migrations/20261012120000_notificaciones.sql).
+[20261012120000_notificaciones.sql](../supabase/migrations/20261012120000_notificaciones.sql),
+**ya aplicada** en el proyecto de Supabase (2026-10-11). Verificado por SQL:
+`pg_net` (en `extensions`) y `pg_cron` instalados, tablas `notificaciones` y
+`push_tokens`, los 4 triggers, el job `notificar-vencimientos` (`0 12 * * *`),
+`notificaciones` en Realtime, y permisos: `authenticated` no puede insertar
+notificaciones ni editar más que `leida`, no ve `push_tokens`, no puede
+correr el job, y de `usuarios` solo edita `nombre` y `dias_aviso_vencimiento`.
+`get_advisors` (seguridad): sin hallazgos nuevos salvo los esperados (ver #4).
 
 ---
 
@@ -104,6 +111,31 @@ existe no hacen nada, las notificaciones de expulsión/rechazo van con
 `hogar_id = null`, y el de stock no se dispara en `DELETE`. El envío del push
 atrapa cualquier error (`exception when others`): un push que falla nunca
 impide guardar la notificación.
+
+---
+
+## 4. `pg_net` quedó instalado en el esquema `public` — *error de implementación*
+
+**Síntoma:** después de aplicar la migración, `get_advisors` (seguridad) marcó
+*Extension in Public: pg_net*.
+
+**Causa:** la migración decía `create extension if not exists pg_net;` sin
+esquema, y Postgres la instaló en `public` (expuesto por la API).
+
+**Solución:** `pg_net` no se puede mover (`extrelocatable = false`), así que
+se reinstaló: `drop extension pg_net; create extension pg_net with schema
+extensions;` (migración `pg_net_en_schema_extensions` aplicada en el
+proyecto; la cola de pedidos estaba vacía y nada dependía de la extensión).
+Sus funciones siguen en el esquema `net`, así que `enviar_push_notificacion`
+no cambió. El archivo de la migración del repo ya crea la extensión con
+`with schema extensions`, para que en un proyecto nuevo no vuelva a pasar.
+Después de esto, `get_advisors` solo muestra lo esperado: el warning ya
+aceptado de "SECURITY DEFINER ejecutable" (incidentes-sprint1.md #7), ahora
+también para las RPCs de push, y un INFO de que `push_tokens` tiene RLS sin
+policies, que es a propósito (solo se accede por RPC).
+
+**Lección:** al crear una extensión en Supabase, indicar siempre `with schema
+extensions`.
 
 ---
 

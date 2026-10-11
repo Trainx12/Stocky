@@ -20,7 +20,10 @@
 -- Ver docs/arquitectura-del-codigo.md (sección de notificaciones) y
 -- docs/incidentes-sprint10.md.
 
-create extension if not exists pg_net;
+-- pg_net en el esquema `extensions` (no en `public`, que el linter de
+-- seguridad marca: queda expuesto en la API). Sus funciones viven igual en
+-- el esquema `net` (net.http_post). Ver incidentes-sprint10.md #4.
+create extension if not exists pg_net with schema extensions;
 create extension if not exists pg_cron;
 
 -- ---------------------------------------------------------------------------
