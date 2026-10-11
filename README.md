@@ -129,6 +129,32 @@ Para las **notificaciones push con la app cerrada** hace falta además
 configurar Firebase y cargar sus credenciales en EAS: ver
 [docs/incidentes-sprint10.md](docs/incidentes-sprint10.md) #1.
 
+### APK para instalar sin la compu (perfil `preview`)
+
+El development build necesita que alguien tenga `npx expo start` corriendo
+en su compu. Para instalar Stocky en cualquier Android **sin** eso, se arma
+una APK con el perfil `preview` de `eas.json`: trae todo el código adentro.
+
+1. **Una sola vez:** cargar en EAS las dos variables públicas de Supabase
+   (las del `.env`, que no se sube porque está en `.gitignore`):
+   ```bash
+   npx eas-cli env:create --environment preview --name EXPO_PUBLIC_SUPABASE_URL --value "<la URL del .env>" --visibility plaintext
+   npx eas-cli env:create --environment preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<la key del .env>" --visibility plaintext
+   ```
+   Son públicas a propósito (van dentro de la app); no cargar acá las keys
+   de OCR/Gemini, que son secrets de las Edge Functions.
+2. Parado en la rama con todo lo que se quiere incluir:
+   ```bash
+   npx eas-cli build --profile preview --platform android
+   ```
+3. Al terminar, EAS da un link y un QR: se abre desde el celular, se
+   descarga la APK y se instala (Android pide permitir "instalar apps de
+   fuentes desconocidas"). El mismo link sirve para todo el equipo.
+
+Cada cambio de código necesita una APK nueva (no hay hot reload). Para los
+push con la app cerrada sigue haciendo falta Firebase (ver
+[docs/incidentes-sprint10.md](docs/incidentes-sprint10.md) #1).
+
 ## Tests
 
 ```bash
