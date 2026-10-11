@@ -891,6 +891,11 @@ export function HomeScreen() {
         {/* Se mantiene visible mientras no exista una pantalla de Perfil
             propia desde donde cerrar sesión. */}
         <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} style={styles.signOutButton} />
+        {/* Los términos siempre se pueden volver a leer (también lo dicen
+            ellos mismos, punto 12). */}
+        <Pressable onPress={() => navigation.navigate('Terminos')} style={styles.terminosLink} accessibilityRole="link">
+          <Text style={styles.terminosLinkTexto}>Términos y Condiciones</Text>
+        </Pressable>
       </ScrollView>
 
       <BottomNavBar active="home" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
@@ -1215,6 +1220,15 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.primary,
     textAlign: 'center',
+  },
+  terminosLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+  },
+  terminosLinkTexto: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
   },
   signOutButton: {
     marginTop: spacing.md,

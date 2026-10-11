@@ -8,6 +8,9 @@
 export type AuthStackParamList = {
   Welcome: undefined;
   Onboarding: undefined;
+  // Términos y Condiciones antes del login (después del onboarding): hay
+  // que aceptarlos para seguir.
+  Terminos: undefined;
   Login: undefined;
 };
 
@@ -43,6 +46,8 @@ export type AppStackParamList = {
   // Campanita: notificaciones recientes + preferencias de aviso (ver
   // services/notificaciones.ts).
   Notificaciones: undefined;
+  // Términos y Condiciones de solo lectura (enlace desde Home).
+  Terminos: undefined;
 };
 
 // Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer

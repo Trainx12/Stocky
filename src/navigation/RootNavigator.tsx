@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,6 +12,8 @@ import { AdminSugerenciasScreen } from '../screens/AdminSugerenciasScreen';
 import { AdminUsuariosScreen } from '../screens/AdminUsuariosScreen';
 import { CuentaDeshabilitadaScreen } from '../screens/CuentaDeshabilitadaScreen';
 import { NotificacionesScreen } from '../screens/NotificacionesScreen';
+import { TerminosPrevioScreen, TerminosVerScreen, TerminosVista } from '../screens/TerminosScreen';
+import { aceptarTerminos, necesitaAceptarTerminos, registrarAceptacionPendiente } from '../services/terminos';
 import { navegacion } from './navegacion';
 import { colors } from '../theme';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
@@ -25,6 +27,7 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
       <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
+      <AuthStack.Screen name="Terminos" component={TerminosPrevioScreen} />
       <AuthStack.Screen name="Login" component={LoginScreen} />
     </AuthStack.Navigator>
   );
@@ -48,6 +51,8 @@ function AppNavigator() {
       <AppStack.Screen name="AdminUsuarios" component={AdminUsuariosScreen} />
       {/* Campanita: notificaciones del propio usuario (cualquier rol). */}
       <AppStack.Screen name="Notificaciones" component={NotificacionesScreen} />
+      {/* Términos y Condiciones de solo lectura (enlace en Home). */}
+      <AppStack.Screen name="Terminos" component={TerminosVerScreen} />
     </AppStack.Navigator>
   );
 }
@@ -58,7 +63,26 @@ function AppNavigator() {
  * usuario con sesión válida entra al stack principal, sin importar su rol.
  */
 export function RootNavigator() {
-  const { session, loading, usuario } = useAuth();
+  const { session, loading, usuario, refreshUsuario } = useAuth();
+  const faltanTerminos = session !== null && necesitaAceptarTerminos(usuario);
+  // true mientras se intenta registrar una aceptación hecha antes del login
+  // (en ese caso no hay que volver a mostrar los términos).
+  const [registrandoPendiente, setRegistrandoPendiente] = useState(false);
+
+  // Si la cuenta no aceptó la versión vigente pero en este celular se
+  // aceptó antes de loguearse (después del onboarding), se registra solo.
+  useEffect(() => {
+    if (!faltanTerminos) return;
+    let cancelado = false;
+    setRegistrandoPendiente(true);
+    registrarAceptacionPendiente().then(async (registrado) => {
+      if (registrado) await refreshUsuario();
+      if (!cancelado) setRegistrandoPendiente(false);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [faltanTerminos]);
 
   // Todavía no sabemos si hay sesión guardada o no: mostramos un spinner
   // en vez de "parpadear" entre Welcome y Home mientras se resuelve.
@@ -75,6 +99,28 @@ export function RootNavigator() {
   // explícito: mientras el perfil carga (`usuario` null) no se asume nada.
   if (session && usuario?.habilitado === false) {
     return <CuentaDeshabilitadaScreen />;
+  }
+
+  // Logueado sin haber aceptado la versión vigente de los Términos (cuentas
+  // anteriores a los términos, o una versión nueva): no se entra a la app
+  // hasta aceptarlos. Ver services/terminos.ts.
+  if (faltanTerminos) {
+    if (registrandoPendiente) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      );
+    }
+    return (
+      <TerminosVista
+        modo="aceptar"
+        onAceptar={async () => {
+          await aceptarTerminos();
+          await refreshUsuario();
+        }}
+      />
+    );
   }
 
   // Con o sin sesión, se muestra un stack completo distinto.

@@ -74,6 +74,10 @@ export interface Usuario {
   // default 7). Un producto puede tener su propio valor que pisa este (ver
   // Producto.dias_aviso_vencimiento y la migración 20261012120000_notificaciones.sql).
   dias_aviso_vencimiento: number;
+  // Qué versión de los Términos y Condiciones aceptó y cuándo (null = nunca).
+  // Ver src/legal/terminos.ts y la migración 20261013120000_terminos_aceptados.sql.
+  terminos_version: string | null;
+  terminos_aceptados_at: string | null;
   created_at: string;
 }
 
@@ -354,6 +358,11 @@ export interface Database {
       };
       eliminar_push_token: {
         Args: { p_token: string };
+        Returns: void;
+      };
+      // Constancia de aceptación de los términos (ver services/terminos.ts).
+      aceptar_terminos: {
+        Args: { p_version: string };
         Returns: void;
       };
     };

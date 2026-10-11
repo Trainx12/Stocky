@@ -492,6 +492,37 @@ días).
 
 ---
 
+## Términos y Condiciones (Sprint 10)
+
+Rama `feature/terminos-y-condiciones`. Requiere la migración
+`20261013120000_terminos_aceptados.sql` aplicada.
+
+**Ruta crítica:**
+1. Sin sesión: Bienvenida → Onboarding → **Términos**. "Aceptar y continuar"
+   está deshabilitado hasta tildar la casilla; al aceptar va al Login.
+2. Login → entra directo a la app (no vuelve a pedir los términos) y en la
+   base queda `terminos_version` y `terminos_aceptados_at` (Claude lo puede
+   verificar por SQL).
+3. Una cuenta que ya existía (sin `terminos_version`) → al abrir la app ve
+   los términos con el aviso "Actualizamos los términos" y no puede usar la
+   app hasta aceptarlos.
+4. Home → enlace "Términos y Condiciones" → solo lectura, con flecha para
+   volver.
+5. Créditos al final: "Ver los 257 créditos de fotos" despliega la lista;
+   tocar una foto abre su página de origen.
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, tests de
+`services/terminos.ts` y de `src/legal/` (incluido que cada foto del
+`creditos.json` real tenga autor, licencia y enlace), y probado en el
+navegador el paso 1 completo (incluida la pantalla a 375 px) y que la versión
+aceptada queda guardada. **No hecho:** pasos 2 y 3 (requieren login con Google).
+
+**Regresión obligatoria:** login y onboarding (Sprint 1) y la entrada a la app
+de una cuenta deshabilitada (sigue viendo "Cuenta deshabilitada", no los
+términos).
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**

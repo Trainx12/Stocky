@@ -57,10 +57,11 @@ export function OnboardingScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {/* En el último slide el botón pasa a Login; antes, solo avanza el índice */}
+      {/* En el último slide el botón pasa a los Términos y Condiciones (hay
+          que aceptarlos antes del Login); antes, solo avanza el índice */}
       <Button
         label={isLast ? 'Continuar' : 'Siguiente'}
-        onPress={() => (isLast ? navigation.navigate('Login') : setIndex((i) => i + 1))}
+        onPress={() => (isLast ? navigation.navigate('Terminos') : setIndex((i) => i + 1))}
       />
     </ScreenContainer>
   );

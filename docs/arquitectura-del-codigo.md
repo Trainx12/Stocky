@@ -533,6 +533,23 @@ criterio que `actividad_hogar`).
 
 ---
 
+## 5bis. `src/legal/` — Términos y Condiciones y créditos
+
+Todo el texto legal vive como datos en `src/legal/terminos.ts` (versión
+vigente, secciones, servicios y software usados) y los créditos de las fotos
+en `src/legal/creditos.ts`, que importa `assets/catalogo/creditos.json` (la
+misma fuente que genera `CREDITOS.md`, así una foto nueva aparece sola).
+`screens/TerminosScreen.tsx` solo lo muestra, en tres modos: antes del login
+(después del onboarding), "aceptar" (logueado sin la versión vigente:
+`RootNavigator` no deja entrar hasta aceptar) y solo lectura (enlace en Home).
+`services/terminos.ts` registra la aceptación en la base
+(`usuarios.terminos_version`/`terminos_aceptados_at`, RPC `aceptar_terminos`);
+lo aceptado antes del login se guarda en AsyncStorage y se registra al
+iniciar sesión. Cambiar algo de fondo = subir `VERSION_TERMINOS` (se vuelve a
+pedir a todos). Ver [incidentes-sprint10.md](incidentes-sprint10.md).
+
+---
+
 ## 6. `src/context/AuthContext.tsx` — quién está logueado y con qué rol
 
 Es la única fuente de verdad de sesión + perfil de usuario para el

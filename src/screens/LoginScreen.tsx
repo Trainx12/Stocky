@@ -37,9 +37,10 @@ export function LoginScreen() {
       </View>
       <View style={styles.bottom}>
         <Button label="Continuar con Google" onPress={handleGoogleLogin} loading={loading} />
+        {/* Los términos ya se aceptaron en la pantalla anterior (ver
+            TerminosScreen); acá solo se recuerda. */}
         <Text style={styles.legal}>
-          Al continuar aceptás que Stocky organice el inventario de tu hogar. Podés eliminar tu
-          cuenta cuando quieras.
+          Al continuar, iniciás sesión de acuerdo con los Términos y Condiciones que aceptaste.
         </Text>
       </View>
     </ScreenContainer>
