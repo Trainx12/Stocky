@@ -396,9 +396,11 @@ proyecto de Supabase antes de probar (ver incidentes-sprint3 #4 y sprint4 #1).
 vencimiento), más:
 1. Home muestra como máximo 4 productos por vencer y 4 de stock bajo, con
    "Ver todos" → abre la despensa con el filtro ya aplicado.
-2. En la despensa, el chip "Por vencer" deja solo los lotes próximos a vencer
-   o vencidos, ordenados del más urgente al menos urgente; "Stock bajo" deja
-   solo los productos por debajo del mínimo. Tocar el chip de nuevo lo saca.
+2. En la despensa, el chip "Por vencer" muestra TODOS los productos con fecha
+   de vencimiento cargada (vencidos, próximos, lejanos y también los que
+   tienen la alerta apagada), en el orden en que vencen; los que no tienen
+   fecha no aparecen. "Stock bajo" deja solo los productos por debajo del
+   mínimo. Tocar el chip de nuevo lo saca.
 
 **Comportamiento esperado al deshabilitar con la sesión abierta:** los datos
 se cortan en el momento (la base rechaza todo); la pantalla pasa a "Cuenta

@@ -608,6 +608,22 @@ export function productosProximosAVencer(productos: Producto[], hoy: Date = new 
     .sort((a, b) => (a.fecha_vencimiento ?? '').localeCompare(b.fecha_vencimiento ?? ''));
 }
 
+// Todos los productos que tienen fecha de vencimiento cargada, en el orden en
+// que van a vencer (los ya vencidos primero, porque su fecha es la más vieja).
+// La usa el filtro "Por vencer" de ProductosScreen: a diferencia de
+// productosProximosAVencer (el dashboard, solo lo urgente), acá entra
+// cualquier producto con fecha, aunque falte mucho o tenga la alerta apagada
+// -- es la vista para planificar qué consumir primero. A igual fecha, por
+// nombre, para que el orden sea estable.
+export function productosConVencimiento(productos: Producto[]): Producto[] {
+  return productos
+    .filter((p) => !!p.fecha_vencimiento)
+    .sort(
+      (a, b) =>
+        (a.fecha_vencimiento as string).localeCompare(b.fecha_vencimiento as string) || a.nombre.localeCompare(b.nombre),
+    );
+}
+
 // Productos próximos a vencer o vencidos de varios hogares a la vez (los
 // del usuario logueado), para el dashboard. Recibe `hogarIds` explícito en
 // vez de dejar que la RLS filtre sola -- mismo motivo que listarProductos

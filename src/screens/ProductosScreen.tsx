@@ -21,7 +21,7 @@ import {
   listarProductos,
   nombreConMarca,
   productosAgotadosLimpiables,
-  productosProximosAVencer,
+  productosConVencimiento,
   stockMinimoDelGrupo,
 } from '../services/productos';
 import type { EstadoStock } from '../services/productos';
@@ -47,8 +47,8 @@ export function ProductosScreen({ route, navigation }: Props) {
   const [busqueda, setBusqueda] = useState('');
   // null = "Todas" (sin filtrar por categoría).
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
-  // Filtro de alertas (null = sin filtro): "Por vencer" deja solo los lotes
-  // próximos a vencer o vencidos, ordenados por fecha; "Stock bajo", solo los
+  // Filtro de alertas (null = sin filtro): "Por vencer" deja todos los lotes
+  // con fecha de vencimiento, en el orden en que vencen; "Stock bajo", solo los
   // productos por debajo de su mínimo. Se combina con búsqueda y categoría.
   const [filtroAlerta, setFiltroAlerta] = useState<FiltroAlerta | null>(filtroInicial ?? null);
   const [formVisible, setFormVisible] = useState(false);
@@ -116,14 +116,15 @@ export function ProductosScreen({ route, navigation }: Props) {
   }, [productos]);
 
   // Cuántos hay de cada alerta, para el texto de los chips.
-  const cantidadPorVencer = useMemo(() => productosProximosAVencer(productos).length, [productos]);
+  const cantidadPorVencer = useMemo(() => productosConVencimiento(productos).length, [productos]);
 
   // Lo que se ve en la lista: las filas del mismo producto (distinta marca o
   // vencimiento) juntas bajo un solo nombre. Con "Por vencer", se agrupan
-  // solo los lotes en alerta y en orden de fecha (agruparProductos respeta el
-  // orden de entrada, así el producto que vence antes queda primero).
+  // solo los lotes con fecha y en orden de fecha (agruparProductos respeta el
+  // orden de entrada, así el producto que vence antes queda primero; los
+  // lotes sin fecha de ese mismo producto no se muestran).
   const grupos = useMemo(() => {
-    if (filtroAlerta === 'porVencer') return agruparProductos(productosProximosAVencer(productosFiltrados));
+    if (filtroAlerta === 'porVencer') return agruparProductos(productosConVencimiento(productosFiltrados));
     const todos = agruparProductos(productosFiltrados);
     return filtroAlerta === 'stockBajo' ? todos.filter((g) => stockPorProducto.has(g.clave)) : todos;
   }, [productosFiltrados, filtroAlerta, stockPorProducto]);
@@ -405,7 +406,7 @@ export function ProductosScreen({ route, navigation }: Props) {
             {productos.length === 0
               ? 'Todavía no hay productos en este hogar.'
               : filtroAlerta === 'porVencer'
-                ? 'No hay productos por vencer en los próximos días.'
+                ? 'Ningún producto tiene fecha de vencimiento cargada.'
                 : filtroAlerta === 'stockBajo'
                   ? 'Ningún producto está por debajo de su stock mínimo.'
                   : 'Ningún producto coincide con la búsqueda.'}

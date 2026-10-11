@@ -59,6 +59,7 @@ import {
   parsearNumero,
   productosAgotadosLimpiables,
   productosConStockBajo,
+  productosConVencimiento,
   productosProximosAVencer,
   stockMinimoDelGrupo,
 } from './productos';
@@ -921,5 +922,28 @@ describe('listarProductosConStockBajo', () => {
   it('propaga el error si falla la consulta', async () => {
     mockInOrder.mockResolvedValue({ data: null, error: new Error('fallo de red') });
     await expect(listarProductosConStockBajo(['hogar-1'])).rejects.toThrow('fallo de red');
+  });
+});
+
+describe('productosConVencimiento', () => {
+  it('incluye todos los que tienen fecha (vencidos, próximos, lejanos y con alerta apagada) en orden de vencimiento', () => {
+    const lejano = producto({ id: 'lejano', nombre: 'Arroz', fecha_vencimiento: '2027-05-01' });
+    const vencido = producto({ id: 'vencido', nombre: 'Yogur', fecha_vencimiento: '2026-09-01' });
+    const sinAlerta = producto({ id: 'sinAlerta', nombre: 'Queso', fecha_vencimiento: '2026-10-20', alerta_vencimiento_habilitada: false });
+    const proximo = producto({ id: 'proximo', nombre: 'Leche', fecha_vencimiento: '2026-09-16' });
+    const sinFecha = producto({ id: 'sinFecha', nombre: 'Sal', fecha_vencimiento: null });
+
+    const resultado = productosConVencimiento([lejano, sinFecha, sinAlerta, vencido, proximo]);
+
+    expect(resultado.map((p) => p.id)).toEqual(['vencido', 'proximo', 'sinAlerta', 'lejano']);
+  });
+
+  it('a igual fecha ordena por nombre y no modifica la lista original', () => {
+    const lista = [
+      producto({ id: 'b', nombre: 'Manteca', fecha_vencimiento: '2026-10-01' }),
+      producto({ id: 'a', nombre: 'Crema', fecha_vencimiento: '2026-10-01' }),
+    ];
+    expect(productosConVencimiento(lista).map((p) => p.id)).toEqual(['a', 'b']);
+    expect(lista.map((p) => p.id)).toEqual(['b', 'a']);
   });
 });

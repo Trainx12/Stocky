@@ -450,10 +450,12 @@ queries "mis X".
 En `ProductosScreen`, el badge de stock va en el encabezado del producto
 (calculado sobre el inventario completo, así buscar o filtrar no lo cambia),
 y dos chips de filtro se combinan con la búsqueda y la categoría: **Por
-vencer** (solo los lotes próximos a vencer o vencidos, ordenados por fecha
-con `productosProximosAVencer`) y **Stock bajo** (solo los productos por
-debajo del mínimo). `HomeScreen` muestra las primeras 4 alertas de cada tipo
-y un "Ver todos" que abre `Productos` con `filtroInicial` ya aplicado.
+vencer** (todos los lotes con fecha de vencimiento, aunque falte mucho o
+tengan la alerta apagada, en el orden en que vencen, con
+`productosConVencimiento`) y **Stock bajo** (solo los productos por debajo
+del mínimo). `HomeScreen` sigue mostrando solo lo urgente
+(`productosProximosAVencer`, las primeras 4 alertas de cada tipo) y un "Ver
+todos" que abre `Productos` con `filtroInicial` ya aplicado.
 
 ### `usuarios.ts` — ABM de usuarios para administradores (RF9 parcial)
 
