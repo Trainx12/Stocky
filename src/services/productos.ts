@@ -35,6 +35,29 @@ export interface DatosProducto {
   catalogoId: string | null;
   // Marca opcional en texto libre (ver migración 20260912120000_productos_marca.sql).
   marca?: string | null;
+  // Opcional: con cuántos días de anticipación avisar que vence ESTE
+  // producto (1-60). Null/undefined = usar la preferencia general del
+  // usuario (usuarios.dias_aviso_vencimiento). Ver migración
+  // 20261012120000_notificaciones.sql.
+  diasAvisoVencimiento?: number | null;
+}
+
+// Rango permitido para los días de aviso (mismo check que la base).
+export const DIAS_AVISO_MINIMO = 1;
+export const DIAS_AVISO_MAXIMO = 60;
+
+// true si `dias` es un valor válido de días de aviso: entero entre 1 y 60.
+export function esDiasAvisoValido(dias: number): boolean {
+  return Number.isInteger(dias) && dias >= DIAS_AVISO_MINIMO && dias <= DIAS_AVISO_MAXIMO;
+}
+
+// Texto del campo "Días de anticipación (opcional)" del formulario -> valor
+// para guardar: vacío = null (usar la preferencia general). Cualquier otra
+// cosa se devuelve como número aunque esté fuera de rango (0, 99): la
+// validación con mensaje legible la hace validar() al guardar.
+export function parsearDiasAviso(texto: string): number | null {
+  const limpio = texto.trim();
+  return limpio === '' ? null : Number(limpio);
 }
 
 // Parsea 'YYYY-MM-DD' como Date en hora LOCAL a medianoche. `new
@@ -77,6 +100,7 @@ function validar(datos: DatosProducto): {
   stockMinimo: number;
   fechaVencimiento: string | null;
   marca: string | null;
+  diasAvisoVencimiento: number | null;
 } {
   const nombre = capitalizar(datos.nombre.trim());
   if (!nombre) throw new Error('El nombre del producto no puede estar vacío');
@@ -95,7 +119,20 @@ function validar(datos: DatosProducto): {
   const marca = datos.marca?.trim() || null;
   if (marca && marca.length > 40) throw new Error('La marca no puede tener más de 40 caracteres');
 
-  return { nombre, categoria, cantidad: datos.cantidad, stockMinimo: datos.stockMinimo, fechaVencimiento, marca };
+  const diasAvisoVencimiento = datos.diasAvisoVencimiento ?? null;
+  if (diasAvisoVencimiento !== null && !esDiasAvisoValido(diasAvisoVencimiento)) {
+    throw new Error(`Los días de aviso tienen que ser un número entero entre ${DIAS_AVISO_MINIMO} y ${DIAS_AVISO_MAXIMO}`);
+  }
+
+  return {
+    nombre,
+    categoria,
+    cantidad: datos.cantidad,
+    stockMinimo: datos.stockMinimo,
+    fechaVencimiento,
+    marca,
+    diasAvisoVencimiento,
+  };
 }
 
 // Minúsculas, sin tildes ni espacios de más: "Lucchetti " ~ "lucchetti".
@@ -163,7 +200,7 @@ export async function listarProductos(hogarId: string): Promise<Producto[]> {
 // fila repetida -- la base solo guarda filas distintas cuando hay algo
 // distinto que distinguir (otra marca u otra fecha).
 export async function crearProducto(hogarId: string, datos: DatosProducto): Promise<Producto> {
-  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca } = validar(datos);
+  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca, diasAvisoVencimiento } = validar(datos);
 
   if (cantidad > 0) {
     const duplicado = buscarDuplicado(await listarProductos(hogarId), {
@@ -188,6 +225,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
       alerta_vencimiento_habilitada: datos.alertaVencimientoHabilitada,
       catalogo_id: datos.catalogoId,
       marca,
+      dias_aviso_vencimiento: diasAvisoVencimiento,
     })
     .select()
     .single();
@@ -203,7 +241,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
 // (nombre/categoría/unidad/catálogo) queda fija desde que se crea, editar
 // solo cambia cantidad/stock/vencimiento (ver ProductoFormModal).
 export async function editarProducto(productoId: string, datos: DatosProducto): Promise<Producto> {
-  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca } = validar(datos);
+  const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca, diasAvisoVencimiento } = validar(datos);
 
   const { data, error } = await supabase
     .from('productos')
@@ -216,6 +254,7 @@ export async function editarProducto(productoId: string, datos: DatosProducto): 
       fecha_vencimiento: fechaVencimiento,
       alerta_vencimiento_habilitada: datos.alertaVencimientoHabilitada,
       marca,
+      dias_aviso_vencimiento: diasAvisoVencimiento,
     })
     .eq('id', productoId)
     .select()
@@ -536,10 +575,28 @@ export function diasDelMesCalendario(anio: number, mesIndiceCero: number): DiaCa
   });
 }
 
-// Ventana de "próximo a vencer": un producto entra en alerta si le quedan
-// esta cantidad de días o menos. Único lugar donde vive este umbral, para
-// no tener que sincronizarlo entre ProductosScreen y HomeScreen si cambia.
-const DIAS_PROXIMO_A_VENCER = 7;
+// Ventana de "próximo a vencer" por defecto: un producto entra en alerta si le
+// quedan esta cantidad de días o menos. Desde las notificaciones (Sprint 10)
+// cada usuario puede elegir otro valor general (usuarios.dias_aviso_vencimiento,
+// que las pantallas pasan como `diasPorDefecto`) y cada producto el suyo
+// propio (productos.dias_aviso_vencimiento), que tiene prioridad. Mismo
+// default que la columna en la base.
+export const DIAS_AVISO_POR_DEFECTO = 7;
+
+// Días de aviso que corresponden a un producto: el suyo si lo tiene, si no
+// la preferencia general. Misma regla que el job diario de vencimientos
+// (generar_notificaciones_vencimiento en la migración de notificaciones).
+export function diasAvisoDe(
+  producto: { dias_aviso_vencimiento?: number | null },
+  diasPorDefecto: number = DIAS_AVISO_POR_DEFECTO,
+): number {
+  return producto.dias_aviso_vencimiento ?? diasPorDefecto;
+}
+
+// Lo mínimo que hace falta de un producto para calcular su vencimiento.
+type ProductoConVencimiento = Pick<Producto, 'fecha_vencimiento' | 'alerta_vencimiento_habilitada'> & {
+  dias_aviso_vencimiento?: number | null;
+};
 
 const MS_POR_DIA = 1000 * 60 * 60 * 24;
 
@@ -562,14 +619,15 @@ export type EstadoVencimiento = 'ok' | 'proximo' | 'vencido';
 // `hoy` es un parámetro (default `new Date()`) para poder testear fechas
 // límite sin mockear el reloj del sistema.
 export function estadoVencimiento(
-  producto: Pick<Producto, 'fecha_vencimiento' | 'alerta_vencimiento_habilitada'>,
+  producto: ProductoConVencimiento,
   hoy: Date = new Date(),
+  diasPorDefecto: number = DIAS_AVISO_POR_DEFECTO,
 ): EstadoVencimiento | null {
   if (!producto.alerta_vencimiento_habilitada || !producto.fecha_vencimiento) return null;
 
   const dias = diasHastaVencimiento(producto.fecha_vencimiento, hoy);
   if (dias < 0) return 'vencido';
-  if (dias <= DIAS_PROXIMO_A_VENCER) return 'proximo';
+  if (dias <= diasAvisoDe(producto, diasPorDefecto)) return 'proximo';
   return 'ok';
 }
 
@@ -579,10 +637,11 @@ export function estadoVencimiento(
 // a propósito: qué estado es vs. cómo se lee son cosas distintas, y este
 // texto no depende de ningún color de theme (lo decide quien lo pinta).
 export function etiquetaVencimiento(
-  producto: Pick<Producto, 'fecha_vencimiento' | 'alerta_vencimiento_habilitada'>,
+  producto: ProductoConVencimiento,
   hoy: Date = new Date(),
+  diasPorDefecto: number = DIAS_AVISO_POR_DEFECTO,
 ): string | null {
-  const estado = estadoVencimiento(producto, hoy);
+  const estado = estadoVencimiento(producto, hoy, diasPorDefecto);
   if (estado !== 'proximo' && estado !== 'vencido') return null;
 
   const dias = diasHastaVencimiento(producto.fecha_vencimiento as string, hoy);
@@ -599,10 +658,14 @@ export function etiquetaVencimiento(
 // 'vencido' (no 'ok' ni sin alerta), ordenados por fecha de vencimiento
 // ascendente (lo más urgente primero). La usa el dashboard (HomeScreen,
 // "Productos próximos a vencer") sobre una lista ya traída de la base.
-export function productosProximosAVencer(productos: Producto[], hoy: Date = new Date()): Producto[] {
+export function productosProximosAVencer(
+  productos: Producto[],
+  hoy: Date = new Date(),
+  diasPorDefecto: number = DIAS_AVISO_POR_DEFECTO,
+): Producto[] {
   return productos
     .filter((p) => {
-      const estado = estadoVencimiento(p, hoy);
+      const estado = estadoVencimiento(p, hoy, diasPorDefecto);
       return estado === 'proximo' || estado === 'vencido';
     })
     .sort((a, b) => (a.fecha_vencimiento ?? '').localeCompare(b.fecha_vencimiento ?? ''));
@@ -633,7 +696,10 @@ export function productosConVencimiento(productos: Producto[]): Producto[] {
 // #2). El filtro de `alerta_vencimiento_habilitada`/`fecha_vencimiento` en
 // la query es solo una optimización (traer menos filas); el filtro real de
 // "próximo o vencido" lo hace productosProximosAVencer sobre el resultado.
-export async function listarProductosProximosAVencer(hogarIds: string[]): Promise<Producto[]> {
+export async function listarProductosProximosAVencer(
+  hogarIds: string[],
+  diasPorDefecto: number = DIAS_AVISO_POR_DEFECTO,
+): Promise<Producto[]> {
   if (hogarIds.length === 0) return [];
 
   const { data, error } = await supabase
@@ -645,5 +711,5 @@ export async function listarProductosProximosAVencer(hogarIds: string[]): Promis
     .order('fecha_vencimiento', { ascending: true });
 
   if (error) throw error;
-  return productosProximosAVencer(data ?? []);
+  return productosProximosAVencer(data ?? [], new Date(), diasPorDefecto);
 }

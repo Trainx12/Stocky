@@ -108,6 +108,16 @@ usan `Alert.alert` real y en web usan `window.alert`/`window.confirm`.
 **Ninguna pantalla o componente debería importar `Alert` de `react-native`
 directo** — siempre pasar por estos dos helpers.
 
+**Desde el Sprint 10 (cartelitos propios):** `App.tsx` monta
+`components/AvisosHost.tsx`, que se registra en este archivo
+(`registrarHostDeAvisos`). Con el host montado, `avisar()` muestra un
+cartelito arriba de la pantalla con el diseño de la app (verde si salió bien,
+coral si falló, violeta si es informativo; se va solo) y `confirmar()` un
+diálogo propio (botón coral si la acción borra o saca algo). La firma no
+cambió: las pantallas siguen llamando igual. El tipo se deduce del título
+(`tipoDeAviso`) o se pasa explícito: `avisar(titulo, mensaje, 'exito')`. Sin
+host (tests), se usa el comportamiento de antes.
+
 ---
 
 ## 5. `src/services/` — llamadas a Supabase que no son simples queries
@@ -481,6 +491,46 @@ UPDATE de la fila propia para que eso pase al instante.
 `filtrarUsuarios` (búsqueda + Todos/Administradores/Deshabilitados) es lógica
 pura testeada aparte.
 
+### Notificaciones: campanita, push y avisos de vencimiento (Sprint 10)
+
+**Las notificaciones las crea la base, nunca la app** (ver
+[20261012120000_notificaciones.sql](../supabase/migrations/20261012120000_notificaciones.sql)
+y [incidentes-sprint10.md](incidentes-sprint10.md)): triggers en
+`hogar_miembros` (solicitudes, invitaciones, aceptaciones, rechazos,
+expulsiones, nuevo dueño), `productos` (cruzar el stock mínimo) y
+`productos_catalogo` (sugerencias), más un job diario de `pg_cron` para los
+vencimientos. Así llegan aunque la acción la haya hecho otra persona desde
+otro celular, y ningún flujo del cliente tiene que acordarse de avisar (mismo
+criterio que `actividad_hogar`).
+
+- **`services/notificaciones.ts`**: leer, contar no leídas, marcar como
+  leídas, borrar, guardar la preferencia general de días de aviso. Lógica
+  pura: `aparienciaNotificacion` (ícono + familia de color),
+  `destinoNotificacion` (a qué pantalla lleva tocarla), `tiempoRelativo`,
+  `textoGlobito` y `calcularAvisosLocales`.
+- **Días de aviso:** `usuarios.dias_aviso_vencimiento` (general, se cambia en
+  la campanita) y `productos.dias_aviso_vencimiento` (opcional, en el
+  formulario del producto; pisa la general). `diasAvisoDe()` en
+  `productos.ts` es la regla, y `estadoVencimiento`/`etiquetaVencimiento`/
+  `productosProximosAVencer` reciben la preferencia general como
+  `diasPorDefecto`; el job del servidor aplica la misma regla.
+- **`context/NotificacionesContext.tsx`**: contador de no leídas, Realtime
+  sobre `notificaciones` (cada nueva muestra un cartelito y avisa a quien se
+  suscribió con `suscribirseANuevas`, por ejemplo el Home para recargar sus
+  alertas), registrar el celular para push al loguearse y desregistrarlo
+  antes del `signOut` (`registrarTareaAntesDeCerrarSesion` en
+  `services/auth.ts`).
+- **`lib/notificacionesPush.ts`** (expo-notifications): push remoto con un
+  token de Expo guardado en `push_tokens` (la base lo manda con `pg_net` a la
+  Expo Push API en cada notificación nueva); necesita development build y
+  Firebase. Si no hay token, **plan B**: programa en el celular los avisos de
+  vencimiento. Con la app abierta no muestra el banner del sistema (ya está
+  el cartelito). En web no hace nada.
+- **`NotificacionesScreen`** (la campanita de la barra de abajo, con el
+  numerito de no leídas): lista nuevas primero, preferencias arriba.
+  `navigation/navegacion.ts` es una referencia global a la navegación para
+  abrirla al tocar una notificación del sistema.
+
 ---
 
 ## 6. `src/context/AuthContext.tsx` — quién está logueado y con qué rol
@@ -609,6 +659,10 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
   switch de habilitado y botón de rol; sin acciones sobre la cuenta propia).
   Mismo gateo que `AdminSugerenciasScreen`: el acceso solo aparece en
   HomeScreen para admins, y la barrera real son las RPCs `admin_*`.
+- **`NotificacionesScreen`**: la campanita (ver "Notificaciones" en la
+  sección 5). Tocar una notificación la marca como leída y lleva a la
+  despensa con el filtro que corresponda, a "Miembros del hogar" (Home recibe
+  `abrirMiembrosDe`), al inicio o a sugerencias.
 - **`CuentaDeshabilitadaScreen`**: lo único que ve una cuenta deshabilitada
   (mensaje + cerrar sesión). La muestra `RootNavigator` en lugar del stack
   principal.

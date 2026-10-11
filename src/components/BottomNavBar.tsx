@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, spacing } from '../theme';
+import { colors, spacing, typography } from '../theme';
+import { textoGlobito } from '../services/notificaciones';
 
 type TabKey = 'home' | 'search' | 'notifications' | 'profile';
 
@@ -21,12 +22,15 @@ interface BottomNavBarProps {
   /**
    * Toque corto en cualquier tab. HomeScreen decide qué hacer: la lupa
    * (search) abre el buscador de la despensa del hogar seleccionado;
-   * notifications/profile todavía muestran un aviso de "próximamente". Crear/unirse a un hogar ya no
+   * notifications abre la campanita (NotificacionesScreen); profile todavía muestra un aviso de
+   * "próximamente". Crear/unirse a un hogar ya no
    * pasa por acá (antes era un long-press sobre "Perfil"): son botones
    * directos debajo de "Tus hogares activos" en HomeScreen, sin gestos
    * escondidos.
    */
   onTabPress?: (tab: TabKey) => void;
+  /** Notificaciones sin leer: si hay alguna, la campanita muestra el número (9+ si son más). */
+  notificacionesSinLeer?: number;
 }
 
 /**
@@ -37,7 +41,7 @@ interface BottomNavBarProps {
  * sprints), este componente se puede reemplazar por un
  * createBottomTabNavigator sin tocar el resto de HomeScreen.
  */
-export function BottomNavBar({ active = 'home', onTabPress }: BottomNavBarProps) {
+export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLeer = 0 }: BottomNavBarProps) {
   // Se resalta el ícono mientras el dedo lo mantiene presionado (feedback
   // visual inmediato del toque, aparte del círculo claro del mockup).
   const [pressedTab, setPressedTab] = useState<TabKey | null>(null);
@@ -50,6 +54,7 @@ export function BottomNavBar({ active = 'home', onTabPress }: BottomNavBarProps)
         const isActive = tab === active;
         const isPressed = tab === pressedTab;
         const iconName = isActive ? ICONS[tab].filled : ICONS[tab].outline;
+        const globito = tab === 'notifications' ? textoGlobito(notificacionesSinLeer) : null;
 
         return (
           <Pressable
@@ -60,11 +65,16 @@ export function BottomNavBar({ active = 'home', onTabPress }: BottomNavBarProps)
             style={styles.tab}
             // Accesibilidad: que un lector de pantalla anuncie qué botón es.
             accessibilityRole="button"
-            accessibilityLabel={tab}
+            accessibilityLabel={globito ? `${tab}, ${notificacionesSinLeer} sin leer` : tab}
           >
             {/* Círculo claro de fondo cuando el tab está activo o siendo presionado, como en el mockup */}
             <View style={[styles.iconWrapper, (isActive || isPressed) && styles.iconWrapperHighlighted]}>
               <Ionicons name={iconName} size={24} color={isActive ? colors.primary : colors.textSecondary} />
+              {globito && (
+                <View style={styles.globito}>
+                  <Text style={styles.globitoTexto}>{globito}</Text>
+                </View>
+              )}
             </View>
           </Pressable>
         );
@@ -97,5 +107,26 @@ const styles = StyleSheet.create({
   },
   iconWrapperHighlighted: {
     backgroundColor: colors.primaryLight,
+  },
+  // Numerito de notificaciones sin leer, arriba a la derecha de la campanita.
+  globito: {
+    position: 'absolute',
+    top: 4,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.danger,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  globitoTexto: {
+    ...typography.caption,
+    color: colors.white,
+    fontSize: 10,
+    lineHeight: 12,
   },
 });

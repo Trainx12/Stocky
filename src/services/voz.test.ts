@@ -52,6 +52,7 @@ function producto(id: string, nombre: string, extra: Partial<Producto> = {}): Pr
     alerta_vencimiento_habilitada: true,
     catalogo_id: null,
     marca: null,
+    dias_aviso_vencimiento: null,
     created_at: '2026-01-01',
     updated_at: '2026-01-01',
     ...extra,

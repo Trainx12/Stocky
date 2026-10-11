@@ -11,7 +11,15 @@ import { fechaUtilizable } from '../services/escaneo';
 import { reconocerFechaPorVoz, reconocerVencimientoDeFoto } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
 import { fechaDeHoy } from '../services/voz';
-import { crearProducto, editarProducto, formatearFechaInput, parsearNumero } from '../services/productos';
+import {
+  crearProducto,
+  DIAS_AVISO_POR_DEFECTO,
+  editarProducto,
+  formatearFechaInput,
+  parsearDiasAviso,
+  parsearNumero,
+} from '../services/productos';
+import { useAuth } from '../context/AuthContext';
 import type { Producto, ProductoCatalogo } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -62,6 +70,11 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // `true` para el toggle, igual que el default de la columna en la base.
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [alertaVencimientoHabilitada, setAlertaVencimientoHabilitada] = useState(true);
+  // Días de aviso propios de este producto, como texto ('' = usar la
+  // preferencia general del usuario, que se muestra como placeholder).
+  const [diasAviso, setDiasAviso] = useState('');
+  const { usuario } = useAuth();
+  const diasAvisoGeneral = usuario?.dias_aviso_vencimiento ?? DIAS_AVISO_POR_DEFECTO;
   // Si el CalendarioPicker está desplegado debajo del campo de fecha (ver
   // botón de calendario).
   const [calendarioVisible, setCalendarioVisible] = useState(false);
@@ -82,6 +95,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
       setStockMinimo(String(producto.stock_minimo));
       setFechaVencimiento(producto.fecha_vencimiento ?? '');
       setAlertaVencimientoHabilitada(producto.alerta_vencimiento_habilitada);
+      setDiasAviso(producto.dias_aviso_vencimiento ? String(producto.dias_aviso_vencimiento) : '');
     } else {
       setCatalogoSeleccionado(null);
       setMarca('');
@@ -89,6 +103,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
       setStockMinimo('0');
       setFechaVencimiento('');
       setAlertaVencimientoHabilitada(true);
+      setDiasAviso('');
     }
     setCalendarioVisible(false);
     setSelectorVisible(false);
@@ -200,6 +215,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             alertaVencimientoHabilitada,
             catalogoId: producto!.catalogo_id,
             marca,
+            diasAvisoVencimiento: parsearDiasAviso(diasAviso),
           }
         : {
             nombre: catalogoSeleccionado!.nombre,
@@ -211,6 +227,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             alertaVencimientoHabilitada,
             catalogoId: catalogoSeleccionado!.id,
             marca,
+            diasAvisoVencimiento: parsearDiasAviso(diasAviso),
           };
       const resultado = editando ? await editarProducto(producto!.id, datos) : await crearProducto(hogarId, datos);
       onSuccess(resultado);
@@ -384,6 +401,32 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               />
             </View>
 
+            {/* Opcional: pisa la preferencia general (campanita) solo para
+                este producto. Vacío = usar la general. */}
+            {alertaVencimientoHabilitada && (
+              <View style={styles.diasAvisoRow}>
+                <Text style={[styles.label, styles.diasAvisoLabel]}>Días de anticipación (opcional)</Text>
+                <TextInput
+                  style={[styles.input, styles.diasAvisoInput]}
+                  keyboardType="number-pad"
+                  placeholder={String(diasAvisoGeneral)}
+                  placeholderTextColor={colors.textSecondary}
+                  value={diasAviso}
+                  onChangeText={(texto) => setDiasAviso(texto.replace(/\D/g, '').slice(0, 2))}
+                  maxLength={2}
+                  editable={!loading}
+                  accessibilityLabel="Con cuántos días de anticipación avisar que vence este producto"
+                />
+              </View>
+            )}
+            {alertaVencimientoHabilitada && (
+              <Text style={styles.diasAvisoAyuda}>
+                {diasAviso
+                  ? `Te avisamos ${diasAviso === '1' ? '1 día' : `${diasAviso} días`} antes de que venza este producto.`
+                  : `Vacío: usa tu preferencia general (${diasAvisoGeneral === 1 ? '1 día' : `${diasAvisoGeneral} días`} antes), que se cambia desde la campanita.`}
+              </Text>
+            )}
+
             {error && <Text style={styles.error}>{error}</Text>}
 
             <Button
@@ -410,6 +453,23 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
 }
 
 const styles = StyleSheet.create({
+  diasAvisoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  diasAvisoLabel: {
+    flex: 1,
+  },
+  diasAvisoInput: {
+    width: 64,
+    textAlign: 'center',
+  },
+  diasAvisoAyuda: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
   grabandoTexto: {
     ...typography.caption,
     color: colors.danger,

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
 import { ScreenContainer } from '../components/ScreenContainer';
@@ -14,6 +15,7 @@ import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
+import { useNotificaciones } from '../context/NotificacionesContext';
 import { signOut } from '../services/auth';
 import {
   cancelarSolicitud,
@@ -69,7 +71,14 @@ import { colors, radius, spacing, typography } from '../theme';
 const MAX_ALERTAS_DASHBOARD = 4;
 export function HomeScreen() {
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
+  const { noLeidas, suscribirseANuevas } = useNotificaciones();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
+  const route = useRoute<RouteProp<AppStackParamList, 'Home'>>();
+  const abrirMiembrosDe = route.params?.abrirMiembrosDe;
+  // Preferencia general "avisarme X días antes" (cada producto puede tener
+  // la suya, ver estadoVencimiento): define qué entra en "Productos próximos
+  // a vencer".
+  const diasAviso = usuario?.dias_aviso_vencimiento;
 
   // Modales de "Crear Nuevo Hogar" y "Unirme a un Hogar" (mismo
   // HogarFormModal, distinto mode), disparados por los botones debajo de
@@ -197,6 +206,20 @@ export function HomeScreen() {
     setHogarSeleccionadoId((activo ?? misHogares[0]).id);
   }, [misHogares, hogarSeleccionadoId, usuario?.hogar_id]);
 
+  // Llegando desde la notificación "X quiere unirse a ...": selecciona ese
+  // hogar y abre "Miembros del hogar" para aceptar o rechazar, apenas la
+  // lista de hogares está cargada. Después se limpia el parámetro para que
+  // no se vuelva a abrir solo.
+  useEffect(() => {
+    if (!abrirMiembrosDe || misHogares.length === 0) return;
+    const hogar = misHogares.find((h) => h.id === abrirMiembrosDe);
+    if (hogar) {
+      setHogarSeleccionadoId(hogar.id);
+      setHogarMiembrosVisible(hogar);
+    }
+    navigation.setParams({ abrirMiembrosDe: undefined });
+  }, [abrirMiembrosDe, misHogares, navigation]);
+
   const cargarActividad = useCallback(async (hogarId: string) => {
     setActividadLoading(true);
     try {
@@ -223,41 +246,40 @@ export function HomeScreen() {
     }, [hogarSeleccionado?.id, cargarActividad]),
   );
 
-  // Se recarga cada vez que cambia la lista de hogares (alta/baja de un
-  // hogar), pasándole los IDs explícitos en vez de dejar que la RLS
-  // filtre sola (mismo motivo que el resto de las queries "mis X" de este
-  // archivo/servicio -- ver docs/incidentes-sprint2.md #2).
-  useEffect(() => {
-    let cancelado = false;
+  // Alertas del dashboard (por vencer + stock bajo) de TODOS mis hogares,
+  // pasándole los IDs explícitos en vez de dejar que la RLS filtre sola
+  // (mismo motivo que el resto de las queries "mis X" de este
+  // archivo/servicio -- ver docs/incidentes-sprint2.md #2). Se recargan al
+  // cambiar la lista de hogares o la preferencia de días, al volver a esta
+  // pantalla (por ejemplo, después de cargar productos) y cuando llega una
+  // notificación de stock o vencimiento.
+  const cargarAlertas = useCallback(async () => {
     const hogarIds = misHogares.map((h) => h.id);
+    const [alertas, porVencer] = await Promise.allSettled([
+      listarProductosConStockBajo(hogarIds),
+      listarProductosProximosAVencer(hogarIds, diasAviso),
+    ]);
+    if (alertas.status === 'fulfilled') setAlertasStock(alertas.value);
+    else console.warn('[Stocky] No se pudieron cargar las alertas de stock:', alertas.reason);
+    if (porVencer.status === 'fulfilled') setProductosPorVencer(porVencer.value);
+    else console.warn('[Stocky] No se pudieron cargar los productos próximos a vencer:', porVencer.reason);
+    setAlertasStockLoading(false);
+    setProductosPorVencerLoading(false);
+  }, [misHogares, diasAviso]);
 
-    setProductosPorVencerLoading(true);
-    setAlertasStockLoading(true);
-    listarProductosConStockBajo(hogarIds)
-      .then((alertas) => {
-        if (!cancelado) setAlertasStock(alertas);
-      })
-      .catch((err) => {
-        console.warn('[Stocky] No se pudieron cargar las alertas de stock:', err);
-      })
-      .finally(() => {
-        if (!cancelado) setAlertasStockLoading(false);
-      });
-    listarProductosProximosAVencer(hogarIds)
-      .then((productos) => {
-        if (!cancelado) setProductosPorVencer(productos);
-      })
-      .catch((err) => {
-        console.warn('[Stocky] No se pudieron cargar los productos próximos a vencer:', err);
-      })
-      .finally(() => {
-        if (!cancelado) setProductosPorVencerLoading(false);
-      });
+  useFocusEffect(
+    useCallback(() => {
+      cargarAlertas();
+    }, [cargarAlertas]),
+  );
 
-    return () => {
-      cancelado = true;
-    };
-  }, [misHogares]);
+  useEffect(
+    () =>
+      suscribirseANuevas((n) => {
+        if (['por_vencer', 'vencido', 'stock_bajo', 'sin_stock'].includes(n.tipo)) cargarAlertas();
+      }),
+    [suscribirseANuevas, cargarAlertas],
+  );
 
   // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
   // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
@@ -270,6 +292,10 @@ export function HomeScreen() {
   // Necesita REPLICA IDENTITY FULL en hogar_miembros (ver migración
   // 20260903120000_solicitudes_hogar.sql) para que el "old record" del
   // payload traiga el estado previo y no solo la primary key.
+  // Desde las notificaciones (Sprint 10) esto SOLO recarga los datos: el
+  // cartelito ("¡Te aceptaron!", "Te sacaron de un hogar"...) lo muestra
+  // NotificacionesContext al llegar la notificación que genera la base, con
+  // el nombre del hogar. Si se avisara también acá, saldrían dos cartelitos.
   useEffect(() => {
     if (!usuario?.id) return;
 
@@ -286,7 +312,6 @@ export function HomeScreen() {
           // filtrar acá (a diferencia de UPDATE/DELETE, más abajo).
           const nueva = payload.new as { origen?: string; estado?: string } | null;
           if (nueva?.origen === 'invitacion' && nueva?.estado === 'pendiente') {
-            avisar('Te invitaron a un hogar', 'Alguien te invitó a sumarte a su hogar. Podés aceptar o rechazar desde Home.');
             cargarMisInvitaciones();
           }
         },
@@ -310,7 +335,6 @@ export function HomeScreen() {
             return;
           }
 
-          avisar('Solicitud aceptada', 'El dueño del hogar aceptó tu solicitud. Ya sos miembro.');
           cargarMisHogares();
           cargarMisSolicitudes();
           refreshUsuario();
@@ -338,11 +362,6 @@ export function HomeScreen() {
             return;
           }
 
-          if (anterior?.estado === 'pendiente') {
-            avisar('Solicitud rechazada', 'El dueño del hogar rechazó tu solicitud para unirte.');
-          } else {
-            avisar('Te sacaron de un hogar', 'Ya no formás parte de ese hogar.');
-          }
           cargarMisHogares();
           cargarMisSolicitudes();
           refreshUsuario();
@@ -496,7 +515,12 @@ export function HomeScreen() {
       handleIrAProductos(false, false, true);
       return;
     }
-    if (tab === 'notifications' || tab === 'profile') {
+    // La campanita abre las notificaciones recientes.
+    if (tab === 'notifications') {
+      navigation.navigate('Notificaciones');
+      return;
+    }
+    if (tab === 'profile') {
       avisar('Próximamente', 'Esta sección todavía no está disponible.');
     }
   }
@@ -721,8 +745,8 @@ export function HomeScreen() {
                 <View style={styles.hogaresList}>
                   {productosPorVencer.slice(0, MAX_ALERTAS_DASHBOARD).map((producto) => {
                     const hogar = misHogares.find((h) => h.id === producto.hogar_id);
-                    const estado = estadoVencimiento(producto);
-                    const etiqueta = etiquetaVencimiento(producto);
+                    const estado = estadoVencimiento(producto, undefined, diasAviso);
+                    const etiqueta = etiquetaVencimiento(producto, undefined, diasAviso);
                     return (
                       <Pressable key={producto.id} style={styles.hogarRow} onPress={() => handleVerProductoPorVencer(producto)}>
                         <View style={styles.hogarInfo}>
@@ -869,7 +893,7 @@ export function HomeScreen() {
         <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} style={styles.signOutButton} />
       </ScrollView>
 
-      <BottomNavBar active="home" onTabPress={handleTabPress} />
+      <BottomNavBar active="home" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
 
       <CatalogoSelectorModal visible={sugerirVisible} soloSugerir onClose={() => setSugerirVisible(false)} />
 

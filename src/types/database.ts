@@ -70,6 +70,10 @@ export interface Usuario {
   email: string;
   rol: RolUsuario;
   habilitado: boolean; // Usado por RF9 (admin habilita/deshabilita usuarios)
+  // Con cuántos días de anticipación avisar que vence un producto (1-60,
+  // default 7). Un producto puede tener su propio valor que pisa este (ver
+  // Producto.dias_aviso_vencimiento y la migración 20261012120000_notificaciones.sql).
+  dias_aviso_vencimiento: number;
   created_at: string;
 }
 
@@ -98,8 +102,44 @@ export interface Producto {
   // Texto libre opcional ("Lucchetti"): distingue dos paquetes del mismo
   // producto del catálogo con vencimientos distintos.
   marca: string | null;
+  // Días de anticipación del aviso de vencimiento SOLO para este producto
+  // (1-60). Null = usar la preferencia general del usuario.
+  dias_aviso_vencimiento: number | null;
   created_at: string;
   updated_at: string;
+}
+
+// Qué pasó, para elegir ícono/color y a dónde lleva tocar la notificación.
+// Mismos valores que el check de la columna notificaciones.tipo.
+export type TipoNotificacion =
+  | 'solicitud_recibida'
+  | 'solicitud_aceptada'
+  | 'solicitud_rechazada'
+  | 'invitacion_recibida'
+  | 'invitacion_aceptada'
+  | 'expulsado'
+  | 'ahora_sos_dueno'
+  | 'por_vencer'
+  | 'vencido'
+  | 'stock_bajo'
+  | 'sin_stock'
+  | 'sugerencia_nueva'
+  | 'sugerencia_aprobada'
+  | 'sugerencia_rechazada';
+
+// Espejo de la tabla public.notificaciones (campanita). Las filas las crean
+// triggers y un job diario en Postgres, nunca la app.
+export interface Notificacion {
+  id: string;
+  usuario_id: string;
+  tipo: TipoNotificacion;
+  titulo: string;
+  mensaje: string;
+  hogar_id: string | null;
+  producto_id: string | null;
+  clave: string | null;
+  leida: boolean;
+  created_at: string;
 }
 
 /**
@@ -202,6 +242,12 @@ export interface Database {
           },
         ];
       };
+      notificaciones: {
+        Row: AsRecord<Notificacion>;
+        Insert: never;
+        Update: Pick<Notificacion, 'leida'>;
+        Relationships: [];
+      };
       productos_catalogo: {
         Row: AsRecord<ProductoCatalogo>;
         Insert: Partial<ProductoCatalogo> & Pick<ProductoCatalogo, 'nombre' | 'categoria'>;
@@ -300,6 +346,15 @@ export interface Database {
       admin_set_rol_usuario: {
         Args: { p_usuario_id: string; p_rol: RolUsuario };
         Returns: AsRecord<Usuario>;
+      };
+      // Push al teléfono (ver migración 20261012120000_notificaciones.sql).
+      registrar_push_token: {
+        Args: { p_token: string; p_plataforma: string };
+        Returns: void;
+      };
+      eliminar_push_token: {
+        Args: { p_token: string };
+        Returns: void;
       };
     };
   };
