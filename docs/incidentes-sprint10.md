@@ -205,6 +205,11 @@ extensions`.
 
 Rama `feature/terminos-y-condiciones`, apilada sobre el PR de notificaciones.
 Migración: [20261013120000_terminos_aceptados.sql](../supabase/migrations/20261013120000_terminos_aceptados.sql).
+**Ya aplicada** en el proyecto de Supabase (2026-10-11): verificado por SQL que
+existen las dos columnas, que `authenticated` no puede editarlas directo y que
+`aceptar_terminos` solo la ejecutan usuarios logueados. `get_advisors`: sin
+hallazgos nuevos (solo `aceptar_terminos` en el warning ya aceptado de
+"SECURITY DEFINER ejecutable").
 
 ## Qué entró
 
