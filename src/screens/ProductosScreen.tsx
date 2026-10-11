@@ -11,7 +11,9 @@ import {
   ajustarCantidadProducto,
   categoriasEnUso,
   eliminarProducto,
+  estadoStockDeGrupo,
   estadoVencimiento,
+  etiquetaStock,
   etiquetaVencimiento,
   filtrarProductos,
   formatearFechaCorta,
@@ -19,11 +21,14 @@ import {
   listarProductos,
   nombreConMarca,
   productosAgotadosLimpiables,
+  productosProximosAVencer,
+  stockMinimoDelGrupo,
 } from '../services/productos';
+import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
-import type { AppStackParamList } from '../types/navigation';
+import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
 
@@ -35,13 +40,17 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  * tipeada, y evita mostrar un loader en cada tecla.
  */
 export function ProductosScreen({ route, navigation }: Props) {
-  const { hogarId, hogarNombre, abrirAgregar, abrirVoz, enfocarBusqueda } = route.params;
+  const { hogarId, hogarNombre, abrirAgregar, abrirVoz, enfocarBusqueda, filtroInicial } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   // null = "Todas" (sin filtrar por categoría).
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
+  // Filtro de alertas (null = sin filtro): "Por vencer" deja solo los lotes
+  // próximos a vencer o vencidos, ordenados por fecha; "Stock bajo", solo los
+  // productos por debajo de su mínimo. Se combina con búsqueda y categoría.
+  const [filtroAlerta, setFiltroAlerta] = useState<FiltroAlerta | null>(filtroInicial ?? null);
   const [formVisible, setFormVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [ticketVisible, setTicketVisible] = useState(false);
@@ -94,9 +103,30 @@ export function ProductosScreen({ route, navigation }: Props) {
     [productos, busqueda, categoriaSeleccionada],
   );
 
+  // Stock de cada producto calculado sobre el inventario COMPLETO (no sobre
+  // lo filtrado): buscar "leche" o filtrar "Por vencer" no puede cambiar si a
+  // la leche le falta stock. Clave = la misma de agruparProductos.
+  const stockPorProducto = useMemo(() => {
+    const mapa = new Map<string, { estado: EstadoStock; minimo: number }>();
+    for (const grupo of agruparProductos(productos)) {
+      const estado = estadoStockDeGrupo(grupo);
+      if (estado) mapa.set(grupo.clave, { estado, minimo: stockMinimoDelGrupo(grupo) });
+    }
+    return mapa;
+  }, [productos]);
+
+  // Cuántos hay de cada alerta, para el texto de los chips.
+  const cantidadPorVencer = useMemo(() => productosProximosAVencer(productos).length, [productos]);
+
   // Lo que se ve en la lista: las filas del mismo producto (distinta marca o
-  // vencimiento) juntas bajo un solo nombre.
-  const grupos = useMemo(() => agruparProductos(productosFiltrados), [productosFiltrados]);
+  // vencimiento) juntas bajo un solo nombre. Con "Por vencer", se agrupan
+  // solo los lotes en alerta y en orden de fecha (agruparProductos respeta el
+  // orden de entrada, así el producto que vence antes queda primero).
+  const grupos = useMemo(() => {
+    if (filtroAlerta === 'porVencer') return agruparProductos(productosProximosAVencer(productosFiltrados));
+    const todos = agruparProductos(productosFiltrados);
+    return filtroAlerta === 'stockBajo' ? todos.filter((g) => stockPorProducto.has(g.clave)) : todos;
+  }, [productosFiltrados, filtroAlerta, stockPorProducto]);
 
   // Agotados sin stock mínimo: se pueden limpiar de una (los que tienen
   // mínimo se dejan, ese 0 es la señal de "hay que reponer").
@@ -201,6 +231,23 @@ export function ProductosScreen({ route, navigation }: Props) {
     );
   }
 
+  // Alerta de stock mínimo: va en el encabezado del producto (no en cada
+  // lote) porque se calcula sobre el total. Ámbar (stockStatus.low), distinto
+  // del coral del vencimiento, para que no se confundan.
+  function renderBadgeStock(clave: string) {
+    const stock = stockPorProducto.get(clave);
+    const etiqueta = stock ? etiquetaStock(stock.estado, stock.minimo) : null;
+    if (!etiqueta) return null;
+    return (
+      <View style={styles.stockBadge}>
+        <Ionicons name="alert-circle" size={12} color={colors.textPrimary} />
+        <Text style={styles.stockBadgeTexto} numberOfLines={1}>
+          {etiqueta}
+        </Text>
+      </View>
+    );
+  }
+
   // +/- rápido sin abrir el formulario completo (ver ajustarCantidadProducto
   // en services/productos.ts). El "-" se deshabilita en 0: no tiene sentido
   // restar más (el backend ya lo frena con greatest(...,0), esto solo evita
@@ -294,6 +341,32 @@ export function ProductosScreen({ route, navigation }: Props) {
         autoCapitalize="none"
       />
 
+      {/* Filtros de alerta: tocar uno lo activa, tocarlo de nuevo lo saca.
+          Cada uno con el color de su alerta (vencimiento = coral, stock =
+          ámbar) para que no se confundan entre sí. */}
+      <View style={styles.alertasRow}>
+        <Pressable
+          onPress={() => setFiltroAlerta((actual) => (actual === 'porVencer' ? null : 'porVencer'))}
+          style={[styles.chip, filtroAlerta === 'porVencer' && styles.chipPorVencer]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: filtroAlerta === 'porVencer' }}
+        >
+          <Text style={[styles.chipTexto, filtroAlerta === 'porVencer' && styles.chipTextoSeleccionado]}>
+            Por vencer ({cantidadPorVencer})
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setFiltroAlerta((actual) => (actual === 'stockBajo' ? null : 'stockBajo'))}
+          style={[styles.chip, filtroAlerta === 'stockBajo' && styles.chipStockBajo]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: filtroAlerta === 'stockBajo' }}
+        >
+          <Text style={[styles.chipTexto, filtroAlerta === 'stockBajo' && styles.chipTextoStockBajo]}>
+            Stock bajo ({stockPorProducto.size})
+          </Text>
+        </Pressable>
+      </View>
+
       {categorias.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriasScroll} contentContainerStyle={styles.categoriasRow}>
           <Pressable
@@ -325,11 +398,17 @@ export function ProductosScreen({ route, navigation }: Props) {
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
-      ) : productosFiltrados.length === 0 ? (
+      ) : grupos.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="basket-outline" size={32} color={colors.textSecondary} />
           <Text style={styles.emptyText}>
-            {productos.length === 0 ? 'Todavía no hay productos en este hogar.' : 'Ningún producto coincide con la búsqueda.'}
+            {productos.length === 0
+              ? 'Todavía no hay productos en este hogar.'
+              : filtroAlerta === 'porVencer'
+                ? 'No hay productos por vencer en los próximos días.'
+                : filtroAlerta === 'stockBajo'
+                  ? 'Ningún producto está por debajo de su stock mínimo.'
+                  : 'Ningún producto coincide con la búsqueda.'}
           </Text>
         </View>
       ) : (
@@ -353,9 +432,12 @@ export function ProductosScreen({ route, navigation }: Props) {
                     </Text>
                   )}
                 </View>
-                <Text style={styles.grupoTotal}>
-                  {grupo.cantidadTotal} {grupo.unidad}
-                </Text>
+                <View style={styles.grupoDerecha}>
+                  <Text style={styles.grupoTotal}>
+                    {grupo.cantidadTotal} {grupo.unidad}
+                  </Text>
+                  {renderBadgeStock(grupo.clave)}
+                </View>
               </View>
               {grupo.lotes.map((lote, indice) => (
                 <View key={lote.id} style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
@@ -572,6 +654,44 @@ const styles = StyleSheet.create({
   grupoDetalle: {
     ...typography.caption,
     color: colors.primaryDark,
+  },
+  grupoDerecha: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  // Alerta de stock bajo: fondo ámbar claro con borde ámbar y texto oscuro
+  // (blanco sobre ámbar no se lee bien).
+  stockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 1,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.stockStatus.low,
+    backgroundColor: colors.warningLight,
+  },
+  stockBadgeTexto: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  alertasRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  chipPorVencer: {
+    backgroundColor: colors.stockStatus.critical,
+    borderColor: colors.stockStatus.critical,
+  },
+  chipStockBajo: {
+    backgroundColor: colors.stockStatus.low,
+    borderColor: colors.stockStatus.low,
+  },
+  chipTextoStockBajo: {
+    color: colors.textPrimary,
   },
   grupoTotal: {
     ...typography.bodyMedium,

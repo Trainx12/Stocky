@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { AppStackParamList } from '../types/navigation';
+import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
@@ -26,7 +26,15 @@ import {
 import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
 import { listarActividadReciente } from '../services/actividad';
 import type { ActividadItem } from '../services/actividad';
-import { etiquetaVencimiento, estadoVencimiento, listarProductosProximosAVencer, nombreConMarca } from '../services/productos';
+import {
+  etiquetaStock,
+  etiquetaVencimiento,
+  estadoVencimiento,
+  listarProductosConStockBajo,
+  listarProductosProximosAVencer,
+  nombreConMarca,
+} from '../services/productos';
+import type { AlertaStock } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
@@ -50,8 +58,15 @@ import { colors, radius, spacing, typography } from '../theme';
  * diferencia del resto de las secciones no depende de `hogarSeleccionado`:
  * junta los productos de TODOS los hogares del usuario, porque algo por
  * vencer en un hogar que no es el seleccionado en ese momento no debería
- * quedar escondido.
+ * quedar escondido. Muestra solo los primeros MAX_ALERTAS_DASHBOARD; la
+ * lista completa está en el filtro "Por vencer" de ProductosScreen (botón
+ * "Ver todos"). "Stock bajo" sigue el mismo criterio (todos los hogares,
+ * los primeros MAX_ALERTAS_DASHBOARD y "Ver todos" al filtro "Stock bajo").
  */
+
+// Cuántas alertas de cada tipo entran en el dashboard antes del "Ver todos":
+// que se vean sin scroll y no tapen el resto de la pantalla.
+const MAX_ALERTAS_DASHBOARD = 4;
 export function HomeScreen() {
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
@@ -124,6 +139,11 @@ export function HomeScreen() {
   // la alerta más importante del dashboard, tiene que verse sin scroll.
   const [productosPorVencer, setProductosPorVencer] = useState<Producto[]>([]);
   const [productosPorVencerLoading, setProductosPorVencerLoading] = useState(true);
+
+  // Alerta de stock mínimo: productos de TODOS mis hogares por debajo de su
+  // mínimo (mismo criterio que "Productos próximos a vencer").
+  const [alertasStock, setAlertasStock] = useState<AlertaStock[]>([]);
+  const [alertasStockLoading, setAlertasStockLoading] = useState(true);
 
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
@@ -212,6 +232,17 @@ export function HomeScreen() {
     const hogarIds = misHogares.map((h) => h.id);
 
     setProductosPorVencerLoading(true);
+    setAlertasStockLoading(true);
+    listarProductosConStockBajo(hogarIds)
+      .then((alertas) => {
+        if (!cancelado) setAlertasStock(alertas);
+      })
+      .catch((err) => {
+        console.warn('[Stocky] No se pudieron cargar las alertas de stock:', err);
+      })
+      .finally(() => {
+        if (!cancelado) setAlertasStockLoading(false);
+      });
     listarProductosProximosAVencer(hogarIds)
       .then((productos) => {
         if (!cancelado) setProductosPorVencer(productos);
@@ -474,9 +505,23 @@ export function HomeScreen() {
   // pantalla de Productos del hogar al que pertenece (mismo patrón que el
   // ícono de canasta de "Tus hogares activos").
   function handleVerProductoPorVencer(producto: Producto) {
-    const hogar = misHogares.find((h) => h.id === producto.hogar_id);
+    handleVerAlertas(producto.hogar_id, 'porVencer');
+  }
+
+  // "Ver todos" de las tarjetas de alertas (y tocar una alerta): abre la
+  // despensa de ese hogar con el filtro correspondiente ya aplicado, donde
+  // está la lista completa ordenada (ver filtroAlerta en ProductosScreen).
+  function handleVerAlertas(hogarId: string, filtroInicial: FiltroAlerta) {
+    const hogar = misHogares.find((h) => h.id === hogarId);
     if (!hogar) return;
-    navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
+    navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre, filtroInicial });
+  }
+
+  // El "Ver todos" lleva al hogar del primer ítem de la lista (el más
+  // urgente): la despensa es por hogar, así que con varios hogares el botón
+  // lo nombra ("Ver todos en <hogar>").
+  function nombreHogar(hogarId: string): string {
+    return misHogares.find((h) => h.id === hogarId)?.nombre ?? '';
   }
 
   return (
@@ -674,7 +719,7 @@ export function HomeScreen() {
                 <EmptyState icon="checkmark-circle-outline" text="No tenés productos por vencer en los próximos días." />
               ) : (
                 <View style={styles.hogaresList}>
-                  {productosPorVencer.map((producto) => {
+                  {productosPorVencer.slice(0, MAX_ALERTAS_DASHBOARD).map((producto) => {
                     const hogar = misHogares.find((h) => h.id === producto.hogar_id);
                     const estado = estadoVencimiento(producto);
                     const etiqueta = etiquetaVencimiento(producto);
@@ -696,6 +741,45 @@ export function HomeScreen() {
                       </Pressable>
                     );
                   })}
+                  <VerTodosButton
+                    total={productosPorVencer.length}
+                    hogarNombre={misHogares.length > 1 ? nombreHogar(productosPorVencer[0].hogar_id) : null}
+                    onPress={() => handleVerAlertas(productosPorVencer[0].hogar_id, 'porVencer')}
+                  />
+                </View>
+              )}
+            </SectionCard>
+
+            {/* Alerta de stock mínimo: ámbar (stockStatus.low), distinta del
+                coral de vencimientos, para que no se confundan. */}
+            <SectionCard title="Stock bajo">
+              {alertasStockLoading ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : alertasStock.length === 0 ? (
+                <EmptyState icon="checkmark-circle-outline" text="Ningún producto está por debajo de su stock mínimo." />
+              ) : (
+                <View style={styles.hogaresList}>
+                  {alertasStock.slice(0, MAX_ALERTAS_DASHBOARD).map((alerta) => (
+                    <Pressable key={alerta.clave} style={styles.hogarRow} onPress={() => handleVerAlertas(alerta.hogarId, 'stockBajo')}>
+                      <View style={styles.hogarInfo}>
+                        <Text style={styles.hogarNombre} numberOfLines={1}>
+                          {alerta.nombre}
+                        </Text>
+                        <Text style={styles.hogarCodigo} numberOfLines={1}>
+                          Quedan {alerta.cantidadTotal} {alerta.unidad} · {nombreHogar(alerta.hogarId)}
+                        </Text>
+                      </View>
+                      <View style={styles.stockBadge}>
+                        <Ionicons name="alert-circle" size={12} color={colors.textPrimary} />
+                        <Text style={styles.stockBadgeTexto}>{etiquetaStock(alerta.estado, alerta.stockMinimo)}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                  <VerTodosButton
+                    total={alertasStock.length}
+                    hogarNombre={misHogares.length > 1 ? nombreHogar(alertasStock[0].hogarId) : null}
+                    onPress={() => handleVerAlertas(alertasStock[0].hogarId, 'stockBajo')}
+                  />
                 </View>
               )}
             </SectionCard>
@@ -757,6 +841,15 @@ export function HomeScreen() {
                     icon="pricetags-outline"
                     label="Sugerencias de productos"
                     onPress={() => navigation.navigate('AdminSugerencias')}
+                  />
+                )}
+                {/* ABM de usuarios: mismo gateo que el de arriba (la barrera
+                    real son las RPCs admin_*, ver services/usuarios.ts). */}
+                {usuario.rol === 'administrador' && (
+                  <QuickAccessButton
+                    icon="people-circle-outline"
+                    label="Usuarios"
+                    onPress={() => navigation.navigate('AdminUsuarios')}
                   />
                 )}
               </View>
@@ -866,6 +959,22 @@ interface EmptyStateProps {
 
 // Estado vacío reusado por "hogares activos" y "actividad reciente": ícono
 // + texto explicativo y, opcionalmente, un botón de acción.
+// Pie de las tarjetas de alertas: lleva a la lista completa (filtro de
+// ProductosScreen). Con un solo hogar no hace falta nombrarlo.
+function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarNombre: string | null; onPress: () => void }) {
+  const texto = hogarNombre
+    ? `Ver todos en ${hogarNombre}`
+    : total > MAX_ALERTAS_DASHBOARD
+      ? `Ver todos (${total})`
+      : 'Ver en la despensa';
+  return (
+    <Pressable onPress={onPress} style={styles.verTodosButton} accessibilityRole="button">
+      <Text style={styles.verTodosTexto}>{texto}</Text>
+      <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+    </Pressable>
+  );
+}
+
 function EmptyState({ icon, text, actionLabel, onAction }: EmptyStateProps) {
   return (
     <View style={styles.emptyState}>
@@ -1004,6 +1113,34 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.pill,
     backgroundColor: colors.stockStatus.critical,
+  },
+  // Alerta de stock mínimo: mismo estilo que el badge de ProductosScreen.
+  stockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.stockStatus.low,
+    backgroundColor: colors.warningLight,
+  },
+  stockBadgeTexto: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontSize: 11,
+  },
+  verTodosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 2,
+    paddingVertical: spacing.xs,
+  },
+  verTodosTexto: {
+    ...typography.caption,
+    color: colors.primary,
   },
   vencimientoBadgeVencido: {
     backgroundColor: colors.stockStatus.expired,

@@ -9,6 +9,8 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProductosScreen } from '../screens/ProductosScreen';
 import { AdminSugerenciasScreen } from '../screens/AdminSugerenciasScreen';
+import { AdminUsuariosScreen } from '../screens/AdminUsuariosScreen';
+import { CuentaDeshabilitadaScreen } from '../screens/CuentaDeshabilitadaScreen';
 import { colors } from '../theme';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
 
@@ -38,6 +40,10 @@ function AppNavigator() {
           sugerencia pendiente ajena) + que HomeScreen ni siquiera ofrece
           el botón para entrar acá si el usuario no es admin. */}
       <AppStack.Screen name="AdminSugerencias" component={AdminSugerenciasScreen} />
+      {/* Mismo criterio que AdminSugerencias: HomeScreen solo ofrece el
+          acceso a admins, y si alguien fuerza la navegación la RPC
+          admin_listar_usuarios le devuelve error (no hay datos que ver). */}
+      <AppStack.Screen name="AdminUsuarios" component={AdminUsuariosScreen} />
     </AppStack.Navigator>
   );
 }
@@ -48,7 +54,7 @@ function AppNavigator() {
  * usuario con sesión válida entra al stack principal, sin importar su rol.
  */
 export function RootNavigator() {
-  const { session, loading } = useAuth();
+  const { session, loading, usuario } = useAuth();
 
   // Todavía no sabemos si hay sesión guardada o no: mostramos un spinner
   // en vez de "parpadear" entre Welcome y Home mientras se resuelve.
@@ -58,6 +64,13 @@ export function RootNavigator() {
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
+  }
+
+  // Cuenta deshabilitada por un admin: ni siquiera se arma el stack
+  // principal (ver CuentaDeshabilitadaScreen). Se compara contra `false`
+  // explícito: mientras el perfil carga (`usuario` null) no se asume nada.
+  if (session && usuario?.habilitado === false) {
+    return <CuentaDeshabilitadaScreen />;
   }
 
   // Con o sin sesión, se muestra un stack completo distinto.

@@ -279,6 +279,28 @@ export interface Database {
         Args: { p_producto_id: string; p_delta: number };
         Returns: AsRecord<Producto>;
       };
+      // ABM de usuarios para administradores (ver migración
+      // 20261011120000_abm_usuarios_y_habilitado.sql y services/usuarios.ts).
+      admin_listar_usuarios: {
+        Args: Record<string, never>;
+        Returns: AsRecord<{
+          id: string;
+          email: string;
+          nombre: string | null;
+          rol: RolUsuario;
+          habilitado: boolean;
+          created_at: string;
+          cantidad_hogares: number;
+        }>[];
+      };
+      admin_set_usuario_habilitado: {
+        Args: { p_usuario_id: string; p_habilitado: boolean };
+        Returns: AsRecord<Usuario>;
+      };
+      admin_set_rol_usuario: {
+        Args: { p_usuario_id: string; p_rol: RolUsuario };
+        Returns: AsRecord<Usuario>;
+      };
     };
   };
 }

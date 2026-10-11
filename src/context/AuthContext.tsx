@@ -31,8 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.from('usuarios').select('*').eq('id', userId).single();
 
     if (error) {
-      // No hay fila todavía (p. ej. el trigger de alta recién está corriendo)
-      // o el usuario fue deshabilitado; se resuelve en próximos sprints.
+      // No hay fila todavía (p. ej. el trigger de alta recién está corriendo).
+      // Una cuenta deshabilitada NO cae acá: su propia fila se sigue
+      // pudiendo leer (habilitado = false) y RootNavigator la manda a
+      // "Cuenta deshabilitada".
       // Se loguea el motivo real: sin esto, un error de red o de RLS se
       // ve idéntico a "usuario recién creado" y es imposible de debuggear.
       console.warn('[Stocky] No se pudo cargar el perfil de usuario:', error.message);
@@ -66,6 +68,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Limpieza: dejar de escuchar cuando el AuthProvider se desmonta.
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Si un admin me deshabilita (o me cambia el rol) con la app abierta, me
+  // entero al instante: Realtime manda el UPDATE de mi propia fila de
+  // `usuarios` (publicada en la migración 20261011120000_abm_usuarios_y_habilitado.sql)
+  // y RootNavigator pasa a mostrar "Cuenta deshabilitada". El bloqueo real
+  // de los datos no depende de esto (lo hace la base en el momento); esto es
+  // para que la UI no quede mostrando pantallas que ya no pueden cargar nada.
+  const userId = session?.user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    const canal = supabase
+      .channel(`usuario-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'usuarios', filter: `id=eq.${userId}` },
+        (payload) => setUsuario(payload.new as Usuario),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [userId]);
 
   // Lo que le llega a cualquier pantalla que use useAuth().
   const value = useMemo<AuthContextValue>(
