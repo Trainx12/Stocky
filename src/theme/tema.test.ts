@@ -27,12 +27,12 @@ describe('resolverEsquema', () => {
 });
 
 describe('modoGuardadoValido', () => {
-  it('acepta los tres modos y, si nunca se eligió (o es inválido), arranca en claro', () => {
+  it('acepta los tres modos y, si nunca se eligió (o es inválido), sigue al celular', () => {
     expect(modoGuardadoValido('oscuro')).toBe('oscuro');
     expect(modoGuardadoValido('claro')).toBe('claro');
     expect(modoGuardadoValido('sistema')).toBe('sistema');
-    expect(modoGuardadoValido(null)).toBe('claro');
-    expect(modoGuardadoValido('azul')).toBe('claro');
+    expect(modoGuardadoValido(null)).toBe('sistema');
+    expect(modoGuardadoValido('azul')).toBe('sistema');
   });
 });
 

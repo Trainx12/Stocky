@@ -532,8 +532,10 @@ Rama `feature/cuenta-y-ajustes`. Sin migraciones. Detalle en
 1. Botón de la persona → Cuenta: muestra nombre, email y (si corresponde)
    "Administrador". Editar el nombre → se ve en Home y en "Miembros del
    hogar". Nombre vacío → aviso, no se guarda.
-2. Apariencia: sin haber elegido nada, la app arranca en **claro** aunque el
-   celular esté en oscuro. Oscuro → TODA la app pasa a oscuro (recorrer Home,
+2. Apariencia: sin haber elegido nada, la app sigue el modo del celular
+   ("Sistema"): con el teléfono en oscuro se ve oscura, y cambia sola al
+   cambiar el teléfono (requiere el build nuevo, por `userInterfaceStyle`).
+   Oscuro → TODA la app pasa a oscuro (recorrer Home,
    despensa, formularios, modales, campanita, cartelitos, términos);
    Claro → vuelve; Sistema → sigue al modo del celular. Cerrar y abrir la
    app → recuerda la elección.

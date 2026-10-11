@@ -6,8 +6,9 @@ import type { EsquemaColor } from '../theme/colors';
 
 /**
  * Modo oscuro (Sprint 10). El usuario elige en Cuenta → Apariencia:
- *   - 'claro' (por defecto, pedido del equipo) / 'oscuro': fijo;
- *   - 'sistema': sigue al celular (si el teléfono está en oscuro, la app también).
+ *   - 'sistema' (por defecto): copia el modo del celular (si el teléfono está
+ *     en oscuro, la app también, y cambia sola cuando cambia el teléfono);
+ *   - 'claro' / 'oscuro': fijo, sin importar el celular.
  * La elección se guarda en el celular (AsyncStorage): es una preferencia del
  * dispositivo, no de la cuenta (con varias cuentas en el mismo celular, el
  * modo no cambia al pasar de una a otra).
@@ -28,9 +29,9 @@ export function resolverEsquema(modo: ModoTema, delSistema: string | null | unde
   return delSistema === 'dark' ? 'oscuro' : 'claro';
 }
 
-// Modo con el que arranca la app si el usuario nunca eligió otro: claro,
-// aunque el celular esté en oscuro (pedido del equipo).
-export const MODO_POR_DEFECTO: ModoTema = 'claro';
+// Modo con el que arranca la app si el usuario nunca eligió otro: el del
+// celular (decisión del equipo).
+export const MODO_POR_DEFECTO: ModoTema = 'sistema';
 
 // Lo guardado en el celular -> modo válido (cualquier otra cosa, el default).
 export function modoGuardadoValido(valor: string | null): ModoTema {

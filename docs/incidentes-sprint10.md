@@ -341,10 +341,9 @@ siempre pregunta con qué cuenta entrar.
   "Cerrar sesión en todas" olvida las cuentas en el celular; sus sesiones
   en el servidor vencen solas.
 - **Modo oscuro:** es una preferencia del celular, no de la cuenta (no
-  cambia al pasar de una cuenta a otra). **Por defecto la app arranca en
-  claro** aunque el celular esté en oscuro (pedido del equipo: la primera
-  versión arrancaba en "Sistema" y en un celular en modo oscuro se veía
-  oscura sin haberlo elegido). Con "Sistema" sigue al modo del teléfono.
+  cambia al pasar de una cuenta a otra). **Por defecto es "Sistema"**: copia
+  el modo del celular (se probó dejar "Claro" por defecto y el equipo
+  decidió volver a "Sistema").
   Para que "Sistema" funcione en el celular, `app.json` pasó de
   `"userInterfaceStyle": "light"` (que le decía al teléfono que la app es
   siempre clara, y entonces nunca informaba el modo oscuro) a `"automatic"`;
