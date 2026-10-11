@@ -379,3 +379,56 @@ Probado en el navegador: modo oscuro en Bienvenida, Onboarding y Términos
 (sin errores de consola). **No probado** (necesita login con Google): la
 pantalla Cuenta, cambiar y agregar cuentas, editar el nombre y la revisión
 del ticket con un ticket real.
+
+---
+
+# Actualización de Expo 57.0.16 → 57.0.27 (también Sprint 10)
+
+Hecha en la misma rama que Cuenta (PR #18), a pedido del equipo, para hacer
+un solo development build con todo. Son actualizaciones de parche dentro del
+SDK 57: `expo`, `expo-dev-client`, `expo-font`, `expo-image-manipulator`,
+`expo-linear-gradient`, `expo-linking`, `expo-web-browser`, `react-native`
+(0.86.2 → 0.86.3) y `jest-expo`.
+
+## 9. `npx expo install --fix` fallaba por un conflicto de dependencias
+
+**Síntoma:** `npm error ERESOLVE could not resolve` — `react-native@0.86.3`
+pide `@react-native/jest-preset@0.86.3`, pero el `jest-expo@57.0.4`
+instalado traía el 0.86.2; y `jest-expo@57.0.5` (el que sí trae 0.86.3) no
+se podía instalar porque el `package-lock.json` seguía con el 0.86.2. Cada
+uno necesitaba al otro ya actualizado.
+
+**Solución:** instalar las piezas que dependen entre sí en un mismo comando
+(`react-native@0.86.3`, `jest-expo@~57.0.5` y `@react-native/jest-preset@0.86.3`)
+para que el lock quede con las tres versiones nuevas, después sacar
+`@react-native/jest-preset` como dependencia directa (la sigue trayendo
+`jest-expo`) y fijar `react-native` en `0.86.3` exacto (npm lo había
+guardado como `^0.86.3`). Verificado: `npm install` limpio sin errores,
+`npx expo install --check` → "Dependencies are up to date".
+
+**Lección:** si `expo install --fix` falla por peers, no usar `--force` ni
+`--legacy-peer-deps` (esconden el problema); ver en el error qué paquete
+fija la versión vieja y actualizarlo junto con el resto.
+
+## 10. Faltaba `expo-asset` desde el Sprint 8 — encontrado con `expo-doctor`
+
+**Síntoma:** ninguno visible todavía. `npx expo-doctor` (corrido después de
+actualizar) avisó: *Missing peer dependency: expo-asset, required by
+expo-audio*, con la advertencia de que la app puede cerrarse sola fuera de
+Expo Go, o sea, en el development build que usa el equipo.
+
+**Causa:** al sumar la voz (`expo-audio`, Sprint 8) no se instaló su
+dependencia nativa `expo-asset`, que tiene que estar declarada directamente
+en el proyecto.
+
+**Solución:** `npx expo install expo-asset` (también agrega su plugin en
+`app.json`). `expo-doctor`: 21/21 chequeos OK.
+
+**Lección:** correr `npx expo-doctor` cada vez que se agrega una librería
+nativa, antes de armar el build.
+
+**Después de bajar esta rama:** `npm install`, reiniciar `npx expo start
+--dev-client --clear`, y armar un **development build nuevo** (`eas build
+--profile development --platform android`): cambian módulos nativos
+(`react-native`, `expo-dev-client`, `expo-asset`, más `expo-notifications`
+y `expo-device` de las notificaciones).
