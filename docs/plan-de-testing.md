@@ -410,8 +410,9 @@ app.
 **Testing de quien desarrolla (hecho por Claude):** `tsc --noEmit` limpio,
 `npm test` (26 tests nuevos: `usuarios.test.ts` y stock en
 `productos.test.ts`, incluidos valor exacto / uno arriba / uno abajo y
-decimales), `expo export --platform web` compila. **No hecho:** la
-simulación SQL de permisos contra la base (bloqueada por permisos de la
+decimales), `expo export --platform web` compila, migración aplicada y
+verificada por SQL, `get_advisors` sin hallazgos nuevos. **No hecho:** la
+simulación SQL completa de permisos simulando cada usuario (bloqueada por permisos de la
 sesión, queda pedida al equipo) y ninguna pantalla probada tocándola (las
 sesiones de Claude no pueden loguearse con Google).
 

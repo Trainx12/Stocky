@@ -9,7 +9,15 @@ el PR #13). Mismo espíritu que
 vuelve a aparecer, no haya que redescubrirlo de cero.
 
 Migración nueva:
-[20261011120000_abm_usuarios_y_habilitado.sql](../supabase/migrations/20261011120000_abm_usuarios_y_habilitado.sql).
+[20261011120000_abm_usuarios_y_habilitado.sql](../supabase/migrations/20261011120000_abm_usuarios_y_habilitado.sql),
+**ya aplicada** en el proyecto de Supabase (2026-10-11). Verificado por SQL
+después de aplicarla: existen las 5 funciones nuevas y los 4 triggers,
+`authenticated` ya no puede hacer UPDATE de `rol`/`habilitado`/`hogar_id`
+(sí de `nombre`), `usuarios` está en `supabase_realtime` y `anon` no puede
+ejecutar las RPCs `admin_*`. `get_advisors` (seguridad) no trajo hallazgos
+nuevos: solo el warning ya aceptado de "SECURITY DEFINER ejecutable" (ver
+incidentes-sprint1.md #7), ahora también para `usuario_habilitado` y las
+`admin_*` (validan `es_administrador()` adentro, a propósito).
 
 ---
 
