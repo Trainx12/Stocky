@@ -457,3 +457,35 @@ ellas reemplazadas por estar mal o tener marca (incidentes-sprint5-6.md #17).
 las fotos de las sugerencias aprobadas. Los créditos de las fotos
 (`creditos.json`) no cambian: los enlaces de ahí son la atribución que exige
 la licencia, no la foto que se muestra.
+
+## 12. Actividad y notificaciones se guardaban para siempre
+
+**Pregunta del equipo:** si el Home muestra las últimas 5 actividades, ¿se
+borra la sexta? **No:** nada borraba `actividad_hogar` ni las notificaciones
+(salvo las que el usuario elimina a mano). Al momento: 96 filas de actividad
+(la más vieja del 9/9/2026, 80 kB) y 3 notificaciones; no era un problema de
+espacio todavía, pero crecían sin límite.
+
+**Decisión del equipo (no se borra todo lo que pase de 5, para no perder
+historial):**
+- `actividad_hogar`: se borra lo que tenga **más de 90 días** o quede fuera
+  de las **últimas 150 de su hogar**.
+- `notificaciones`: se borran las **ya leídas** con **más de 60 días**
+  (contados desde que se crearon: no se guarda cuándo se leyó). Las no
+  leídas no se tocan.
+
+**Solución:** migración
+[20261015120000_limpieza_actividad_y_notificaciones.sql](../supabase/migrations/20261015120000_limpieza_actividad_y_notificaciones.sql)
+(ya aplicada): función `limpiar_datos_viejos()` y job de pg_cron
+`limpiar-datos-viejos` todos los días a las 06:00 UTC (03:00 de Argentina),
+más un índice `(hogar_id, created_at desc)` para el "últimas 150". Nadie la
+puede ejecutar desde la app. Corrida una vez a mano para verificarla:
+devolvió `{actividad: 0, notificaciones: 0}` (correcto: hoy no hay nada tan
+viejo) y la actividad siguió con sus 96 filas. `get_advisors`: sin hallazgos
+nuevos. Para ver qué borraría, se puede correr
+`select public.limpiar_datos_viejos();` desde el SQL editor (devuelve cuántas
+filas borró de cada tabla).
+
+Borrar una notificación de vencimiento vieja no hace que se repita: el job de
+vencimientos solo avisa de productos dentro de su ventana de aviso o vencidos
+hace menos de una semana, mucho menos que 60 días.

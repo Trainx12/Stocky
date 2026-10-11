@@ -374,6 +374,11 @@ alguien agregue un producto por afuera de ese archivo y la actividad quede
 sin registrar. Hoy solo cubre ABM de productos (lo único con ABM real);
 altas/bajas de `hogar_miembros` todavía no generan actividad.
 
+**Limpieza automática (Sprint 10):** un job diario (`limpiar_datos_viejos`,
+pg_cron, 03:00 de Argentina) borra la actividad de más de 90 días o fuera de
+las últimas 150 de cada hogar, y las notificaciones ya leídas de más de 60
+días. Ver [incidentes-sprint10.md](incidentes-sprint10.md) #12.
+
 **Catálogo de productos** (ver migración
 [20260909212018_catalogo_productos.sql](../supabase/migrations/20260909212018_catalogo_productos.sql)):
 `crearProducto`/`editarProducto` ahora reciben también `catalogoId` (de
