@@ -127,6 +127,41 @@ independientes, mismo criterio que `expulsar_miembro` con el dueño.
 
 ---
 
+## 4. "Se borraron el botón de sugerir producto, la OCR y el audio"
+
+**Síntoma (reportado por el equipo mientras se programaba este sprint):** en
+la app del celular desaparecieron el acceso "Sugerir producto", el escaneo de
+tickets (OCR) y la carga por voz, como si alguien los hubiera borrado.
+
+**Investigación:** el diff de la rama contra el PR #13 no tenía ninguna línea
+borrada de esas funciones (las 20 líneas "eliminadas" eran líneas
+reemplazadas por su versión nueva); el código seguía en
+`HomeScreen.tsx` y `ProductosScreen.tsx`.
+
+**Causa raíz:** el primer paso del checklist de arranque es `git checkout
+main && git pull` **en la misma carpeta** desde la que el equipo corría la
+app. `main` está muy atrás del trabajo real: las tres funciones viven en el
+PR #13 (todavía sin mergear). Al cambiar de rama, Metro recargó la app con
+el código de `main` y "desaparecieron". Después se pasó a la rama nueva (que
+parte del #13), pero la app seguía mostrando la versión de `main` hasta
+recargar.
+
+**Solución:** cortar el `npx expo start` y volver a levantarlo desde la
+carpeta ya parada en la rama correcta, con caché limpia
+(`npx expo start --dev-client --clear`), y recargar la app en el celular.
+Confirmado por el equipo: "se recuperó todo".
+
+**Cómo evitar que vuelva a pasar:**
+- Mientras `main` siga atrás de los PRs apilados (#13 → #15 → #16 → #17),
+  cualquier `git checkout main` en la carpeta desde la que corre Metro "saca"
+  funciones de la app que se está probando. Antes de cambiar de rama, avisar
+  o cortar el servidor; o trabajar en otra carpeta (`git worktree`).
+- Ante "desapareció X", lo primero es `git branch --show-current` y revisar
+  desde qué rama corre Metro, antes de buscar quién lo borró.
+- La solución de fondo es mergear la cadena de PRs a `main` lo antes posible.
+
+---
+
 ## Notas de diseño (no son bugs, pero conviene dejarlas escritas)
 
 - **Stock mínimo por producto, no por lote:** la alerta compara el total de
@@ -136,6 +171,11 @@ independientes, mismo criterio que `expulsar_miembro` con el dueño.
   leche.
 - **"Por debajo" es estricto:** con mínimo 3, tener 3 no alerta; 2 sí. Sin
   mínimo cargado (0) nunca hay alerta, ni con cantidad 0.
+- **Filtro "Por vencer" (cambio pedido por el equipo):** la primera versión
+  mostraba solo los productos dentro de la ventana de aviso; el equipo pidió
+  ver **todos** los que tienen fecha de vencimiento, en el orden en que
+  vencen (`productosConVencimiento`). El Home sigue mostrando solo los 4 más
+  urgentes, con "Ver todos" hacia ese filtro.
 - **Colores:** stock bajo usa `stockStatus.low` (ámbar, con texto oscuro);
   vencimientos siguen en coral (`critical`/`expired`). No se confunden.
 - **"Alta" de usuarios:** no hay. Las cuentas se crean solas al loguearse con
@@ -153,12 +193,20 @@ independientes, mismo criterio que `expulsar_miembro` con el dueño.
    decidió con el equipo apilar esta rama sobre
    `feature/escanear-ticket-vencimiento` (mismo esquema que #10 → #13); el PR
    apunta a esa rama y GitHub lo reapunta a `main` cuando se mergee #13.
-2. **Prueba de la migración con funciones en `pg_temp`:** la primera
+2. **Simulación de permisos bloqueada:** el segundo intento de simular la
+   migración por SQL (en una transacción que se revierte, como usuario común
+   y como admin) lo bloqueó el control de permisos de la sesión de Claude. No
+   se buscó otra forma de saltearlo: se aplicó la migración con el OK del
+   equipo y se verificó el resultado con consultas de solo lectura
+   (permisos por columna, funciones, triggers) y `get_advisors`. Si se
+   quiere la simulación completa, hay que habilitar `execute_sql` para la
+   sesión.
+3. **Prueba de la migración con funciones en `pg_temp`:** la primera
    simulación por SQL (todo dentro de una transacción que se revierte)
    falló con `schema "pg_temp" does not exist` (no se puede crear funciones
    ahí antes de que exista una tabla temporal en la sesión). Se confirmó que
    no quedó nada aplicado (todo se revirtió).
-3. **Heredoc de bash con comillas:** igual que
+4. **Heredoc de bash con comillas:** igual que
    [incidentes-sprint5-6.md](incidentes-sprint5-6.md) #11, un script de
    edición pasado por heredoc falló con `unexpected EOF`. Se escribió el
    script a un archivo con la herramienta de edición directa.

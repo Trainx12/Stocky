@@ -762,21 +762,24 @@ no valida tipos) y, desde la MCP de Supabase, pasar
 ## 13. Config del proyecto: `app.json`, `eas.json`, `tsconfig.json`, `babel.config.js`
 
 - **`app.json`**: config de Expo. Lo más importante para el equipo:
-  `"scheme": "stocky"` (el deep link que usa el login de Google fuera
-  de Expo Go — ver incidente 2), y `extra.eas.projectId` +
+  `"scheme": "stocky"` (el deep link `stocky://auth/callback` que usa el
+  login de Google en el development build de expo.dev — ver incidente 2), y
+  `extra.eas.projectId` +
   `android.package` (identidad del proyecto/app para EAS Build, no se
   deberían cambiar una vez que existan builds subidas).
 - **`eas.json`**: perfiles de build de EAS (`development`, `preview`,
-  `production`). Quedó armado como solución definitiva al bug de IP de
-  Expo Go (ver incidente 9), pero **hoy el equipo prueba con Expo Go**
-  (la app que se instala desde [expo.dev/go](https://expo.dev/go), ver
-  incidente 1), no con ese dev client -- ojo si se agrega una librería
-  con código nativo nuevo (no aplica hoy: `CalendarioPicker`, ver más
-  arriba, se armó justamente sin ninguna, a propósito): Expo Go trae
-  incluidas las más comunes y no hace falta rebuild, pero un dev client
-  de EAS sí necesitaría reconstruirse para levantarla. Si el equipo
-  vuelve a depender del dev client en algún momento, actualizar esta
-  nota.
+  `production`). **El equipo prueba la app con el perfil `development`**:
+  el development build de [expo.dev](https://expo.dev) (EAS), instalado en
+  el celular y conectado con `npx expo start --dev-client`. Nació como
+  solución definitiva al bug de IP de Expo Go (ver incidente 9 del Sprint
+  1) y hoy es obligatorio: Expo Go en Android no soporta las notificaciones
+  push (SDK 53+) ni los módulos nativos que se fueron sumando. **Cada vez
+  que se agrega una librería con código nativo** (`expo-audio` y
+  `expo-file-system` en el Sprint 8, `expo-notifications` y `expo-device`
+  en el Sprint 10) hay que generar un build nuevo con `eas build --profile
+  development --platform android` e instalarlo; los cambios de JS/TS
+  llegan solos por hot reload. `CalendarioPicker` se armó a propósito sin
+  librerías nativas.
 - **`tsconfig.json`**: config de TypeScript, extiende la base de Expo.
   Excluye `supabase/functions` por el tema de Deno mencionado arriba, y
   fija `"types": ["jest"]` para que los archivos `*.test.ts` compilen

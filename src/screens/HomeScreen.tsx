@@ -35,6 +35,7 @@ import {
   listarProductosConStockBajo,
   listarProductosProximosAVencer,
   nombreConMarca,
+  textoVerTodos,
 } from '../services/productos';
 import type { AlertaStock } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
@@ -991,11 +992,7 @@ interface EmptyStateProps {
 // Pie de las tarjetas de alertas: lleva a la lista completa (filtro de
 // ProductosScreen). Con un solo hogar no hace falta nombrarlo.
 function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarNombre: string | null; onPress: () => void }) {
-  const texto = hogarNombre
-    ? `Ver todos en ${hogarNombre}`
-    : total > MAX_ALERTAS_DASHBOARD
-      ? `Ver todos (${total})`
-      : 'Ver en la despensa';
+  const texto = textoVerTodos(total, hogarNombre, MAX_ALERTAS_DASHBOARD);
   return (
     <Pressable onPress={onPress} style={styles.verTodosButton} accessibilityRole="button">
       <Text style={styles.verTodosTexto}>{texto}</Text>

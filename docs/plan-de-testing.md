@@ -46,8 +46,8 @@ vez.
    (no debería pedir loguearse de nuevo).
 
 **Testing de quien desarrolla:**
-- Probar el flujo completo al menos una vez en Expo Go/dev client real,
-  no solo en web.
+- Probar el flujo completo al menos una vez en el development build de
+  expo.dev instalado en un celular real, no solo en web.
 - Verificar en Supabase (Table Editor) que el login crea la fila en
   `usuarios` con el rol y email correctos.
 - Probar qué pasa si se cancela el login a mitad de camino (no debería
@@ -477,7 +477,7 @@ vencimientos igual llegan por el plan B local.
    recibir push de A.
 
 **Testing de quien desarrolla (hecho por Claude):** `tsc --noEmit` limpio,
-`npm test` (17 suites / 381 tests: `notificaciones.test.ts`,
+`npm test` (al cierre del sprint: 20 suites / 403 tests, incluidos `notificaciones.test.ts`,
 `notificacionesPush.test.ts`, cartelitos en `alert.test.ts`, días de aviso
 en `productos.test.ts`, tareas previas al cierre de sesión en
 `auth.test.ts`), la app compila para web y arranca sin errores de consola.

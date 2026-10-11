@@ -49,8 +49,8 @@ Qué genera una notificación:
 
 **Contexto (doc de expo-notifications, SDK 57):** el push remoto **no existe
 en Expo Go para Android** desde el SDK 53; necesita un *development build*.
-El equipo ya usa development build (EAS), así que se puede, pero hay dos
-pasos que no puede hacer Claude:
+El equipo usa el development build de expo.dev (EAS), así que se puede, pero
+hay dos pasos que no puede hacer Claude:
 
 1. **Firebase (Android):** crear un proyecto en
    [console.firebase.google.com](https://console.firebase.google.com), agregar
@@ -195,7 +195,10 @@ extensions`.
    `expo-notifications` no sirvió porque `import * as` copia las propiedades al
    importar. Solución: mocks definidos dentro de la factory y leídos con
    `jest.requireMock`, y un getter para `Device.isDevice` (ver
-   `notificacionesPush.test.ts`).
+   `notificacionesPush.test.ts`). Volvió a pasar con
+   `createNavigationContainerRef` en `navegacion.test.ts` (el ref se crea al
+   importar): mismo arreglo. **Regla:** si el módulo bajo prueba usa el mock
+   al importarse, el mock va entero dentro de la factory.
 3. **`to_char` con decimales** dejaba "3." en enteros en el mensaje de stock;
    se cambió por `trim_scale()` antes de aplicar la migración.
 
@@ -249,6 +252,31 @@ cuenta desde la app.
 
 **Solución:** el texto del Login ahora remite a los Términos aceptados, y los
 Términos dicen que la eliminación se pide al equipo (punto 8).
+
+## 6. Menciones a Expo Go en la documentación
+
+**Síntoma:** el README y la arquitectura decían que el equipo probaba con
+Expo Go, pero el equipo usa el **development build de expo.dev** (y desde las
+notificaciones es obligatorio: Expo Go en Android no soporta push).
+
+**Solución:** se actualizaron README, `arquitectura-del-codigo.md`,
+`plan-de-testing.md` y los comentarios de código para decir que se usa el
+development build de expo.dev y cuándo hay que rearmarlo. En los incidentes
+de los Sprints 1-3 **no se reescribió lo que pasó** (en ese momento sí se
+usaba Expo Go): se agregó una nota arriba aclarando que es historial.
+
+## Lo que no tiene test (y por qué)
+
+- `src/lib/grabacion.ts` (`useGrabadorDeVoz`, Sprint 8) y
+  `context/NotificacionesContext.tsx` son hooks/componentes de React que
+  dependen de módulos nativos y de Realtime; el proyecto no tiene
+  infraestructura de tests de componentes (solo de lógica). Su lógica pura
+  sí está testeada aparte (`calcularAvisosLocales`, `aparienciaNotificacion`,
+  `destinoNotificacion`, etc.). Si se suma `@testing-library/react-native`,
+  son los primeros candidatos.
+- Las pantallas (`*Screen.tsx`) tampoco tienen tests, por el mismo motivo:
+  la lógica que tenían adentro se sacó a `services/` para poder testearla
+  (por ejemplo `textoVerTodos` y `ajustarDiasAviso`).
 
 ## Pendientes antes de publicar (para el equipo)
 
