@@ -151,9 +151,10 @@ una APK con el perfil `preview` de `eas.json`: trae todo el código adentro.
    descarga la APK y se instala (Android pide permitir "instalar apps de
    fuentes desconocidas"). El mismo link sirve para todo el equipo.
 
-Cada cambio de código necesita una APK nueva (no hay hot reload). Para los
-push con la app cerrada sigue haciendo falta Firebase (ver
-[docs/incidentes-sprint10.md](docs/incidentes-sprint10.md) #1).
+Los cambios de código después se mandan "por aire" con EAS Update, sin
+repartir otra APK. La guía completa (APK, versión web para iPhone,
+actualizaciones y feedback) está en
+[docs/guia-para-probar-la-app.md](docs/guia-para-probar-la-app.md).
 
 ## Tests
 

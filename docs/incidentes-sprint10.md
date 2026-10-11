@@ -494,3 +494,26 @@ filas borró de cada tabla).
 Borrar una notificación de vencimiento vieja no hace que se repita: el job de
 vencimientos solo avisa de productos dentro de su ventana de aviso o vencidos
 hace menos de una semana, mucho menos que 60 días.
+
+## 13. Repartir la app para probar: APK independiente, web y actualizaciones
+
+**Pedido del equipo:** una APK que funcione sin `npx expo start` en una
+compu, una forma de que la prueben con iPhone, y que las actualizaciones les
+lleguen sin volver a descargar.
+
+**Hallazgo:** el `.env` (URL y key pública de Supabase) está en `.gitignore`,
+así que EAS no lo sube al armar en la nube: una APK independiente quedaba sin
+saber a qué base conectarse (con el development build no se notaba, porque
+el código lo sirve la compu que sí tiene el `.env`). Se resuelve cargando
+esas dos variables en EAS (environment `preview`).
+
+**Cambios:** perfil `preview` de `eas.json` con `buildType: apk`,
+`environment` y `channel`; **EAS Update** (`expo-updates`, `runtimeVersion`
+con política `appVersion`, `updates.url`) para mandar cambios de código por
+aire; `web.output: single` para publicar la versión web con EAS Hosting.
+`expo-doctor` 21/21. Paso a paso en
+[guia-para-probar-la-app.md](guia-para-probar-la-app.md).
+
+**A tener en cuenta:** solo las APK armadas **después** de este cambio
+reciben actualizaciones por aire. Si se cambia algo nativo, subir `version`
+en `app.json` y armar una APK nueva.
