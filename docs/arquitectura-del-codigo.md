@@ -732,10 +732,12 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
   el lema van como texto: en el original las letras son negras y en modo
   oscuro no se verían. `compact` muestra solo la casa (encabezado del inicio)
   y `NombreDeHogar` pone el logo chico delante del nombre de un hogar (antes
-  era el emoji 🏠). En el original, el blanco de la botella de leche venía
-  transparente (se lo había llevado el recorte del fondo): al recortar la
-  casa se rellenó de blanco todo lo transparente que queda encerrado dentro
-  del dibujo.
+  era el emoji 🏠). Original de 2000×2000 px; en él, el blanco de la
+  botella de leche y el tilde del check venían transparentes (se los había
+  llevado el recorte del fondo): al recortar la casa se rellenó de blanco
+  todo lo transparente que queda encerrado dentro del dibujo (la sombra de
+  abajo sigue semitransparente a propósito). Si llega un logo nuevo, revisar
+  eso poniéndolo sobre un fondo de color fuerte.
 - **`ProductoFormModal.tsx`**: un solo modal para "Agregar producto" y
   "Editar producto" (mismo patrón que `HogarFormModal`): el modo se
   infiere de si viene un `producto` seteado o no. Nombre/categoría/unidad
