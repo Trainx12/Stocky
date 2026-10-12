@@ -7,6 +7,7 @@ import { listarCatalogoAprobado } from '../services/catalogo';
 import { interpretarComandoDeVoz } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
 import { formatearFechaCorta, formatearFechaInput, nombreConMarca } from '../services/productos';
+import { UNIDADES_DISPONIBLES } from '../services/escaneo';
 import {
   accionAplicable,
   aplicarAccionDeVoz,
@@ -18,6 +19,7 @@ import {
 import type { AccionVoz, TipoAccionVoz } from '../services/voz';
 import type { Producto } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface ComandoVozModalProps {
   visible: boolean;
@@ -34,16 +36,18 @@ type Paso = 'grabar' | 'procesando' | 'revisar' | 'vacio';
 const EJEMPLOS = [
   'Agregá 2 leches La Serenísima que vencen el 15 de noviembre',
   'Compré un kilo de papas y una docena de huevos',
+  'Compré 2 paquetes de sal y una caja de chocolatada',
   'Usé 3 huevos',
   'La manteca vence el viernes',
   'Eliminá el yogur',
 ];
 
-const ESTILO_TIPO: Record<TipoAccionVoz, { etiqueta: string; color: string; fondo: string }> = {
+// Función (no constante): se lee en cada render, así respeta el modo claro/oscuro.
+const estiloTipo = (): Record<TipoAccionVoz, { etiqueta: string; color: string; fondo: string }> => ({
   alta: { etiqueta: 'Agregar', color: colors.success, fondo: colors.successLight },
   modificacion: { etiqueta: 'Modificar', color: colors.primary, fondo: colors.primaryLight },
   baja: { etiqueta: 'Eliminar', color: colors.danger, fondo: colors.dangerLight },
-};
+});
 
 function formatearSegundos(segundos: number): string {
   return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
@@ -64,6 +68,7 @@ function describirProducto(producto: Producto): string {
  * mismas funciones que el ABM manual (services/voz.ts).
  */
 export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, productos }: ComandoVozModalProps) {
+  const styles = useEstilos(crearEstilos);
   const [paso, setPaso] = useState<Paso>('grabar');
   const [transcripcion, setTranscripcion] = useState('');
   const [acciones, setAcciones] = useState<AccionVoz[]>([]);
@@ -283,7 +288,8 @@ interface TarjetaAccionProps {
 
 // Una acción entendida, con sus campos corregibles según el tipo.
 function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar }: TarjetaAccionProps) {
-  const estilo = ESTILO_TIPO[accion.tipo];
+  const styles = useEstilos(crearEstilos);
+  const estilo = estiloTipo()[accion.tipo];
   const titulo = accion.producto ? nombreConMarca(accion.producto) : accion.nombre;
   const sinProducto = accion.tipo !== 'alta' && !accion.producto;
 
@@ -318,9 +324,30 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
         </Pressable>
       </View>
 
-      {accion.tipo === 'alta' && !accion.catalogo && <Text style={styles.detalle}>Sin catálogo · se guarda en "Otros"</Text>}
+      {accion.tipo === 'alta' && !accion.catalogo && (
+        <Text style={styles.detalle}>Sin catálogo · se guarda en "{accion.categoria}"</Text>
+      )}
 
       {accion.aviso && <Text style={styles.aviso}>{accion.aviso}</Text>}
+
+      {/* No es comida (shampoo, detergente...): no se carga salvo que el
+          usuario lo pida explícitamente. */}
+      {accion.noEsAlimento && (
+        <Pressable
+          onPress={() => onCambiar({ incluir: !accion.incluir })}
+          disabled={deshabilitada}
+          style={[styles.chip, styles.chipCargarIgual, accion.incluir && styles.chipSeleccionado]}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: accion.incluir }}
+        >
+          <Ionicons
+            name={accion.incluir ? 'checkbox' : 'square-outline'}
+            size={16}
+            color={accion.incluir ? colors.white : colors.textSecondary}
+          />
+          <Text style={[styles.chipTexto, accion.incluir && styles.chipTextoSeleccionado]}>Cargar igual</Text>
+        </Pressable>
+      )}
 
       {accion.opciones.length > 0 && (
         <View style={styles.opciones}>
@@ -362,8 +389,27 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
               editable={!deshabilitada}
               accessibilityLabel={`Cantidad de ${titulo}`}
             />
-            <Text style={styles.detalle}>{accion.unidad}</Text>
+            {accion.tipo !== 'alta' && <Text style={styles.detalle}>{accion.unidad}</Text>}
           </View>
+          {/* En un alta la unidad se puede corregir: "1 paquete de pimentón"
+              no es "1 g" (incidentes-sprint10.md #21). */}
+          {accion.tipo === 'alta' && (
+            <View style={styles.unidades}>
+              {UNIDADES_DISPONIBLES.map((unidad) => (
+                <Pressable
+                  key={unidad}
+                  onPress={() => onCambiar({ unidad })}
+                  disabled={deshabilitada}
+                  style={[styles.chip, accion.unidad === unidad && styles.chipSeleccionado]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: accion.unidad === unidad }}
+                  accessibilityLabel={`Unidad ${unidad}`}
+                >
+                  <Text style={[styles.chipTexto, accion.unidad === unidad && styles.chipTextoSeleccionado]}>{unidad}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <View style={styles.fila}>
             <TextInput
               style={[styles.input, styles.flex]}
@@ -393,7 +439,8 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',
@@ -540,6 +587,11 @@ const styles = StyleSheet.create({
   opciones: {
     gap: spacing.xs,
   },
+  unidades: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -558,6 +610,13 @@ const styles = StyleSheet.create({
   },
   chipTextoSeleccionado: {
     color: colors.white,
+  },
+  // "Cargar igual" (no es un alimento): casilla + texto en fila.
+  chipCargarIgual: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
   },
   error: {
     ...typography.caption,

@@ -1,6 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
+import { cambiarACuenta, olvidarCuenta, olvidarTodas, siguienteCuenta, listarCuentas } from './cuentas';
 
 // Cierra cualquier sesión de auth-session pendiente al recargar la app en desarrollo.
 WebBrowser.maybeCompleteAuthSession();
@@ -31,6 +32,10 @@ export async function signInWithGoogle() {
     options: {
       redirectTo,
       skipBrowserRedirect: true,
+      // Que Google siempre pregunte con qué cuenta entrar: sin esto entra
+      // directo con la última usada y no se podría agregar otra cuenta
+      // (varias cuentas, ver services/cuentas.ts).
+      queryParams: { prompt: 'select_account' },
     },
   });
 
@@ -88,15 +93,46 @@ export function registrarTareaAntesDeCerrarSesion(tarea: () => Promise<void>): (
   };
 }
 
-// Cierra la sesión activa (borra el token guardado y avisa a AuthContext).
-// Si alguna tarea previa falla, se cierra la sesión igual: salir de la
-// cuenta nunca puede quedar trabado por un detalle secundario.
-export async function signOut() {
+// Corre las tareas previas al cierre de sesión. Si alguna falla, se cierra
+// la sesión igual: salir de la cuenta nunca puede quedar trabado por un
+// detalle secundario.
+async function correrTareasPrevias(): Promise<void> {
   await Promise.all(
     Array.from(tareasAntesDeCerrarSesion).map((tarea) =>
       tarea().catch((err) => console.warn('[Stocky] Falló una tarea previa al cierre de sesión:', err)),
     ),
   );
-  const { error } = await supabase.auth.signOut();
+}
+
+// Cierra la sesión de la cuenta ACTIVA en este celular (`scope: 'local'`: no
+// la cierra en los otros dispositivos de esa persona) y la saca de la lista
+// de cuentas guardadas. Si en el celular quedan otras cuentas, pasa a la
+// usada más recientemente, como Instagram; si no, vuelve a la bienvenida.
+export async function signOut() {
+  await correrTareasPrevias();
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
+
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  if (error) throw error;
+
+  if (!userId) return;
+  await olvidarCuenta(userId);
+  const siguiente = siguienteCuenta(await listarCuentas(), userId);
+  if (siguiente) {
+    try {
+      await cambiarACuenta(siguiente.userId);
+    } catch (err) {
+      // Si la otra cuenta ya no sirve, se queda en la bienvenida (no rompe).
+      console.warn('[Stocky] No se pudo pasar a la siguiente cuenta:', err);
+    }
+  }
+}
+
+// Cierra la sesión activa y olvida TODAS las cuentas guardadas en este celular.
+export async function cerrarTodasLasSesiones() {
+  await correrTareasPrevias();
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  await olvidarTodas();
   if (error) throw error;
 }

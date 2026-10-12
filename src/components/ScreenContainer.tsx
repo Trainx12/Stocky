@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface ScreenContainerProps {
 
 /** Envoltorio estándar de pantalla: safe area + fondo + padding consistente. */
 export function ScreenContainer({ children, style, noPadding }: ScreenContainerProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     // SafeAreaView evita que el contenido quede debajo del notch/barra de
     // estado o los botones del sistema.
@@ -21,7 +23,8 @@ export function ScreenContainer({ children, style, noPadding }: ScreenContainerP
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,

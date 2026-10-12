@@ -159,11 +159,20 @@ export function nombreConMarca(producto: Pick<Producto, 'nombre' | 'marca'>): st
 
 // Busca entre los productos de un hogar uno que sea "el mismo" que el que se
 // está por crear: misma identidad (producto del catálogo, o mismo nombre si
-// no viene de catálogo), misma marca y mismo vencimiento. Si existe, conviene
-// sumarle la cantidad en vez de crear una fila repetida.
+// no viene de catálogo), misma unidad, misma marca y mismo vencimiento. Si
+// existe, conviene sumarle la cantidad en vez de crear una fila repetida.
+// La unidad cuenta porque 1 l de chocolatada (líquida) y 1 paquete (en
+// polvo) son cosas distintas: antes se sumaban y quedaba "2 l"
+// (incidentes-sprint10.md #22).
 export function buscarDuplicado(
   existentes: Producto[],
-  nuevo: { nombre: string; catalogoId: string | null; marca: string | null; fechaVencimiento: string | null },
+  nuevo: {
+    nombre: string;
+    catalogoId: string | null;
+    unidad: UnidadProducto;
+    marca: string | null;
+    fechaVencimiento: string | null;
+  },
 ): Producto | null {
   const marcaNueva = normalizarTexto(nuevo.marca);
   const nombreNuevo = normalizarTexto(nuevo.nombre);
@@ -175,6 +184,7 @@ export function buscarDuplicado(
         : p.catalogo_id === null && normalizarTexto(p.nombre) === nombreNuevo;
       return (
         mismaIdentidad &&
+        p.unidad === nuevo.unidad &&
         normalizarTexto(p.marca) === marcaNueva &&
         (p.fecha_vencimiento ?? null) === (nuevo.fechaVencimiento ?? null)
       );
@@ -212,6 +222,7 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
     const duplicado = buscarDuplicado(await listarProductos(hogarId), {
       nombre,
       catalogoId: datos.catalogoId,
+      unidad: datos.unidad,
       marca,
       fechaVencimiento,
     });

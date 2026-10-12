@@ -22,6 +22,7 @@ import {
   elegirProducto,
   fechaDeHoy,
   inventarioParaVoz,
+  unidadDeAlta,
 } from './voz';
 import type { AccionDeVozInterpretada } from './externalApis';
 
@@ -110,6 +111,39 @@ describe('armarAccionesDeVoz: alta', () => {
   it('fuera del catálogo queda en "Otros" con la unidad dicha', () => {
     const [accion] = armar([{ accion: 'alta', nombre: 'Tortuguita', cantidad: 1.5, unidad: 'kg' }]);
     expect(accion).toMatchObject({ nombre: 'Tortuguita', categoria: 'Otros', unidad: 'kg', catalogo: null, cantidad: '1.5' });
+  });
+
+  // incidentes-sprint10.md #21: antes mandaba siempre la unidad del catálogo.
+  it('la unidad dicha le gana a la del catálogo ("un paquete de sal" no es 1 kg)', () => {
+    const conSal = [...catalogo, item('Sal', { unidad: 'kg' })];
+    const [accion] = armarAccionesDeVoz(
+      { transcripcion: '', acciones: [{ accion: 'alta', nombre: 'Sal', cantidad: 1, unidad: 'paquete' }] },
+      [],
+      conSal,
+    );
+    expect(accion).toMatchObject({ nombre: 'Sal', unidad: 'paquete', cantidad: '1', incluir: true });
+    expect(accion.catalogo?.id).toBe('cat-Sal');
+  });
+
+  it('sin unidad dicha y catálogo en gramos, lo cuenta por paquete y avisa', () => {
+    const conPimenton = [...catalogo, item('Pimentón', { unidad: 'g' })];
+    const [accion] = armarAccionesDeVoz({ transcripcion: '', acciones: [{ accion: 'alta', nombre: 'Pimentón', cantidad: 1 }] }, [], conPimenton);
+    expect(accion.unidad).toBe('paquete');
+    expect(accion.aviso).toMatch(/paquete/);
+  });
+
+  it('no es un alimento: avisa y no se carga salvo que el usuario lo pida', () => {
+    const [accion] = armar([{ accion: 'alta', nombre: 'shampoo', cantidad: 1, unidad: 'unidad', es_alimento: false, categoria: 'Higiene' }]);
+    expect(accion).toMatchObject({ nombre: 'Shampoo', categoria: 'Higiene', noEsAlimento: true, incluir: false });
+    expect(accion.aviso).toMatch(/no es un alimento/);
+    expect(accionAplicable(accion)).toBe(false);
+    expect(accionAplicable({ ...accion, incluir: true })).toBe(true); // "Cargar igual"
+  });
+
+  it('una categoría inventada por el modelo se ignora', () => {
+    const [accion] = armar([{ accion: 'alta', nombre: 'Tortuguita', es_alimento: true, categoria: 'Cualquiera' }]);
+    expect(accion.categoria).toBe('Otros');
+    expect(accion.noEsAlimento).toBe(false);
   });
 
   it('descarta una fecha que no existe y avisa', () => {
@@ -259,6 +293,16 @@ describe('aplicarAccionDeVoz', () => {
       stockMinimo: 1,
       alertaVencimientoHabilitada: false,
     }));
+  });
+});
+
+describe('unidadDeAlta', () => {
+  it('manda lo dicho; si no, el catálogo; gramos y ml sin decir pasan a paquete', () => {
+    expect(unidadDeAlta('paquete', 'l')).toEqual({ unidad: 'paquete', supuesta: false });
+    expect(unidadDeAlta(null, 'kg')).toEqual({ unidad: 'kg', supuesta: false });
+    expect(unidadDeAlta(null, 'g')).toEqual({ unidad: 'paquete', supuesta: true });
+    expect(unidadDeAlta(undefined, 'ml')).toEqual({ unidad: 'paquete', supuesta: true });
+    expect(unidadDeAlta('litros', null)).toEqual({ unidad: 'unidad', supuesta: false });
   });
 });
 

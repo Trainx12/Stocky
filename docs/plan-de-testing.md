@@ -523,6 +523,78 @@ términos).
 
 ---
 
+## Cuenta, modo oscuro, varias cuentas y edición del ticket (Sprint 10)
+
+Rama `feature/cuenta-y-ajustes`. Sin migraciones. Detalle en
+[incidentes-sprint10.md](incidentes-sprint10.md).
+
+**Ruta crítica:**
+1. Botón de la persona → Cuenta: muestra nombre, email y (si corresponde)
+   "Administrador". Editar el nombre → se ve en Home y en "Miembros del
+   hogar". Nombre vacío → aviso, no se guarda.
+2. Apariencia: sin haber elegido nada, la app sigue el modo del celular
+   ("Sistema"): con el teléfono en oscuro se ve oscura, y cambia sola al
+   cambiar el teléfono (requiere el build nuevo, por `userInterfaceStyle`).
+   Oscuro → TODA la app pasa a oscuro (recorrer Home,
+   despensa, formularios, modales, campanita, cartelitos, términos);
+   Claro → vuelve; Sistema → sigue al modo del celular. Cerrar y abrir la
+   app → recuerda la elección.
+3. Varias cuentas: "Agregar otra cuenta" → Google pregunta qué cuenta → entra
+   con la nueva y la anterior aparece en "Tus cuentas". Tocar la otra → cambia
+   sin pasar por el login, con sus hogares y productos (nada mezclado).
+4. Cerrar sesión con dos cuentas → pasa a la otra; con una sola → vuelve a la
+   bienvenida. La sesión en la web u otro celular de esa persona **sigue
+   abierta** (antes se cerraba en todos lados). "Cerrar sesión en todas"
+   → bienvenida y la lista vacía.
+5. Escanear un ticket → en la revisión: "Cambiar producto" elige otro del
+   catálogo (conserva cantidad/marca/fecha); "Escribir a mano" deja editar
+   el nombre; cargar un vencimiento; borrar el nombre o poner cantidad 0 →
+   aviso debajo y botón deshabilitado. Al confirmar, los productos se
+   guardan con lo corregido (incluida la fecha).
+
+6. **Fecha de vencimiento en un celular angosto** (web en iPhone y APK):
+   en "Agregar producto", debajo del campo de fecha se ven los tres botones
+   "Calendario", "Foto" y "Dictar", y el botón "Agregar producto" se puede
+   ver entero.
+7. Home → "Accesos rápidos" → **"Escanear ticket"** abre la despensa con el
+   escaneo abierto. **"?"** arriba a la derecha → Ayuda: cada tema se abre,
+   el buscador encuentra ("ticket", "vencimiento"), y lo que dice coincide
+   con los botones reales.
+
+8. **Hogar recordado:** con dos hogares, "Cambiar hogar" → elegir el
+   segundo → cerrar la app (o recargar la web) y volver a abrir → sigue en
+   el segundo. "Productos próximos a vencer" y "Stock bajo" muestran solo
+   productos de ese hogar (sin el nombre del hogar en cada fila).
+9. Campanita → prender **"Alertas de todos mis hogares"** → volver al
+   inicio: aparecen los de los dos hogares, cada uno con el nombre de su
+   hogar y "Ver todos en <hogar>". Apagarla → vuelve a uno solo. Con otra
+   cuenta en el mismo celular, la opción y el hogar elegido son los suyos.
+10. **Voz con unidades:** "compré un paquete de sal, dos cajas de
+    chocolatada y un sobre de pimentón" → en la revisión: Sal 1 paquete,
+    Chocolatada 2 paquete, Pimentón 1 paquete (no kg, l ni g). Tocar otra
+    unidad la cambia. "Medio kilo de queso" → 0.5 kg.
+10b. "Compré un litro de chocolatada" y después "compré un paquete de
+    chocolatada" → en la despensa quedan **dos** productos separados (1 l y
+    1 paquete), no "2 l". Lo mismo cargándolos a mano.
+11. **Voz con algo que no es comida:** "compré un shampoo" → aparece con el
+    aviso "no es un alimento" y sin contar en "Aplicar"; tocar "Cargar
+    igual" → se suma y se guarda en la categoría Higiene.
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, `npm test`
+(22 suites / 439 tests;
+después, con hogar recordado y voz: 25 suites / 466 tests, sumando
+`preferenciasHogar.test.ts` y unidades/no alimentos en `voz.test.ts`: `cuentas.test.ts`, `tema.test.ts`, corrección del
+ticket en `escaneo.test.ts`, cierre de sesión y elección de cuenta en
+`auth.test.ts`, nombre propio en `usuarios.test.ts`), y el modo oscuro
+probado en el navegador en las pantallas sin login. **No hecho:** los pasos
+1, 3, 4 y 5 (requieren login con Google).
+
+**Regresión obligatoria:** login/logout (cambió `signOut`), notificaciones
+(el push sigue a la cuenta activa), y una pasada visual por todas las
+pantallas en modo claro (se tocaron los estilos de las 25).
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**

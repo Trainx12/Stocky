@@ -57,6 +57,30 @@ escrito a mano** — siempre importa de `theme`.
   fácil (`import { theme } from '../theme'` o los exports sueltos como
   `colors`, `spacing`).
 
+**Modo oscuro (Sprint 10) — regla para todo componente nuevo:**
+`colors.ts` tiene dos juegos de valores con los mismos nombres (claro y
+oscuro). `colors` es un objeto cuyos valores cambia `aplicarEsquema()` al
+pasar de un modo al otro (lo llama `context/TemaContext.tsx`, que guarda la
+elección del usuario en el celular: sistema / claro / oscuro). Por eso:
+
+1. Los estilos se definen como **función** y se usan con el hook
+   `useEstilos` (`theme/useEstilos.ts`), que los vuelve a armar al cambiar
+   el modo:
+   ```tsx
+   export function MiPantalla() {
+     const styles = useEstilos(crearEstilos);
+     ...
+   }
+   const crearEstilos = () => StyleSheet.create({ ... });
+   ```
+   Un `const styles = StyleSheet.create(...)` a nivel de módulo se quedaría
+   con los colores del modo en que arrancó la app.
+2. Nunca guardar un color en una constante de módulo
+   (`const X = { color: colors.primary }`): usar una función que se lea en
+   cada render (ver `estiloPorTipo` en `AvisosHost`).
+3. `colors.white` se mantiene blanco en los dos modos (es el texto sobre
+   botones de color); para fondos usar `colors.surface`/`colors.background`.
+
 ---
 
 ## 3. `src/types/` — el "contrato" de datos
@@ -350,6 +374,11 @@ alguien agregue un producto por afuera de ese archivo y la actividad quede
 sin registrar. Hoy solo cubre ABM de productos (lo único con ABM real);
 altas/bajas de `hogar_miembros` todavía no generan actividad.
 
+**Limpieza automática (Sprint 10):** un job diario (`limpiar_datos_viejos`,
+pg_cron, 03:00 de Argentina) borra la actividad de más de 90 días o fuera de
+las últimas 150 de cada hogar, y las notificaciones ya leídas de más de 60
+días. Ver [incidentes-sprint10.md](incidentes-sprint10.md) #12.
+
 **Catálogo de productos** (ver migración
 [20260909212018_catalogo_productos.sql](../supabase/migrations/20260909212018_catalogo_productos.sql)):
 `crearProducto`/`editarProducto` ahora reciben también `catalogoId` (de
@@ -428,7 +457,18 @@ Reglas que conviene conocer: "sacá la leche" (sin cantidad) es una baja y
 "sacá una leche" una resta; si lo dicho coincide con varios lotes
 (`buscarProductosDichos`), una resta descuenta del que vence primero
 (`ordenarLotes`) y una baja o un cambio de fecha piden elegir cuál. Nada se
-guarda sin que el usuario confirme en la revisión.
+guardado sin que el usuario confirme en la revisión.
+
+Unidades (incidentes-sprint10.md #21): en un alta, **la unidad que dijo la
+persona le gana a la del catálogo** (`unidadDeAlta`): "un paquete de sal" es
+1 paquete aunque la Sal del catálogo esté en kg. Si no dijo unidad se usa la
+del catálogo, salvo g/ml, que pasan a paquete (nadie compra "1 g de
+pimentón"). El prompt de `voz-a-texto` le pide al modelo que traduzca envases
+(paquete, caja, bolsa, sobre, frasco) a `paquete`, y en la revisión la unidad
+de un alta se puede cambiar con chips. Lo que **no es comida** (`es_alimento:
+false`, por ejemplo "shampoo") se muestra con aviso y sin marcar: se carga
+solo si el usuario toca "Cargar igual" (`noEsAlimento`), con la categoría que
+sugiere el modelo (`CATEGORIAS_VOZ`, que suma Limpieza e Higiene).
 
 ### Lotes agrupados en la lista (`agruparProductos`, Sprint 8)
 
@@ -466,6 +506,16 @@ tengan la alerta apagada, en el orden en que vencen, con
 del mínimo). `HomeScreen` sigue mostrando solo lo urgente
 (`productosProximosAVencer`, las primeras 4 alertas de cada tipo) y un "Ver
 todos" que abre `Productos` con `filtroInicial` ya aplicado.
+
+**Hogar elegido y alcance de las alertas** (`services/preferenciasHogar.ts`):
+el hogar elegido con "Cambiar hogar" se recuerda en el dispositivo
+(AsyncStorage, por cuenta) y al volver a abrir la app o la web se sigue
+mostrando (`elegirHogarInicial`: el recordado, si no `usuarios.hogar_id`, si
+no el primero). Las alertas del inicio son **solo de ese hogar** por defecto;
+la opción "Alertas de todos mis hogares" (pantalla Notificaciones) junta las
+de todos (`hogaresDeLasAlertas`). Solo cambia lo que muestra el inicio: las
+notificaciones de la campanita y el push siguen llegando de todos los
+hogares, para no perder un aviso.
 
 ### `usuarios.ts` — ABM de usuarios para administradores (RF9 parcial)
 
@@ -532,6 +582,35 @@ criterio que `actividad_hogar`).
   abrirla al tocar una notificación del sistema.
 
 ---
+
+### `cuentas.ts` — varias cuentas en el mismo celular (Sprint 10)
+
+Como en Instagram: se puede iniciar sesión con más de una cuenta de Google y
+cambiar entre ellas desde Cuenta sin volver al login. Supabase maneja una
+sola sesión activa; de las demás se guardan en AsyncStorage los tokens de
+acceso y de renovación (mismo lugar y nivel de seguridad que usa Supabase
+para la sesión activa). `AuthContext` llama a `recordarSesion` en cada
+cambio o renovación de la sesión, así los tokens guardados de cada cuenta
+están al día; `cambiarACuenta` los activa con `supabase.auth.setSession`
+(si la sesión venció, olvida esa cuenta y avisa). El login pide a Google
+`prompt: 'select_account'` para poder elegir otra cuenta.
+
+`signOut()` (en `auth.ts`) ahora cierra la sesión **solo en este celular**
+(`scope: 'local'`; antes era global y cerraba la sesión de esa persona en
+todos sus dispositivos), olvida la cuenta y, si quedan otras guardadas, pasa
+a la usada más recientemente. `cerrarTodasLasSesiones()` olvida todas.
+Las notificaciones push van a la cuenta activa: al cambiar de cuenta, el
+celular se vuelve a registrar a nombre de la nueva (`registrar_push_token`
+mueve el token).
+
+## 5ter. `src/ayuda/` — la ayuda (botón "?")
+
+Mismo criterio que `src/legal/`: el texto de la ayuda vive como datos en
+`src/ayuda/contenido.ts` (temas con pasos que nombran los botones tal como
+se ven en la app) y `screens/AyudaScreen.tsx` solo lo muestra, con un
+buscador (`buscarEnAyuda`). Se abre desde el "?" del encabezado del Home
+(`Header` recibe `onAyuda`) y desde Cuenta → Ajustes. **Si se renombra un
+botón, actualizar también el texto de la ayuda.**
 
 ## 5bis. `src/legal/` — Términos y Condiciones y créditos
 
@@ -626,6 +705,14 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
   como texto libre y se parsean recién al submitear (acepta coma o punto
   como separador decimal), para no romper la UI si el usuario borra el
   campo a mitad de tipeo.
+- **`EscanearTicketModal.tsx`** (revisión del ticket): cada producto
+  detectado se puede corregir si se leyó mal: "Cambiar producto" (elegir
+  otro del catálogo con `CatalogoSelectorModal`) o "Escribir a mano" (se
+  suelta del catálogo y el nombre queda editable), además de cantidad, marca
+  y una fecha de vencimiento opcional. `errorDeCandidato` (en
+  `services/escaneo.ts`, igual que `elegirDelCatalogo`/`pasarASinCatalogo`)
+  avisa debajo de cada producto qué le falta y bloquea el botón de
+  confirmar.
 - **`CatalogoSelectorModal.tsx`**: selector del catálogo global de
   productos (ver `services/catalogo.ts`) -- búsqueda + chips de categoría
   sobre la lista ya cargada (mismo criterio 100% client-side que
@@ -680,6 +767,11 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
   sección 5). Tocar una notificación la marca como leída y lleva a la
   despensa con el filtro que corresponda, a "Miembros del hogar" (Home recibe
   `abrirMiembrosDe`), al inicio o a sugerencias.
+- **`CuentaScreen`** (botón de la persona en la barra de abajo): perfil
+  (nombre editable con `actualizarMiNombre`), varias cuentas (cambiar,
+  agregar), apariencia (sistema/claro/oscuro), accesos a Notificaciones y a
+  los Términos, versión de la app, y cerrar sesión (de esta cuenta o de
+  todas). "Cerrar sesión" y el enlace a los Términos salieron del Home.
 - **`CuentaDeshabilitadaScreen`**: lo único que ve una cuenta deshabilitada
   (mensaje + cerrar sesión). La muestra `RootNavigator` en lugar del stack
   principal.

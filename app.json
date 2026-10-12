@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
@@ -21,7 +21,8 @@
       "package": "com.stocky2026.stocky"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single"
     },
     "plugins": [
       "expo-status-bar",
@@ -46,12 +47,19 @@
         {
           "color": "#7B2FF7"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "eas": {
         "projectId": "c32c54c1-1191-48d3-8f96-e5b98ebc3082"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c32c54c1-1191-48d3-8f96-e5b98ebc3082"
     }
   }
 }

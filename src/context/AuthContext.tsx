@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Usuario } from '../types/database';
+import { recordarSesion } from '../services/cuentas';
+import { crearUltimoPedido } from '../lib/ultimoPedido';
 
 interface AuthContextValue {
   session: Session | null;
@@ -25,10 +27,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
   const [usuarioLoading, setUsuarioLoading] = useState(false);
+  // El perfil se pide varias veces seguidas al iniciar sesión; solo vale la
+  // respuesta del último pedido (si no, una vieja que llega tarde pisa datos
+  // nuevos: ver lib/ultimoPedido.ts e incidentes-sprint10.md #18).
+  const pedidosDePerfil = useRef(crearUltimoPedido()).current;
 
   async function fetchUsuario(userId: string) {
+    const turno = pedidosDePerfil.nuevo();
     setUsuarioLoading(true);
     const { data, error } = await supabase.from('usuarios').select('*').eq('id', userId).single();
+    if (!pedidosDePerfil.esVigente(turno)) return; // llegó un pedido más nuevo
 
     if (error) {
       // No hay fila todavía (p. ej. el trigger de alta recién está corriendo).
@@ -54,10 +62,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
+    // Cada sesión activa (login, cambio de cuenta, renovación del token) se
+    // guarda en la lista de cuentas del celular, así se puede volver a ella
+    // desde Cuenta sin pasar de nuevo por Google (ver services/cuentas.ts).
+    function guardarParaCambiarDeCuenta(sesion: Session | null) {
+      if (sesion) recordarSesion(sesion).catch((err) => console.warn('[Stocky] No se pudo guardar la cuenta:', err));
+    }
+
     // De ahí en más: cada vez que cambia la sesión (login, logout, refresh
     // de token), nos enteramos acá y actualizamos usuario/session solos.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      guardarParaCambiarDeCuenta(newSession);
       if (newSession?.user) {
         fetchUsuario(newSession.user.id);
       } else {

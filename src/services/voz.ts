@@ -53,6 +53,45 @@ export interface AccionVoz {
   fecha: string; // 'AAAA-MM-DD' o '' (sin fecha)
   incluir: boolean;
   aviso: string | null;
+  // alta de algo que no es comida (shampoo, detergente): no se carga salvo
+  // que el usuario toque "Cargar igual" en la revisión.
+  noEsAlimento: boolean;
+}
+
+// Categorías que se aceptan del modelo para lo que no está en el catálogo:
+// las del catálogo (alimentos) más dos para lo que no es comida.
+export const CATEGORIAS_VOZ = [
+  'Lácteos',
+  'Verduras y frutas',
+  'Panadería',
+  'Bebidas',
+  'Infusiones',
+  'Snacks',
+  'Otros',
+  'Limpieza',
+  'Higiene',
+] as const;
+
+function categoriaValida(categoria: string | null | undefined): string | null {
+  return CATEGORIAS_VOZ.includes(categoria as (typeof CATEGORIAS_VOZ)[number]) ? (categoria as string) : null;
+}
+
+/**
+ * Unidad de un alta por voz. Lo que dijo la persona manda ("un paquete de
+ * sal" es 1 paquete aunque en el catálogo la Sal esté en kg): antes se
+ * usaba siempre la del catálogo y "1 paquete de pimentón" quedaba como
+ * "1 g" (incidentes-sprint10.md #21). Si no dijo unidad, se usa la del
+ * catálogo, salvo gramos o mililitros: nadie compra "2 pimentones" de 1 g,
+ * así que se cuentan como paquetes.
+ */
+export function unidadDeAlta(
+  unidadDicha: string | null | undefined,
+  unidadCatalogo: UnidadProducto | null | undefined,
+): { unidad: UnidadProducto; supuesta: boolean } {
+  const dicha = unidadValida(unidadDicha);
+  if (dicha) return { unidad: dicha, supuesta: false };
+  if (unidadCatalogo === 'g' || unidadCatalogo === 'ml') return { unidad: 'paquete', supuesta: true };
+  return { unidad: unidadCatalogo ?? 'unidad', supuesta: false };
 }
 
 // Fecha de hoy en hora local, para que el modelo resuelva "mañana", "el viernes".
@@ -164,20 +203,31 @@ function armarAccion(interpretada: AccionDeVozInterpretada, indice: number, prod
     fecha: fechaDicha,
     incluir: true,
     aviso: avisoFecha,
+    noEsAlimento: false,
   };
 
   if (interpretada.accion === 'alta') {
     const enCatalogo = buscarEnCatalogo(nombreDicho, catalogo);
+    const { unidad, supuesta } = unidadDeAlta(interpretada.unidad, enCatalogo?.unidad);
+    // Lo que no es comida (y no está en el catálogo, que es solo de
+    // alimentos) se puede cargar igual, pero no por defecto: se avisa y el
+    // usuario decide con "Cargar igual".
+    const noEsAlimento = !enCatalogo && interpretada.es_alimento === false;
+    const aviso = noEsAlimento
+      ? `"${nombreDicho}" no es un alimento. Stocky está pensada para la comida de la despensa, pero si querés lo podés cargar igual.`
+      : supuesta
+        ? 'Lo contamos por paquete: si era otra unidad, cambiala.'
+        : avisoFecha;
     return {
       ...base,
       nombre: enCatalogo?.nombre ?? nombreDicho,
-      categoria: enCatalogo?.categoria ?? 'Otros',
-      // La unidad de un producto del catálogo es parte de su identidad; la
-      // dicha solo se usa para lo que no está en el catálogo.
-      unidad: enCatalogo?.unidad ?? unidadValida(interpretada.unidad) ?? 'unidad',
+      categoria: enCatalogo?.categoria ?? categoriaValida(interpretada.categoria) ?? 'Otros',
+      unidad,
       catalogo: enCatalogo,
       cantidad: String(base.cantidadDicha != null && base.cantidadDicha > 0 ? redondear(base.cantidadDicha) : 1),
-      incluir: nombreDicho !== '',
+      incluir: nombreDicho !== '' && !noEsAlimento,
+      aviso,
+      noEsAlimento,
     };
   }
 

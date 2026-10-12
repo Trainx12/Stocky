@@ -104,6 +104,11 @@ export interface AccionDeVozInterpretada {
   unidad?: string | null;
   operacion_cantidad?: 'fijar' | 'sumar' | 'restar' | null;
   fecha_vencimiento?: string | null;
+  // Solo para altas: false si no es comida ("shampoo", "detergente"). Null
+  // o ausente = no se sabe (versiones viejas de voz-a-texto).
+  es_alimento?: boolean | null;
+  // Categoría sugerida por el modelo, para lo que no está en el catálogo.
+  categoria?: string | null;
 }
 
 // Qué dijo el usuario y qué acciones de ABM se entendieron.

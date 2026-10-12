@@ -6,6 +6,7 @@ import { Logo } from '../components/Logo';
 import { signInWithGoogle } from '../services/auth';
 import { avisar } from '../lib/alert';
 import { colors, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 /**
  * RF1. El botón ya dispara el flujo completo de OAuth con Google contra
@@ -14,6 +15,7 @@ import { colors, spacing, typography } from '../theme';
  * dashboard de Supabase (Authentication > Providers > Google).
  */
 export function LoginScreen() {
+  const styles = useEstilos(crearEstilos);
   const [loading, setLoading] = useState(false);
 
   // Dispara el login y muestra el spinner del botón mientras se resuelve.
@@ -47,7 +49,8 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     justifyContent: 'space-between',
     paddingVertical: spacing.xxl,

@@ -16,7 +16,6 @@ import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotificaciones } from '../context/NotificacionesContext';
-import { signOut } from '../services/auth';
 import {
   cancelarSolicitud,
   listarMisHogares,
@@ -27,6 +26,13 @@ import {
 } from '../services/hogares';
 import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
 import { listarActividadReciente } from '../services/actividad';
+import {
+  elegirHogarInicial,
+  guardarHogarSeleccionado,
+  hogaresDeLasAlertas,
+  leerAlertasDeTodos,
+  leerHogarGuardado,
+} from '../services/preferenciasHogar';
 import type { ActividadItem } from '../services/actividad';
 import {
   etiquetaStock,
@@ -40,8 +46,10 @@ import {
 import type { AlertaStock } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
+import { agruparLlamadas } from '../lib/tiempoReal';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 /**
  * Pantalla principal (dashboard) que ve cualquier usuario logueado al
@@ -57,20 +65,24 @@ import { colors, radius, spacing, typography } from '../theme';
  * 20260907130000_actividad_hogar.sql), generados por triggers sobre
  * `productos` -- hoy es lo único con ABM real. "Productos próximos a
  * vencer" (RF2/RF3, ver src/services/productos.ts) va arriba de "Actividad
- * reciente" a propósito -- es la alerta más visible del dashboard -- y a
- * diferencia del resto de las secciones no depende de `hogarSeleccionado`:
- * junta los productos de TODOS los hogares del usuario, porque algo por
- * vencer en un hogar que no es el seleccionado en ese momento no debería
- * quedar escondido. Muestra solo los primeros MAX_ALERTAS_DASHBOARD; la
- * lista completa está en el filtro "Por vencer" de ProductosScreen (botón
- * "Ver todos"). "Stock bajo" sigue el mismo criterio (todos los hogares,
- * los primeros MAX_ALERTAS_DASHBOARD y "Ver todos" al filtro "Stock bajo").
+ * reciente" a propósito -- es la alerta más visible del dashboard. Como el
+ * resto del dashboard, por defecto es solo del `hogarSeleccionado`; con la
+ * opción "Alertas de todos mis hogares" (pantalla Notificaciones, ver
+ * services/preferenciasHogar.ts) junta los de TODOS los hogares del
+ * usuario. Muestra solo los primeros MAX_ALERTAS_DASHBOARD; la lista
+ * completa está en el filtro "Por vencer" de ProductosScreen (botón "Ver
+ * todos"). "Stock bajo" sigue el mismo criterio (mismo alcance, los
+ * primeros MAX_ALERTAS_DASHBOARD y "Ver todos" al filtro "Stock bajo").
+ *
+ * El hogar elegido se recuerda en el dispositivo: al volver a abrir la app o
+ * la página se sigue mostrando el mismo.
  */
 
 // Cuántas alertas de cada tipo entran en el dashboard antes del "Ver todos":
 // que se vean sin scroll y no tapen el resto de la pantalla.
 const MAX_ALERTAS_DASHBOARD = 4;
 export function HomeScreen() {
+  const styles = useEstilos(crearEstilos);
   const { usuario, usuarioLoading, refreshUsuario } = useAuth();
   const { noLeidas, suscribirseANuevas } = useNotificaciones();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
@@ -127,12 +139,20 @@ export function HomeScreen() {
   const [misInvitaciones, setMisInvitaciones] = useState<MiInvitacionPendiente[]>([]);
   const [respondiendoInvitacion, setRespondiendoInvitacion] = useState<string | null>(null);
 
-  // Hogar que el resto del dashboard (Actividad reciente, Accesos rápidos)
-  // toma como referencia. Es una selección local a esta pantalla -- no toca
+  // Hogar que el resto del dashboard (alertas, Actividad reciente, Accesos
+  // rápidos) toma como referencia. Es una selección de esta pantalla,
+  // recordada en el dispositivo (services/preferenciasHogar.ts) -- no toca
   // `usuarios.hogar_id` (el "hogar activo" real que usa el resto de la app y
   // la RLS) -- así que cambiarla acá nunca afecta a qué hogar apunta crear
   // un hogar/aceptar una solicitud en otro lado.
   const [hogarSeleccionadoId, setHogarSeleccionadoId] = useState<string | null>(null);
+  // Hogar recordado de la última vez. `undefined` mientras todavía se está
+  // leyendo: hasta entonces no se elige ninguno, así no se ve un hogar y al
+  // instante otro.
+  const [hogarGuardado, setHogarGuardado] = useState<string | null | undefined>(undefined);
+  // Opción "Alertas de todos mis hogares" (por defecto solo el que se usa).
+  // `null` mientras se lee.
+  const [alertasDeTodos, setAlertasDeTodos] = useState<boolean | null>(null);
   const [cambiarHogarVisible, setCambiarHogarVisible] = useState(false);
   const hogarSeleccionado = misHogares.find((h) => h.id === hogarSeleccionadoId) ?? null;
 
@@ -188,13 +208,28 @@ export function HomeScreen() {
     cargarMisInvitaciones();
   }, [cargarMisHogares, cargarMisSolicitudes, cargarMisInvitaciones]);
 
-  // Si la selección actual ya no es válida (todavía no se eligió ninguna,
-  // o el hogar seleccionado se dejó/expulsó/etc.), se reemplaza por el
-  // "hogar activo" de siempre (usuario.hogar_id) si sigue siendo uno de mis
-  // hogares, o si no por el primero de la lista. Si ya hay una selección
-  // válida, se respeta -- no se le pisa la elección al usuario cada vez que
-  // se recarga la lista por otro motivo (crear/salir de OTRO hogar, etc.).
+  // Lee el hogar recordado de la última vez (una vez por cuenta).
+  const usuarioId = usuario?.id;
   useEffect(() => {
+    if (!usuarioId) return;
+    let vigente = true;
+    leerHogarGuardado(usuarioId).then((id) => {
+      if (vigente) setHogarGuardado(id);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [usuarioId]);
+
+  // Si la selección actual ya no es válida (todavía no se eligió ninguna,
+  // o el hogar seleccionado se dejó/expulsó/etc.), se elige con
+  // elegirHogarInicial: el recordado de la última vez, si no el "hogar
+  // activo" de siempre (usuario.hogar_id), si no el primero de la lista. Si
+  // ya hay una selección válida, se respeta -- no se le pisa la elección al
+  // usuario cada vez que se recarga la lista por otro motivo (crear/salir de
+  // OTRO hogar, etc.).
+  useEffect(() => {
+    if (hogarGuardado === undefined) return; // todavía leyendo
     if (misHogares.length === 0) {
       if (hogarSeleccionadoId !== null) setHogarSeleccionadoId(null);
       return;
@@ -203,9 +238,23 @@ export function HomeScreen() {
     const sigueSiendoValida = misHogares.some((h) => h.id === hogarSeleccionadoId);
     if (sigueSiendoValida) return;
 
-    const activo = misHogares.find((h) => h.id === usuario?.hogar_id);
-    setHogarSeleccionadoId((activo ?? misHogares[0]).id);
-  }, [misHogares, hogarSeleccionadoId, usuario?.hogar_id]);
+    setHogarSeleccionadoId(elegirHogarInicial(misHogares.map((h) => h.id), hogarGuardado, usuario?.hogar_id));
+  }, [misHogares, hogarSeleccionadoId, hogarGuardado, usuario?.hogar_id]);
+
+  // Recuerda el hogar que se está mostrando para la próxima vez que se abra
+  // la app o la página.
+  useEffect(() => {
+    if (usuarioId && hogarSeleccionadoId) guardarHogarSeleccionado(usuarioId, hogarSeleccionadoId);
+  }, [usuarioId, hogarSeleccionadoId]);
+
+  // La opción de alcance se cambia en Notificaciones: se vuelve a leer cada
+  // vez que se vuelve a esta pantalla.
+  useFocusEffect(
+    useCallback(() => {
+      if (!usuarioId) return;
+      leerAlertasDeTodos(usuarioId).then(setAlertasDeTodos);
+    }, [usuarioId]),
+  );
 
   // Llegando desde la notificación "X quiere unirse a ...": selecciona ese
   // hogar y abre "Miembros del hogar" para aceptar o rechazar, apenas la
@@ -221,14 +270,16 @@ export function HomeScreen() {
     navigation.setParams({ abrirMiembrosDe: undefined });
   }, [abrirMiembrosDe, misHogares, navigation]);
 
-  const cargarActividad = useCallback(async (hogarId: string) => {
-    setActividadLoading(true);
+  // `silencioso`: sin spinner (cuando la recarga la pide un cambio de otra
+  // persona por Realtime, para no hacer parpadear la tarjeta).
+  const cargarActividad = useCallback(async (hogarId: string, silencioso = false) => {
+    if (!silencioso) setActividadLoading(true);
     try {
       setActividad(await listarActividadReciente(hogarId, 5));
     } catch (err) {
       console.warn('[Stocky] No se pudo cargar la actividad reciente:', err);
     } finally {
-      setActividadLoading(false);
+      if (!silencioso) setActividadLoading(false);
     }
   }, []);
 
@@ -247,15 +298,25 @@ export function HomeScreen() {
     }, [hogarSeleccionado?.id, cargarActividad]),
   );
 
-  // Alertas del dashboard (por vencer + stock bajo) de TODOS mis hogares,
-  // pasándole los IDs explícitos en vez de dejar que la RLS filtre sola
-  // (mismo motivo que el resto de las queries "mis X" de este
-  // archivo/servicio -- ver docs/incidentes-sprint2.md #2). Se recargan al
-  // cambiar la lista de hogares o la preferencia de días, al volver a esta
-  // pantalla (por ejemplo, después de cargar productos) y cuando llega una
-  // notificación de stock o vencimiento.
+  // Alertas del dashboard (por vencer + stock bajo) del hogar que se está
+  // usando, o de TODOS mis hogares si se eligió esa opción
+  // (hogaresDeLasAlertas), pasándole los IDs explícitos en vez de dejar que
+  // la RLS filtre sola (mismo motivo que el resto de las queries "mis X" de
+  // este archivo/servicio -- ver docs/incidentes-sprint2.md #2). Se recargan
+  // al cambiar la lista de hogares, el hogar elegido, la opción de alcance o
+  // la preferencia de días, al volver a esta pantalla (por ejemplo, después
+  // de cargar productos) y cuando llega una notificación de stock o
+  // vencimiento.
   const cargarAlertas = useCallback(async () => {
-    const hogarIds = misHogares.map((h) => h.id);
+    // Sin la opción leída, o sin hogar elegido todavía (si hay hogares),
+    // se sigue mostrando el "cargando" en vez de una lista vacía engañosa.
+    if (alertasDeTodos === null) return;
+    if (!alertasDeTodos && misHogares.length > 0 && !hogarSeleccionadoId) return;
+    const hogarIds = hogaresDeLasAlertas(
+      misHogares.map((h) => h.id),
+      hogarSeleccionadoId,
+      alertasDeTodos,
+    );
     const [alertas, porVencer] = await Promise.allSettled([
       listarProductosConStockBajo(hogarIds),
       listarProductosProximosAVencer(hogarIds, diasAviso),
@@ -266,7 +327,7 @@ export function HomeScreen() {
     else console.warn('[Stocky] No se pudieron cargar los productos próximos a vencer:', porVencer.reason);
     setAlertasStockLoading(false);
     setProductosPorVencerLoading(false);
-  }, [misHogares, diasAviso]);
+  }, [misHogares, hogarSeleccionadoId, alertasDeTodos, diasAviso]);
 
   useFocusEffect(
     useCallback(() => {
@@ -281,6 +342,34 @@ export function HomeScreen() {
       }),
     [suscribirseANuevas, cargarAlertas],
   );
+
+  // Tiempo real: cada cambio de productos en mis hogares (de cualquier
+  // miembro) genera una fila en actividad_hogar (trigger). Al llegar, se
+  // actualizan solas la "Actividad reciente" y las alertas, sin salir y
+  // volver a entrar. Los avisos seguidos se agrupan en una sola recarga.
+  // Necesita actividad_hogar en Realtime (migración
+  // 20261016120000_realtime_productos_y_actividad.sql).
+  const idsDeMisHogares = misHogares.map((h) => h.id).join(',');
+  const idSeleccionado = hogarSeleccionado?.id;
+  useEffect(() => {
+    if (!idsDeMisHogares) return;
+    const recarga = agruparLlamadas(() => {
+      cargarAlertas();
+      if (idSeleccionado) cargarActividad(idSeleccionado, true);
+    });
+    const canal = supabase
+      .channel(`actividad-${idsDeMisHogares}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'actividad_hogar', filter: `hogar_id=in.(${idsDeMisHogares})` },
+        () => recarga.disparar(),
+      )
+      .subscribe();
+    return () => {
+      recarga.cancelar();
+      supabase.removeChannel(canal);
+    };
+  }, [idsDeMisHogares, idSeleccionado, cargarAlertas, cargarActividad]);
 
   // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
   // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
@@ -450,7 +539,11 @@ export function HomeScreen() {
   // uno (RF6), para eso está el selector. "Agregar producto" además le pide
   // a ProductosScreen que abra el modal de carga apenas llega, para no
   // obligar a un segundo toque sobre el FAB.
-  function handleIrAProductos(abrirAgregar: boolean, abrirVoz = false, enfocarBusqueda = false) {
+  // Recibe un objeto con nombres (y no varios true/false sueltos) para que
+  // cada llamada se lea sola: handleIrAProductos({ abrirTicket: true }).
+  function handleIrAProductos(
+    opciones: { abrirAgregar?: boolean; abrirVoz?: boolean; abrirTicket?: boolean; enfocarBusqueda?: boolean } = {},
+  ) {
     if (!hogarSeleccionado) {
       avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
       return;
@@ -458,9 +551,7 @@ export function HomeScreen() {
     navigation.navigate('Productos', {
       hogarId: hogarSeleccionado.id,
       hogarNombre: hogarSeleccionado.nombre,
-      abrirAgregar,
-      abrirVoz,
-      enfocarBusqueda,
+      ...opciones,
     });
   }
 
@@ -513,7 +604,7 @@ export function HomeScreen() {
   function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
     // La lupa lleva al buscador de la despensa del hogar seleccionado.
     if (tab === 'search') {
-      handleIrAProductos(false, false, true);
+      handleIrAProductos({ enfocarBusqueda: true });
       return;
     }
     // La campanita abre las notificaciones recientes.
@@ -521,8 +612,9 @@ export function HomeScreen() {
       navigation.navigate('Notificaciones');
       return;
     }
+    // La persona abre Cuenta (perfil, cuentas, modo oscuro, ajustes, cerrar sesión).
     if (tab === 'profile') {
-      avisar('Próximamente', 'Esta sección todavía no está disponible.');
+      navigation.navigate('Cuenta');
     }
   }
 
@@ -542,6 +634,10 @@ export function HomeScreen() {
     navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre, filtroInicial });
   }
 
+  // Las alertas mezclan hogares solo con la opción "todos" y más de un
+  // hogar: recién ahí hace falta decir de qué hogar es cada una.
+  const alertasDeVariosHogares = alertasDeTodos === true && misHogares.length > 1;
+
   // El "Ver todos" lleva al hogar del primer ítem de la lista (el más
   // urgente): la despensa es por hogar, así que con varios hogares el botón
   // lo nombra ("Ver todos en <hogar>").
@@ -552,7 +648,7 @@ export function HomeScreen() {
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
-        <Header nombre={usuario?.nombre} />
+        <Header nombre={usuario?.nombre} onAyuda={() => navigation.navigate('Ayuda')} />
       </View>
 
       {/* Contenido scrolleable entre el header y la nav bar fija */}
@@ -741,7 +837,14 @@ export function HomeScreen() {
               {productosPorVencerLoading ? (
                 <ActivityIndicator color={colors.primary} />
               ) : productosPorVencer.length === 0 ? (
-                <EmptyState icon="checkmark-circle-outline" text="No tenés productos por vencer en los próximos días." />
+                <EmptyState
+                  icon="checkmark-circle-outline"
+                  text={
+                    !alertasDeVariosHogares && hogarSeleccionado && misHogares.length > 1
+                      ? `No hay productos por vencer en "${hogarSeleccionado.nombre}" en los próximos días.`
+                      : 'No tenés productos por vencer en los próximos días.'
+                  }
+                />
               ) : (
                 <View style={styles.hogaresList}>
                   {productosPorVencer.slice(0, MAX_ALERTAS_DASHBOARD).map((producto) => {
@@ -754,9 +857,11 @@ export function HomeScreen() {
                           <Text style={styles.hogarNombre} numberOfLines={1}>
                             {nombreConMarca(producto)}
                           </Text>
-                          <Text style={styles.hogarCodigo} numberOfLines={1}>
-                            {hogar?.nombre ?? ''}
-                          </Text>
+                          {alertasDeVariosHogares && (
+                            <Text style={styles.hogarCodigo} numberOfLines={1}>
+                              {hogar?.nombre ?? ''}
+                            </Text>
+                          )}
                         </View>
                         {etiqueta && (
                           <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
@@ -768,7 +873,7 @@ export function HomeScreen() {
                   })}
                   <VerTodosButton
                     total={productosPorVencer.length}
-                    hogarNombre={misHogares.length > 1 ? nombreHogar(productosPorVencer[0].hogar_id) : null}
+                    hogarNombre={alertasDeVariosHogares ? nombreHogar(productosPorVencer[0].hogar_id) : null}
                     onPress={() => handleVerAlertas(productosPorVencer[0].hogar_id, 'porVencer')}
                   />
                 </View>
@@ -781,7 +886,14 @@ export function HomeScreen() {
               {alertasStockLoading ? (
                 <ActivityIndicator color={colors.primary} />
               ) : alertasStock.length === 0 ? (
-                <EmptyState icon="checkmark-circle-outline" text="Ningún producto está por debajo de su stock mínimo." />
+                <EmptyState
+                  icon="checkmark-circle-outline"
+                  text={
+                    !alertasDeVariosHogares && hogarSeleccionado && misHogares.length > 1
+                      ? `En "${hogarSeleccionado.nombre}" ningún producto está por debajo de su stock mínimo.`
+                      : 'Ningún producto está por debajo de su stock mínimo.'
+                  }
+                />
               ) : (
                 <View style={styles.hogaresList}>
                   {alertasStock.slice(0, MAX_ALERTAS_DASHBOARD).map((alerta) => (
@@ -791,7 +903,8 @@ export function HomeScreen() {
                           {alerta.nombre}
                         </Text>
                         <Text style={styles.hogarCodigo} numberOfLines={1}>
-                          Quedan {alerta.cantidadTotal} {alerta.unidad} · {nombreHogar(alerta.hogarId)}
+                          Quedan {alerta.cantidadTotal} {alerta.unidad}
+                          {alertasDeVariosHogares ? ` · ${nombreHogar(alerta.hogarId)}` : ''}
                         </Text>
                       </View>
                       <View style={styles.stockBadge}>
@@ -802,7 +915,7 @@ export function HomeScreen() {
                   ))}
                   <VerTodosButton
                     total={alertasStock.length}
-                    hogarNombre={misHogares.length > 1 ? nombreHogar(alertasStock[0].hogarId) : null}
+                    hogarNombre={alertasDeVariosHogares ? nombreHogar(alertasStock[0].hogarId) : null}
                     onPress={() => handleVerAlertas(alertasStock[0].hogarId, 'stockBajo')}
                   />
                 </View>
@@ -851,9 +964,11 @@ export function HomeScreen() {
 
             <SectionCard title="Accesos rápidos">
               <View style={styles.quickAccessRow}>
-                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos(true)} />
-                <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos(false, true)} />
-                <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos(false)} />
+                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos({ abrirAgregar: true })} />
+                {/* Foto de un ticket -> productos detectados para revisar y guardar. */}
+                <QuickAccessButton icon="receipt-outline" label="Escanear ticket" onPress={() => handleIrAProductos({ abrirTicket: true })} />
+                <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos({ abrirVoz: true })} />
+                <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos()} />
                 {/* Cualquier usuario puede sugerir un producto que falta en el
                     catálogo; queda pendiente hasta que un admin lo apruebe. */}
                 <QuickAccessButton icon="bulb-outline" label="Sugerir producto" onPress={() => setSugerirVisible(true)} />
@@ -889,14 +1004,8 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* Se mantiene visible mientras no exista una pantalla de Perfil
-            propia desde donde cerrar sesión. */}
-        <Button label="Cerrar sesión" variant="outline" onPress={() => signOut()} style={styles.signOutButton} />
-        {/* Los términos siempre se pueden volver a leer (también lo dicen
-            ellos mismos, punto 12). */}
-        <Pressable onPress={() => navigation.navigate('Terminos')} style={styles.terminosLink} accessibilityRole="link">
-          <Text style={styles.terminosLinkTexto}>Términos y Condiciones</Text>
-        </Pressable>
+        {/* Cerrar sesión y los Términos y Condiciones viven ahora en Cuenta
+            (botón de la persona en la barra de abajo). */}
       </ScrollView>
 
       <BottomNavBar active="home" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
@@ -992,6 +1101,7 @@ interface EmptyStateProps {
 // Pie de las tarjetas de alertas: lleva a la lista completa (filtro de
 // ProductosScreen). Con un solo hogar no hace falta nombrarlo.
 function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarNombre: string | null; onPress: () => void }) {
+  const styles = useEstilos(crearEstilos);
   const texto = textoVerTodos(total, hogarNombre, MAX_ALERTAS_DASHBOARD);
   return (
     <Pressable onPress={onPress} style={styles.verTodosButton} accessibilityRole="button">
@@ -1002,6 +1112,7 @@ function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarN
 }
 
 function EmptyState({ icon, text, actionLabel, onAction }: EmptyStateProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     <View style={styles.emptyState}>
       <Ionicons name={icon} size={28} color={colors.textSecondary} />
@@ -1022,6 +1133,7 @@ interface QuickAccessButtonProps {
 // Botón cuadrado de acceso rápido (ícono arriba, label abajo). Por ahora
 // todos disparan un placeholder hasta que existan sus pantallas.
 function QuickAccessButton({ icon, label, onPress }: QuickAccessButtonProps) {
+  const styles = useEstilos(crearEstilos);
   return (
     <Pressable style={styles.quickAccessButton} onPress={onPress}>
       <Ionicons name={icon} size={26} color={colors.primary} />
@@ -1030,7 +1142,8 @@ function QuickAccessButton({ icon, label, onPress }: QuickAccessButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     paddingVertical: 0,
   },
@@ -1217,17 +1330,5 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.primary,
     textAlign: 'center',
-  },
-  terminosLink: {
-    alignSelf: 'center',
-    paddingVertical: spacing.sm,
-  },
-  terminosLinkTexto: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  signOutButton: {
-    marginTop: spacing.md,
   },
 });

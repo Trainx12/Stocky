@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline';
 
@@ -22,6 +23,7 @@ interface ButtonProps {
  * pantalla reimplemente su propio degradé/estado de loading.
  */
 export function Button({ label, onPress, variant = 'primary', loading, disabled, style, textStyle }: ButtonProps) {
+  const styles = useEstilos(crearEstilos);
   // "outline" no lleva degradé, los otros dos sí (cada uno con su paleta).
   const isGradient = variant === 'primary' || variant === 'secondary';
   const colorsForGradient = variant === 'secondary' ? gradients.secondary : gradients.primary;
@@ -81,7 +83,8 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   wrapper: {
     borderRadius: radius.md,
     overflow: 'hidden',

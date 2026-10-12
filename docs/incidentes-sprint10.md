@@ -290,3 +290,426 @@ usaba Expo Go): se agregó una nota arriba aclarando que es historial.
 - **7 fotos "aportadas por el equipo"** figuran con licencia "a confirmar"
   (ver incidentes-sprint5-6.md #18 e incidentes-sprint8.md #7; la de Leche de
   Coco parece una imagen publicitaria). Confirmar su origen o reemplazarlas.
+
+
+---
+
+# Cuenta, modo oscuro, varias cuentas y edición del ticket (también Sprint 10)
+
+Rama `feature/cuenta-y-ajustes`, apilada sobre el PR de términos (#17). Sin
+migraciones nuevas.
+
+## Qué entró
+
+- **Botón de la persona → Cuenta:** perfil con nombre editable, varias
+  cuentas, apariencia, accesos a Notificaciones y Términos, versión, y
+  cerrar sesión.
+- **Modo oscuro** (sistema / claro / oscuro), elegido desde Cuenta y
+  guardado en el celular.
+- **Varias cuentas** en el mismo celular, cambiando entre ellas sin pasar por
+  el login (como Instagram).
+- **Revisión del ticket:** corregir un producto mal leído (cambiarlo por
+  otro del catálogo o escribirlo a mano), cantidad, marca y vencimiento, con
+  aviso por producto si le falta algo.
+
+## 7. Cerrar sesión cerraba la sesión en TODOS los dispositivos
+
+**Síntoma (encontrado al diseñar varias cuentas):** `signOut()` llamaba a
+`supabase.auth.signOut()` sin parámetros, que por defecto usa `scope:
+'global'`: cerrar sesión en el celular cerraba también la sesión de esa
+persona en la web y en cualquier otro dispositivo.
+
+**Solución:** `signOut({ scope: 'local' })`: solo este celular. Con varias
+cuentas, además pasa a la siguiente cuenta guardada.
+
+## 8. Google entraba siempre con la última cuenta usada
+
+**Causa:** sin indicarle nada, el login de Google reutiliza la cuenta con la
+que ya se había entrado, así que "Agregar otra cuenta" volvía a entrar con
+la misma.
+
+**Solución:** `queryParams: { prompt: 'select_account' }` en el login: Google
+siempre pregunta con qué cuenta entrar.
+
+## Notas de diseño
+
+- **Varias cuentas:** los tokens de las cuentas no activas se guardan en
+  AsyncStorage, igual que Supabase guarda los de la sesión activa (mismo
+  nivel de seguridad). Si la sesión guardada de una cuenta venció o se
+  cerró desde otro lado, al tocarla se avisa y se saca de la lista. Las
+  notificaciones push llegan solo para la cuenta activa del celular.
+  "Cerrar sesión en todas" olvida las cuentas en el celular; sus sesiones
+  en el servidor vencen solas.
+- **Modo oscuro:** es una preferencia del celular, no de la cuenta (no
+  cambia al pasar de una cuenta a otra). **Por defecto es "Sistema"**: copia
+  el modo del celular (se probó dejar "Claro" por defecto y el equipo
+  decidió volver a "Sistema").
+  Para que "Sistema" funcione en el celular, `app.json` pasó de
+  `"userInterfaceStyle": "light"` (que le decía al teléfono que la app es
+  siempre clara, y entonces nunca informaba el modo oscuro) a `"automatic"`;
+  se aplica con el próximo build. La regla para escribir componentes nuevos está en
+  `docs/arquitectura-del-codigo.md`, sección 2.
+- **Ticket:** "Cambiar producto" conserva lo que el usuario ya corrigió
+  (cantidad, marca, fecha) y solo cambia nombre/categoría/unidad.
+
+## Errores de proceso
+
+1. **Conversión de los 25 archivos al modo oscuro:** se hizo con un script
+   (estilos → función + `useEstilos` en cada componente) y se usó `tsc`
+   como red de seguridad (un componente sin el hook da "Cannot find name
+   'styles'"): pasó a la primera. El script dejó la indentación interna de
+   los estilos como estaba (válida, solo estética), y eso hizo fallar
+   después un reemplazo que asumía la indentación vieja; se corrigió con
+   una expresión que no depende de la indentación.
+2. **Constantes de módulo con colores:** quedaban 3 (`AvisosHost`,
+   `ComandoVozModal`, `NotificacionesScreen`) que se habrían quedado con
+   los colores del modo inicial; se encontraron buscando `colors.` fuera
+   de los estilos y se pasaron a funciones.
+3. **Tests y AsyncStorage:** `auth.test.ts` dejó de correr porque `auth.ts`
+   ahora importa `cuentas.ts` (AsyncStorage nativo); un primer intento con
+   `jest.requireActual('./cuentas')` volvió a cargarlo. Se mockeó
+   `./cuentas` entero con la regla pura copiada. En `cuentas.test.ts`, un
+   test fallaba porque el `setSession` simulado no tenía respuesta por
+   defecto.
+4. **El servidor de Expo del equipo seguía corriendo** sobre esta carpeta
+   mientras se programaba: los cambios de la rama le llegaban al celular por
+   hot reload. Mismo riesgo que [incidentes-sprint9.md](incidentes-sprint9.md)
+   #4: saber desde qué rama corre Metro. Para verificar en el navegador se
+   usó ese mismo servidor (no se levantó otro) y se forzó el modo oscuro
+   desde el almacenamiento local, sin tocar nada del equipo.
+
+## Lo que no se pudo verificar
+
+Probado en el navegador: modo oscuro en Bienvenida, Onboarding y Términos
+(sin errores de consola). **No probado** (necesita login con Google): la
+pantalla Cuenta, cambiar y agregar cuentas, editar el nombre y la revisión
+del ticket con un ticket real.
+
+---
+
+# Actualización de Expo 57.0.16 → 57.0.27 (también Sprint 10)
+
+Hecha en la misma rama que Cuenta (PR #18), a pedido del equipo, para hacer
+un solo development build con todo. Son actualizaciones de parche dentro del
+SDK 57: `expo`, `expo-dev-client`, `expo-font`, `expo-image-manipulator`,
+`expo-linear-gradient`, `expo-linking`, `expo-web-browser`, `react-native`
+(0.86.2 → 0.86.3) y `jest-expo`.
+
+## 9. `npx expo install --fix` fallaba por un conflicto de dependencias
+
+**Síntoma:** `npm error ERESOLVE could not resolve` — `react-native@0.86.3`
+pide `@react-native/jest-preset@0.86.3`, pero el `jest-expo@57.0.4`
+instalado traía el 0.86.2; y `jest-expo@57.0.5` (el que sí trae 0.86.3) no
+se podía instalar porque el `package-lock.json` seguía con el 0.86.2. Cada
+uno necesitaba al otro ya actualizado.
+
+**Solución:** instalar las piezas que dependen entre sí en un mismo comando
+(`react-native@0.86.3`, `jest-expo@~57.0.5` y `@react-native/jest-preset@0.86.3`)
+para que el lock quede con las tres versiones nuevas, después sacar
+`@react-native/jest-preset` como dependencia directa (la sigue trayendo
+`jest-expo`) y fijar `react-native` en `0.86.3` exacto (npm lo había
+guardado como `^0.86.3`). Verificado: `npm install` limpio sin errores,
+`npx expo install --check` → "Dependencies are up to date".
+
+**Lección:** si `expo install --fix` falla por peers, no usar `--force` ni
+`--legacy-peer-deps` (esconden el problema); ver en el error qué paquete
+fija la versión vieja y actualizarlo junto con el resto.
+
+## 10. Faltaba `expo-asset` desde el Sprint 8 — encontrado con `expo-doctor`
+
+**Síntoma:** ninguno visible todavía. `npx expo-doctor` (corrido después de
+actualizar) avisó: *Missing peer dependency: expo-asset, required by
+expo-audio*, con la advertencia de que la app puede cerrarse sola fuera de
+Expo Go, o sea, en el development build que usa el equipo.
+
+**Causa:** al sumar la voz (`expo-audio`, Sprint 8) no se instaló su
+dependencia nativa `expo-asset`, que tiene que estar declarada directamente
+en el proyecto.
+
+**Solución:** `npx expo install expo-asset` (también agrega su plugin en
+`app.json`). `expo-doctor`: 21/21 chequeos OK.
+
+**Lección:** correr `npx expo-doctor` cada vez que se agrega una librería
+nativa, antes de armar el build.
+
+**Después de bajar esta rama:** `npm install`, reiniciar `npx expo start
+--dev-client --clear`, y armar un **development build nuevo** (`eas build
+--profile development --platform android`): cambian módulos nativos
+(`react-native`, `expo-dev-client`, `expo-asset`, más `expo-notifications`
+y `expo-device` de las notificaciones).
+
+## 11. Links viejos de Open Food Facts en `productos_catalogo.imagen_url`
+
+**Pregunta del equipo:** ¿se sigue usando `imagen_url`? Si se borran los
+links viejos, ¿se pierde el respaldo?
+
+**Lo que había:** 65 filas con `imagen_url`: 64 links a Open Food Facts de
+antes de que las fotos pasaran al repo (`assets/catalogo`), y 1 foto de una
+sugerencia aprobada (Mandioca, en el bucket `catalogo-sugerencias`).
+
+**Análisis:** la app muestra primero la foto local y solo usa `imagen_url` si
+no hay (`imagenDeCatalogo`). Se verificó con la misma regla de nombres que
+usa la app (`slugCatalogo`) que **los 64 tienen foto local** (archivo y
+entrada en el mapa generado), así que esos links no se mostraban nunca. No
+eran un respaldo real: la foto local viaja dentro de la app, y si alguna
+faltara, el "respaldo" mostraría la foto vieja de Open Food Facts, varias de
+ellas reemplazadas por estar mal o tener marca (incidentes-sprint5-6.md #17).
+
+**Solución:** migración
+[20261014120000_quitar_links_open_food_facts.sql](../supabase/migrations/20261014120000_quitar_links_open_food_facts.sql)
+(ya aplicada): pone en null solo los links de Open Food Facts. Queda
+`imagen_url` solo en Mandioca. La columna se mantiene porque es donde quedan
+las fotos de las sugerencias aprobadas. Los créditos de las fotos
+(`creditos.json`) no cambian: los enlaces de ahí son la atribución que exige
+la licencia, no la foto que se muestra.
+
+## 12. Actividad y notificaciones se guardaban para siempre
+
+**Pregunta del equipo:** si el Home muestra las últimas 5 actividades, ¿se
+borra la sexta? **No:** nada borraba `actividad_hogar` ni las notificaciones
+(salvo las que el usuario elimina a mano). Al momento: 96 filas de actividad
+(la más vieja del 9/9/2026, 80 kB) y 3 notificaciones; no era un problema de
+espacio todavía, pero crecían sin límite.
+
+**Decisión del equipo (no se borra todo lo que pase de 5, para no perder
+historial):**
+- `actividad_hogar`: se borra lo que tenga **más de 90 días** o quede fuera
+  de las **últimas 150 de su hogar**.
+- `notificaciones`: se borran las **ya leídas** con **más de 60 días**
+  (contados desde que se crearon: no se guarda cuándo se leyó). Las no
+  leídas no se tocan.
+
+**Solución:** migración
+[20261015120000_limpieza_actividad_y_notificaciones.sql](../supabase/migrations/20261015120000_limpieza_actividad_y_notificaciones.sql)
+(ya aplicada): función `limpiar_datos_viejos()` y job de pg_cron
+`limpiar-datos-viejos` todos los días a las 06:00 UTC (03:00 de Argentina),
+más un índice `(hogar_id, created_at desc)` para el "últimas 150". Nadie la
+puede ejecutar desde la app. Corrida una vez a mano para verificarla:
+devolvió `{actividad: 0, notificaciones: 0}` (correcto: hoy no hay nada tan
+viejo) y la actividad siguió con sus 96 filas. `get_advisors`: sin hallazgos
+nuevos. Para ver qué borraría, se puede correr
+`select public.limpiar_datos_viejos();` desde el SQL editor (devuelve cuántas
+filas borró de cada tabla).
+
+Borrar una notificación de vencimiento vieja no hace que se repita: el job de
+vencimientos solo avisa de productos dentro de su ventana de aviso o vencidos
+hace menos de una semana, mucho menos que 60 días.
+
+## 13. Repartir la app para probar: APK independiente, web y actualizaciones
+
+**Pedido del equipo:** una APK que funcione sin `npx expo start` en una
+compu, una forma de que la prueben con iPhone, y que las actualizaciones les
+lleguen sin volver a descargar.
+
+**Hallazgo:** el `.env` (URL y key pública de Supabase) está en `.gitignore`,
+así que EAS no lo sube al armar en la nube: una APK independiente quedaba sin
+saber a qué base conectarse (con el development build no se notaba, porque
+el código lo sirve la compu que sí tiene el `.env`). Se resuelve cargando
+esas dos variables en EAS (environment `preview`).
+
+**Cambios:** perfil `preview` de `eas.json` con `buildType: apk`,
+`environment` y `channel`; **EAS Update** (`expo-updates`, `runtimeVersion`
+con política `appVersion`, `updates.url`) para mandar cambios de código por
+aire; `web.output: single` para publicar la versión web con EAS Hosting.
+`expo-doctor` 21/21. Paso a paso en
+[guia-para-probar-la-app.md](guia-para-probar-la-app.md).
+
+**A tener en cuenta:** solo las APK armadas **después** de este cambio
+reciben actualizaciones por aire. Si se cambia algo nativo, subir `version`
+en `app.json` y armar una APK nueva.
+
+## 14. En el celular no se veían los botones de la fecha de vencimiento
+
+**Síntoma (captura del equipo, versión web en un iPhone):** en "Agregar
+producto", al lado del campo "Fecha de vencimiento" solo se veía un pedazo
+del botón del calendario; la foto y el micrófono quedaban fuera de la
+pantalla.
+
+**Causa:** el campo de fecha y los tres botones (calendario, foto, voz)
+estaban en una misma fila. En el navegador, un campo de texto tiene un
+ancho mínimo propio aunque se le diga que se achique, así que en una
+pantalla angosta empujaba los botones hacia afuera.
+
+**Solución:** el campo ocupa todo el ancho y los tres botones van debajo,
+**con texto** ("Calendario", "Foto", "Dictar"), repartidos en tercios
+(`minWidth: 0` para que se achiquen). Además se agregó margen al final del
+formulario para que el botón "Agregar producto" no quede tapado por la
+barra del navegador.
+
+**Lección:** en filas con un campo de texto y botones, probar a 375 px de
+ancho (iPhone) y en la versión web: el navegador maneja los anchos de los
+campos distinto que el celular nativo.
+
+## 15. Acceso rápido "Escanear ticket" y ayuda con "?" (pedido del equipo)
+
+- **Escanear ticket** en "Accesos rápidos" del Home: abre la despensa del
+  hogar seleccionado con el escaneo ya abierto (parámetro `abrirTicket`,
+  igual que "Cargar por voz" con `abrirVoz`). De paso, `handleIrAProductos`
+  pasó a recibir un objeto con nombres en vez de varios true/false sueltos.
+- **Ayuda** (botón "?" arriba a la derecha del Home, y en Cuenta →
+  Ajustes): `AyudaScreen` con temas que se abren al tocarlos y un buscador.
+  El texto vive en `src/ayuda/contenido.ts` y nombra cada botón con el
+  mismo texto que se ve en la app (se revisaron los textos reales de los
+  formularios antes de escribirla); `ayuda.test.ts` verifica que cada tema
+  esté completo, que los íconos existan y el buscador.
+
+**No probado en pantalla** (requiere login con Google): la ayuda, el acceso
+rápido y la nueva fila de botones de la fecha; sí `tsc` y los tests.
+
+## 16. Los cambios de otra persona no se veían hasta salir y volver a entrar
+
+**Síntoma (reportado por el equipo):** si una persona agregaba un producto,
+a otra del mismo hogar con la app abierta no se le actualizaba.
+
+**Causa:** `productos` y `actividad_hogar` **no estaban en la publicación de
+Realtime** (solo `hogar_miembros`, `notificaciones` y `usuarios`), y la
+despensa y el inicio no se suscribían a cambios: solo recargaban al entrar.
+
+**Solución:** migración
+[20261016120000_realtime_productos_y_actividad.sql](../supabase/migrations/20261016120000_realtime_productos_y_actividad.sql)
+(ya aplicada) y suscripciones en `ProductosScreen` (cambios de productos del
+hogar; los DELETE no se pueden filtrar por hogar y solo traen el id, así que
+se recarga si el borrado estaba en la lista) y en `HomeScreen` (cada cambio
+genera una fila de actividad: se recargan la actividad y las alertas). Los
+avisos seguidos —un ticket de 10 productos son 10 avisos— se agrupan en una
+sola recarga (`agruparLlamadas` en `src/lib/tiempoReal.ts`), y la recarga es
+silenciosa (sin spinner). Realtime respeta las policies de SELECT: cada uno
+recibe solo cambios de sus hogares (verificado que existen para miembros).
+
+## 17. La pantalla gris al tocar la lupa (buscar)
+
+**Síntoma (reportado por el equipo, versión web en iPhone):** al tocar la
+lupa de la barra de abajo, la pantalla quedaba gris y había que cerrar y
+volver a abrir.
+
+**Investigación:** no se pudo reproducir (requiere login). Dos causas
+probables, y se corrigieron las dos:
+1. El buscador se enfocaba con `autoFocus` **durante** la animación de
+   entrada de la pantalla. En Safari de iPhone, enfocar un campo mientras la
+   pantalla se está moviendo hace que el navegador desplace la página para
+   mostrar el teclado y puede dejar a la vista solo el fondo. Ahora se enfoca
+   recién después de la animación (450 ms).
+2. Si cualquier pantalla falla al dibujarse, React deja la pantalla vacía
+   (gris en modo oscuro). Se agregó `RedDeSeguridad` (error boundary) alrededor
+   de toda la app: muestra "Algo salió mal" con "Reintentar" y deja el error
+   en la consola.
+
+**Pendiente:** si vuelve a pasar, con la red de seguridad ahora debería verse
+el aviso en vez de la pantalla gris; si se ve el aviso, anotar qué se estaba
+haciendo para encontrar el error exacto.
+
+## 18. Los términos quedaban en pantalla después de aceptarlos (primer login)
+
+**Síntoma (le pasó al equipo 3 veces):** al iniciar sesión por primera vez,
+la pantalla de Términos y Condiciones no se cerraba; había que cerrar la app.
+
+**Investigación:** en la base la aceptación **sí** se registraba (la cuenta
+creada a las 00:20:53 tiene `terminos_aceptados_at` 00:20:56): el problema era
+de la pantalla.
+
+**Causa (dos errores):**
+1. Al iniciar sesión, `AuthContext` pide el perfil varias veces seguidas
+   (sesión inicial, login, renovación del token). Si una respuesta **vieja**
+   llegaba después de la nueva, pisaba el perfil actualizado y volvía a decir
+   "no aceptó los términos".
+2. En `RootNavigator`, el "cargando" de registrar la aceptación solo se
+   apagaba si el efecto no se había cancelado; como aceptar cambia el estado
+   (y eso cancela el efecto), podía quedar encendido para siempre.
+
+**Solución:** "gana el último pedido" (`src/lib/ultimoPedido.ts`): se ignora
+cualquier respuesta del perfil que no sea la del pedido más nuevo; y el
+"cargando" se apaga siempre (`finally`). Tests en `tiempoReal.test.ts`.
+
+**Lección:** cuando la misma consulta se dispara varias veces seguidas, hay
+que descartar las respuestas viejas: no llegan necesariamente en orden.
+
+## 19. `eas update` fallaba en Windows: el compilador de Hermes bloqueado
+
+**Síntoma:** `npx eas-cli update ...` terminaba con *Failed to generate Hermes
+bytecode* / *Error: spawn UNKNOWN*.
+
+**Causa:** al ejecutar `hermesc.exe` directo, Windows respondió *"Una
+directiva de Control de aplicaciones bloqueó este archivo"*: **Smart App
+Control** de Windows 11 bloquea ese ejecutable (descargado al actualizar
+Expo). No es un error del código: el build de la APK en los servidores de
+Expo funcionó porque no corre en esta compu.
+
+**Solución (sin tocar la configuración de seguridad de Windows):** exportar
+el paquete de Android **sin bytecode de Hermes** (`--no-bytecode`; Hermes
+también ejecuta el código sin compilar, la app solo tarda un poco más en
+abrir) y subirlo ya armado con `eas update --skip-bundler`. Quedó como
+`npm run publicar:app -- --message "..."` (ver la guía). Alternativas: correr
+`eas update` desde otra compu, desde WSL (Linux) o desde un servicio de CI.
+
+## 20. `eas deploy --prod` falló al "promover" la versión web
+
+**Síntoma:** la subida terminaba bien (`Created deployment`, 100 %) pero
+fallaba *"Failed to promote deployment to production — Unexpected server
+error"*.
+
+**Causa:** error del lado de los servidores de Expo (la respuesta no trae
+más detalle). La versión quedó subida, pero no se pasó a la dirección
+principal.
+
+**Solución:** reintentar `npx eas-cli deploy --prod` (o `npm run
+publicar:web`), o promover esa versión desde expo.dev → Hosting →
+Deployments.
+
+**Lo que se vio después (2026-10-11, al publicar desde Claude):** un
+`deploy --prod` dijo "Promoted deployment to production" pero la dirección
+principal siguió entregando la versión anterior más de 3 minutos; reasignarla
+con `npx eas-cli deploy:alias --prod --id <id de la publicación>` respondió
+*otra vez* "Unexpected server error", pero a los pocos segundos la dirección
+principal ya entregaba la versión nueva. O sea: **el mensaje de Expo no es
+confiable; hay que verificar qué se está sirviendo.** Para verificar, comparar
+el nombre del archivo `index-….js` que aparece en `dist/index.html` con el que
+entrega la página:
+```bash
+curl -s "https://hogarstocky.expo.app/?v=$RANDOM" | grep -o 'index-[a-f0-9]*\.js'
+```
+Si no coinciden, esperar un minuto y reintentar el `deploy:alias`.
+
+## 21. La voz cargaba "1 paquete de sal" como 1 kg y el pimentón como 1 g
+
+**Síntoma:** por voz, "paquetes de chocolatada" quedaban en litros, "un
+paquete de sal" como 1 kg y "un paquete de pimentón" como 1 g.
+
+**Causa raíz:** en `armarAccion` (`src/services/voz.ts`) un alta tomaba
+**siempre la unidad del catálogo** cuando el producto estaba ahí
+(Chocolatada en l, Sal en kg, Pimentón en g) y la unidad dicha solo se usaba
+para lo que no estaba en el catálogo. Además, el prompt de `voz-a-texto` solo
+pedía unidades de peso/volumen, así que "paquete", "caja" o "sobre" no se
+traducían a nada.
+
+**Solución:** `unidadDeAlta`: la unidad dicha manda; sin unidad dicha se usa
+la del catálogo, salvo g/ml, que pasan a `paquete` con un aviso. El prompt
+ahora traduce envases (paquete, caja, bolsa, sobre, frasco) a `paquete` con
+la cantidad de envases, y la revisión deja cambiar la unidad con chips.
+Tests en `voz.test.ts`.
+
+**Junto con esto (pedido nuevo):** lo que no es comida ("shampoo") ya no se
+pierde (el prompt antes descartaba lo que "no es de la despensa"): llega con
+`es_alimento: false`, se muestra con aviso y se carga solo con "Cargar
+igual".
+
+**Ojo:** la parte del prompt necesita volver a desplegar la Edge Function
+`voz-a-texto`; sin eso, la app igual respeta la unidad cuando el modelo la
+devuelve y deja corregirla a mano.
+
+## 22. Chocolatada en litros y en paquete se sumaban en un solo producto
+
+**Síntoma:** cargar "1 litro de chocolatada" y después "1 paquete de
+chocolatada" (líquida y en polvo) dejaba un solo producto con "2 l", en vez
+de dos productos distintos. Pasaba por voz, a mano y por ticket.
+
+**Causa raíz:** al crear un producto, `crearProducto` busca uno "idéntico"
+para sumarle la cantidad en vez de repetir la fila (`buscarDuplicado`), y
+comparaba catálogo/nombre, marca y vencimiento, pero **no la unidad**. Hasta
+el arreglo de la voz (#21) casi no aparecía, porque todo lo del catálogo se
+cargaba siempre en la unidad del catálogo.
+
+**Solución:** `buscarDuplicado` también exige la misma unidad. La lista de
+la despensa ya separaba por unidad (`agruparProductos` agrupa por nombre +
+unidad), así que se ven como dos productos: "Chocolatada · 1 l" y
+"Chocolatada · 1 paquete". Test en `productos.test.ts`. La base no tiene
+ninguna restricción que las junte (verificado), no hizo falta migración.

@@ -40,15 +40,18 @@ src/
                  SectionCard)
   navigation/    RootNavigator: decide stack de auth vs. stack principal
                  (y si mostrar "Cuenta deshabilitada" o los Términos)
-  context/       AuthContext (sesión + perfil/rol) y NotificacionesContext
-                 (campanita, cartelitos en tiempo real, push)
+  context/       AuthContext (sesión + perfil/rol), NotificacionesContext
+                 (campanita, cartelitos en tiempo real, push) y TemaContext
+                 (modo claro/oscuro)
   services/      Llamadas a Supabase: auth, hogares, productos, catálogo,
                  usuarios (admin), notificaciones, términos, y las Edge
                  Functions externas (OCR/voz)
   lib/           Cliente de Supabase, avisos/cartelitos (alert.ts),
                  notificaciones del teléfono (notificacionesPush.ts), fotos, audio
   legal/         Términos y Condiciones (texto) y créditos de lo que usamos
-  theme/         Colores, tipografía y spacing (única fuente de verdad de diseño)
+  ayuda/         Contenido de la ayuda (botón "?" del Home)
+  theme/         Colores (claro y oscuro), tipografía, spacing y useEstilos
+                 (estilos que se adaptan al modo oscuro: ver la arquitectura, sección 2)
   types/         Tipos espejo del esquema SQL + tipos de navegación
 
 supabase/
@@ -76,6 +79,15 @@ supabase/
 `npx expo start --dev-client` (celular, con el development build de expo.dev — la forma habitual)
 `npx expo start --web` (iniciar la app en la web)
 `npx expo start` (base; abre el menú para elegir dónde correrla)
+
+
+`npx eas-cli update --channel preview --environment preview --message "Hay una actualizacion!"` (Para actualizar la apk)
+
+`npx expo export --platform web` (Para actualizar la pagina web)
+`npx eas-cli deploy --prod` (Este dsp del amterior)
+
+`npx eas-cli build --profile preview --platform android` (Esto para la web si cambiamos algo nativo)
+`npx eas-cli build --profile development --platform android` (Este para la apk si es algo nativo)
 
 ## Probar el login de Google en desarrollo
 
@@ -126,6 +138,33 @@ el hot reload, sin rearmar nada.
 Para las **notificaciones push con la app cerrada** hace falta además
 configurar Firebase y cargar sus credenciales en EAS: ver
 [docs/incidentes-sprint10.md](docs/incidentes-sprint10.md) #1.
+
+### APK para instalar sin la compu (perfil `preview`)
+
+El development build necesita que alguien tenga `npx expo start` corriendo
+en su compu. Para instalar Stocky en cualquier Android **sin** eso, se arma
+una APK con el perfil `preview` de `eas.json`: trae todo el código adentro.
+
+1. **Una sola vez:** cargar en EAS las dos variables públicas de Supabase
+   (las del `.env`, que no se sube porque está en `.gitignore`):
+   ```bash
+   npx eas-cli env:create --environment preview --name EXPO_PUBLIC_SUPABASE_URL --value "<la URL del .env>" --visibility plaintext
+   npx eas-cli env:create --environment preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<la key del .env>" --visibility plaintext
+   ```
+   Son públicas a propósito (van dentro de la app); no cargar acá las keys
+   de OCR/Gemini, que son secrets de las Edge Functions.
+2. Parado en la rama con todo lo que se quiere incluir:
+   ```bash
+   npx eas-cli build --profile preview --platform android
+   ```
+3. Al terminar, EAS da un link y un QR: se abre desde el celular, se
+   descarga la APK y se instala (Android pide permitir "instalar apps de
+   fuentes desconocidas"). El mismo link sirve para todo el equipo.
+
+Los cambios de código después se mandan "por aire" con EAS Update, sin
+repartir otra APK. La guía completa (APK, versión web para iPhone,
+actualizaciones y feedback) está en
+[docs/guia-para-probar-la-app.md](docs/guia-para-probar-la-app.md).
 
 ## Tests
 
@@ -178,6 +217,12 @@ lógica pura que ya existe (no hay tests de pantallas/UI todavía):
   para push y avisos locales, con los módulos nativos mockeados.
 - `src/lib/alert.test.ts` — avisos y confirmaciones: cartelitos propios
   cuando el `AvisosHost` está montado y el diálogo del sistema si no.
+- `src/ayuda/ayuda.test.ts` — la ayuda (botón "?"): temas completos,
+  íconos que existen y el buscador.
+- `src/services/cuentas.test.ts` — varias cuentas en el mismo celular:
+  qué se guarda, cambiar de cuenta y qué pasa si una sesión venció.
+- `src/theme/tema.test.ts` — modo oscuro: qué esquema corresponde y que las
+  dos paletas tengan los mismos colores.
 - `src/services/terminos.test.ts` y `src/legal/legal.test.ts` — cuándo hay
   que aceptar los Términos, la aceptación antes del login, y que cada foto
   del catálogo tenga autor, licencia y enlace.
@@ -195,7 +240,7 @@ un header con saludo + logo, la sección "Tus hogares activos", las alertas
 todos"), la actividad reciente y una barra de navegación inferior fija
 (Inicio/Búsqueda/Notificaciones/Perfil). La lupa abre el buscador de la
 despensa del hogar seleccionado; la campanita, las notificaciones (con el
-número de no leídas); Perfil todavía es un placeholder. Debajo de "Tus
+número de no leídas); la persona, Cuenta (perfil, varias cuentas, modo oscuro, ajustes, Términos y cerrar sesión). Debajo de "Tus
 hogares activos" hay dos botones directos, de un solo toque:
 
 - **Crear hogar** → `HogarFormModal` (modo `crear`).

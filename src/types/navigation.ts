@@ -26,6 +26,8 @@ export type AppStackParamList = {
   // producto" de HomeScreen, para no obligar a un segundo toque en el FAB).
   // `abrirVoz`: igual, pero abre la carga por voz (acceso rápido "Cargar por
   // voz", RF8).
+  // `abrirTicket`: igual, pero abre el escaneo de un ticket (acceso rápido
+  // "Escanear ticket").
   // `enfocarBusqueda`: abre con el buscador activo (lupa de la barra de abajo).
   // `filtroInicial`: abre con el filtro "Por vencer" o "Stock bajo" ya
   // aplicado (botones "Ver todos" del dashboard de HomeScreen).
@@ -34,6 +36,7 @@ export type AppStackParamList = {
     hogarNombre: string;
     abrirAgregar?: boolean;
     abrirVoz?: boolean;
+    abrirTicket?: boolean;
     enfocarBusqueda?: boolean;
     filtroInicial?: FiltroAlerta;
   };
@@ -46,8 +49,13 @@ export type AppStackParamList = {
   // Campanita: notificaciones recientes + preferencias de aviso (ver
   // services/notificaciones.ts).
   Notificaciones: undefined;
-  // Términos y Condiciones de solo lectura (enlace desde Home).
+  // Términos y Condiciones de solo lectura (desde Cuenta).
   Terminos: undefined;
+  // Cuenta y configuración: botón de la persona en la barra de abajo
+  // (perfil, varias cuentas, modo oscuro, ajustes, legal, cerrar sesión).
+  Cuenta: undefined;
+  // Ayuda: cómo hacer lo básico (botón "?" del Home, ver src/ayuda/contenido.ts).
+  Ayuda: undefined;
 };
 
 // Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer

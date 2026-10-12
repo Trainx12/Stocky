@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import { textoGlobito } from '../services/notificaciones';
 
 type TabKey = 'home' | 'search' | 'notifications' | 'profile';
@@ -42,6 +43,7 @@ interface BottomNavBarProps {
  * createBottomTabNavigator sin tocar el resto de HomeScreen.
  */
 export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLeer = 0 }: BottomNavBarProps) {
+  const styles = useEstilos(crearEstilos);
   // Se resalta el ícono mientras el dedo lo mantiene presionado (feedback
   // visual inmediato del toque, aparte del círculo claro del mockup).
   const [pressedTab, setPressedTab] = useState<TabKey | null>(null);
@@ -83,7 +85,8 @@ export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLee
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   bar: {
     flexDirection: 'row',
     justifyContent: 'space-around',

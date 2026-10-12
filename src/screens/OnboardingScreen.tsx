@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
 import { colors, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import type { AuthStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Onboarding'>;
@@ -38,6 +39,7 @@ const slides: Slide[] = [
 ];
 
 export function OnboardingScreen({ navigation }: Props) {
+  const styles = useEstilos(crearEstilos);
   const [index, setIndex] = useState(0); // qué slide se está mostrando (0, 1 o 2)
   const isLast = index === slides.length - 1;
   const slide = slides[index];
@@ -67,7 +69,8 @@ export function OnboardingScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     justifyContent: 'space-between',
     paddingVertical: spacing.xxl,

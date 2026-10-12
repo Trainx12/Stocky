@@ -8,6 +8,7 @@ import { cambiarHabilitado, cambiarRol, filtrarUsuarios, listarUsuarios } from '
 import type { FiltroUsuarios, UsuarioAdmin } from '../services/usuarios';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+import { useEstilos } from '../theme/useEstilos';
 import type { AppStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'AdminUsuarios'>;
@@ -29,6 +30,7 @@ const FILTROS: { valor: FiltroUsuarios; etiqueta: string }[] = [
  * mismo.
  */
 export function AdminUsuariosScreen({ navigation }: Props) {
+  const styles = useEstilos(crearEstilos);
   const { usuario } = useAuth();
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,7 +208,8 @@ export function AdminUsuariosScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = () =>
+  StyleSheet.create({
   container: {
     gap: spacing.md,
   },
