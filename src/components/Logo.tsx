@@ -42,7 +42,7 @@ export function Logo({ size = 96, compact = false }: LogoProps) {
     <View style={styles.wrapper}>
       {casa}
       <Text style={styles.wordmark}>Stocky</Text>
-      <Text style={styles.slogan}>tu hogar, siempre organizado</Text>
+      <Text style={styles.slogan}>Tu hogar, siempre organizado</Text>
     </View>
   );
 }

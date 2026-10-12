@@ -334,7 +334,7 @@ export function CuentaScreen({ navigation }: Props) {
             <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
             <View style={styles.filaTextos}>
               <Text style={styles.filaTitulo}>Acerca de Stocky</Text>
-              <Text style={styles.detalle}>Versión {version} · tu hogar, siempre organizado</Text>
+              <Text style={styles.detalle}>Versión {version} · Tu hogar, siempre organizado</Text>
             </View>
           </View>
         </View>
