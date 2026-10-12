@@ -85,7 +85,10 @@ export function CuentaScreen({ navigation }: Props) {
   async function handleAgregarCuenta() {
     setAgregando(true);
     try {
-      await signInWithGoogle();
+      const sesion = await signInWithGoogle();
+      // En la web la página se va a Google y vuelve sola: no hay nada que
+      // avisar todavía.
+      if (!sesion) return;
       avisar('Cuenta agregada', 'Podés cambiar entre tus cuentas desde acá.', 'exito');
       navigation.navigate('Home');
     } catch (err) {
