@@ -457,7 +457,18 @@ Reglas que conviene conocer: "sacá la leche" (sin cantidad) es una baja y
 "sacá una leche" una resta; si lo dicho coincide con varios lotes
 (`buscarProductosDichos`), una resta descuenta del que vence primero
 (`ordenarLotes`) y una baja o un cambio de fecha piden elegir cuál. Nada se
-guarda sin que el usuario confirme en la revisión.
+guardado sin que el usuario confirme en la revisión.
+
+Unidades (incidentes-sprint10.md #21): en un alta, **la unidad que dijo la
+persona le gana a la del catálogo** (`unidadDeAlta`): "un paquete de sal" es
+1 paquete aunque la Sal del catálogo esté en kg. Si no dijo unidad se usa la
+del catálogo, salvo g/ml, que pasan a paquete (nadie compra "1 g de
+pimentón"). El prompt de `voz-a-texto` le pide al modelo que traduzca envases
+(paquete, caja, bolsa, sobre, frasco) a `paquete`, y en la revisión la unidad
+de un alta se puede cambiar con chips. Lo que **no es comida** (`es_alimento:
+false`, por ejemplo "shampoo") se muestra con aviso y sin marcar: se carga
+solo si el usuario toca "Cargar igual" (`noEsAlimento`), con la categoría que
+sugiere el modelo (`CATEGORIAS_VOZ`, que suma Limpieza e Higiene).
 
 ### Lotes agrupados en la lista (`agruparProductos`, Sprint 8)
 
@@ -495,6 +506,16 @@ tengan la alerta apagada, en el orden en que vencen, con
 del mínimo). `HomeScreen` sigue mostrando solo lo urgente
 (`productosProximosAVencer`, las primeras 4 alertas de cada tipo) y un "Ver
 todos" que abre `Productos` con `filtroInicial` ya aplicado.
+
+**Hogar elegido y alcance de las alertas** (`services/preferenciasHogar.ts`):
+el hogar elegido con "Cambiar hogar" se recuerda en el dispositivo
+(AsyncStorage, por cuenta) y al volver a abrir la app o la web se sigue
+mostrando (`elegirHogarInicial`: el recordado, si no `usuarios.hogar_id`, si
+no el primero). Las alertas del inicio son **solo de ese hogar** por defecto;
+la opción "Alertas de todos mis hogares" (pantalla Notificaciones) junta las
+de todos (`hogaresDeLasAlertas`). Solo cambia lo que muestra el inicio: las
+notificaciones de la campanita y el push siguen llegando de todos los
+hogares, para no perder un aviso.
 
 ### `usuarios.ts` — ABM de usuarios para administradores (RF9 parcial)
 

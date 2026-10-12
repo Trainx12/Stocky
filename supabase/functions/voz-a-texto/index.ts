@@ -33,6 +33,9 @@ const MAX_AUDIO_BASE64 = 8 * 1024 * 1024;
 const MAX_PRODUCTOS = 300;
 
 const UNIDADES = ['unidad', 'kg', 'g', 'l', 'ml', 'paquete'];
+// Para lo que no está en el catálogo: las categorías del catálogo (solo
+// alimentos) y dos más para lo que no es comida.
+const CATEGORIAS = ['Lácteos', 'Verduras y frutas', 'Panadería', 'Bebidas', 'Infusiones', 'Snacks', 'Otros', 'Limpieza', 'Higiene'];
 
 const ESQUEMA_COMANDO = {
   type: 'OBJECT',
@@ -51,12 +54,20 @@ const ESQUEMA_COMANDO = {
           unidad: { type: 'STRING', nullable: true, enum: UNIDADES },
           operacion_cantidad: { type: 'STRING', nullable: true, enum: ['fijar', 'sumar', 'restar'] },
           fecha_vencimiento: { type: 'STRING', nullable: true },
+          es_alimento: { type: 'BOOLEAN', nullable: true },
+          categoria: { type: 'STRING', nullable: true, enum: CATEGORIAS },
         },
         // Todos obligatorios (aunque puedan ser null): si son opcionales, el
         // modelo tiende a omitirlos y se perdían la fecha dicha o el "restar"
         // de "usé 3 huevos" (ver docs/incidentes-sprint8.md #9).
-        required: ['accion', 'producto_id', 'nombre', 'marca', 'cantidad', 'unidad', 'operacion_cantidad', 'fecha_vencimiento'],
-        propertyOrdering: ['accion', 'producto_id', 'nombre', 'marca', 'cantidad', 'unidad', 'operacion_cantidad', 'fecha_vencimiento'],
+        required: [
+          'accion', 'producto_id', 'nombre', 'marca', 'cantidad', 'unidad', 'operacion_cantidad', 'fecha_vencimiento',
+          'es_alimento', 'categoria',
+        ],
+        propertyOrdering: [
+          'accion', 'producto_id', 'nombre', 'marca', 'cantidad', 'unidad', 'operacion_cantidad', 'fecha_vencimiento',
+          'es_alimento', 'categoria',
+        ],
       },
     },
   },
@@ -131,22 +142,46 @@ y respondé ÚNICAMENTE el JSON pedido.
    - "marca": solo si la dijo ("leche La Serenísima" -> "La Serenísima").
    - "cantidad": número (acepta decimales: "medio kilo" = 0.5 con unidad kg,
      "una docena de huevos" = 12). En alta, null si no dijo cantidad.
-   - "unidad": una de ${UNIDADES.join(', ')}, solo si se deduce de lo dicho
-     ("2 kilos de papa" -> kg, "un litro y medio de leche" -> l 1.5).
+   - "unidad": una de ${UNIDADES.join(', ')}, según lo que DIJO la persona,
+     aunque el producto se suela medir de otra forma. Peso o volumen:
+     "2 kilos de papa" -> kg 2, "un litro y medio de leche" -> l 1.5, "200
+     gramos de queso" -> g 200. Envases: "paquete", "caja", "bolsa",
+     "sobre", "frasco", "cajita" -> paquete con la cantidad de envases ("un
+     paquete de sal" -> paquete 1, "2 cajas de chocolatada" -> paquete 2,
+     "un sobre de pimentón" -> paquete 1). Envases sueltos que se cuentan
+     ("una botella de aceite", "3 latas de atún") -> unidad. null si no dijo
+     ni unidad ni envase ("2 leches").
+   - "es_alimento" (solo en alta; en baja/modificación null): true si es
+     comida o bebida; false si no lo es (shampoo, jabón, detergente, lavandina,
+     papel higiénico, pañales, pilas, comida de mascotas). Igual incluí la
+     acción: la app le avisa a la persona y ella decide si lo carga.
+   - "categoria" (solo en alta; en baja/modificación null): una de
+     ${CATEGORIAS.join(', ')}. Para lo que no es comida: Limpieza o Higiene
+     (u Otros si no es ninguna).
    - "fecha_vencimiento": AAAA-MM-DD si la dijo, si no null.
    - Revisá cada acción antes de responder: si la persona dijo una fecha
      para ese producto, fecha_vencimiento NO puede ser null; si una
      modificación tiene cantidad, operacion_cantidad NO puede ser null.
-3. Si el audio no se entiende, está vacío o no habla de productos de la
-   despensa, devolvé "acciones": [] (nunca adivines ni inventes productos).
+3. Si el audio no se entiende, está vacío o no habla de productos para
+   agregar, sacar o cambiar, devolvé "acciones": [] (nunca adivines ni
+   inventes productos). Un producto que no es comida (shampoo, detergente)
+   SÍ es una acción válida, con es_alimento false.
 
 Ejemplo (si hoy fuera 2026-10-05 y el inventario tuviera huevos con id
 "h1" y yogur con id "y1"): "agregá dos leches La Serenísima que vencen el 15
 de noviembre, usé tres huevos y eliminá el yogur" ->
 {"transcripcion": "...", "acciones": [
- {"accion": "alta", "producto_id": null, "nombre": "Leche", "marca": "La Serenísima", "cantidad": 2, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": "2026-11-15"},
- {"accion": "modificacion", "producto_id": "h1", "nombre": "Huevo", "marca": null, "cantidad": 3, "unidad": null, "operacion_cantidad": "restar", "fecha_vencimiento": null},
- {"accion": "baja", "producto_id": "y1", "nombre": "Yogur", "marca": null, "cantidad": null, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": null}
+ {"accion": "alta", "producto_id": null, "nombre": "Leche", "marca": "La Serenísima", "cantidad": 2, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": "2026-11-15", "es_alimento": true, "categoria": "Lácteos"},
+ {"accion": "modificacion", "producto_id": "h1", "nombre": "Huevo", "marca": null, "cantidad": 3, "unidad": null, "operacion_cantidad": "restar", "fecha_vencimiento": null, "es_alimento": null, "categoria": null},
+ {"accion": "baja", "producto_id": "y1", "nombre": "Yogur", "marca": null, "cantidad": null, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": null, "categoria": null}
+]}
+
+Otro ejemplo: "compré un paquete de sal, dos cajas de chocolatada y un
+shampoo" ->
+{"transcripcion": "...", "acciones": [
+ {"accion": "alta", "producto_id": null, "nombre": "Sal", "marca": null, "cantidad": 1, "unidad": "paquete", "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": true, "categoria": "Otros"},
+ {"accion": "alta", "producto_id": null, "nombre": "Chocolatada", "marca": null, "cantidad": 2, "unidad": "paquete", "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": true, "categoria": "Lácteos"},
+ {"accion": "alta", "producto_id": null, "nombre": "Shampoo", "marca": null, "cantidad": 1, "unidad": "unidad", "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": false, "categoria": "Higiene"}
 ]}
 
 ${REGLAS_FECHAS.replace('{HOY}', hoy)}

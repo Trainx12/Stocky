@@ -561,8 +561,26 @@ Rama `feature/cuenta-y-ajustes`. Sin migraciones. Detalle en
    el buscador encuentra ("ticket", "vencimiento"), y lo que dice coincide
    con los botones reales.
 
+8. **Hogar recordado:** con dos hogares, "Cambiar hogar" → elegir el
+   segundo → cerrar la app (o recargar la web) y volver a abrir → sigue en
+   el segundo. "Productos próximos a vencer" y "Stock bajo" muestran solo
+   productos de ese hogar (sin el nombre del hogar en cada fila).
+9. Campanita → prender **"Alertas de todos mis hogares"** → volver al
+   inicio: aparecen los de los dos hogares, cada uno con el nombre de su
+   hogar y "Ver todos en <hogar>". Apagarla → vuelve a uno solo. Con otra
+   cuenta en el mismo celular, la opción y el hogar elegido son los suyos.
+10. **Voz con unidades:** "compré un paquete de sal, dos cajas de
+    chocolatada y un sobre de pimentón" → en la revisión: Sal 1 paquete,
+    Chocolatada 2 paquete, Pimentón 1 paquete (no kg, l ni g). Tocar otra
+    unidad la cambia. "Medio kilo de queso" → 0.5 kg.
+11. **Voz con algo que no es comida:** "compré un shampoo" → aparece con el
+    aviso "no es un alimento" y sin contar en "Aplicar"; tocar "Cargar
+    igual" → se suma y se guarda en la categoría Higiene.
+
 **Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, `npm test`
-(22 suites / 439 tests: `cuentas.test.ts`, `tema.test.ts`, corrección del
+(22 suites / 439 tests;
+después, con hogar recordado y voz: 25 suites / 466 tests, sumando
+`preferenciasHogar.test.ts` y unidades/no alimentos en `voz.test.ts`: `cuentas.test.ts`, `tema.test.ts`, corrección del
 ticket en `escaneo.test.ts`, cierre de sesión y elección de cuenta en
 `auth.test.ts`, nombre propio en `usuarios.test.ts`), y el modo oscuro
 probado en el navegador en las pantallas sin login. **No hecho:** los pasos

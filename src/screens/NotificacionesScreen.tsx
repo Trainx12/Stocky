@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
@@ -17,6 +17,7 @@ import {
 } from '../services/notificaciones';
 import type { FamiliaNotificacion } from '../services/notificaciones';
 import { listarMisHogares } from '../services/hogares';
+import { guardarAlertasDeTodos, leerAlertasDeTodos } from '../services/preferenciasHogar';
 import { ajustarDiasAviso, DIAS_AVISO_MAXIMO, DIAS_AVISO_MINIMO, DIAS_AVISO_POR_DEFECTO } from '../services/productos';
 import type { Notificacion } from '../types/database';
 import { avisar } from '../lib/alert';
@@ -43,6 +44,9 @@ const coloresPorFamilia = (): Record<FamiliaNotificacion, { color: string; fondo
  * primero, y arriba las preferencias de aviso:
  *   - "Avisarme X días antes de que venza" (general; cada producto puede
  *     tener el suyo en su formulario, que tiene prioridad);
+ *   - "Alertas de todos mis hogares": si "Productos próximos a vencer" y
+ *     "Stock bajo" del inicio muestran solo el hogar que se está usando (por
+ *     defecto) o todos (services/preferenciasHogar.ts);
  *   - estado de las notificaciones en el teléfono, con un botón para
  *     activarlas si todavía no se dio el permiso.
  * Tocar una notificación la marca como leída y lleva a donde corresponde
@@ -56,6 +60,23 @@ export function NotificacionesScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [dias, setDias] = useState(usuario?.dias_aviso_vencimiento ?? DIAS_AVISO_POR_DEFECTO);
   const [guardandoDias, setGuardandoDias] = useState(false);
+  // Opción "Alertas de todos mis hogares" (por defecto apagada).
+  const [alertasDeTodos, setAlertasDeTodos] = useState(false);
+
+  useEffect(() => {
+    if (usuario?.id) leerAlertasDeTodos(usuario.id).then(setAlertasDeTodos);
+  }, [usuario?.id]);
+
+  async function handleCambiarAlertasDeTodos(todos: boolean) {
+    if (!usuario?.id) return;
+    setAlertasDeTodos(todos);
+    try {
+      await guardarAlertasDeTodos(usuario.id, todos);
+    } catch (err) {
+      setAlertasDeTodos(!todos);
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo guardar la preferencia.');
+    }
+  }
 
   const cargar = useCallback(async () => {
     try {
@@ -207,6 +228,24 @@ export function NotificacionesScreen({ navigation }: Props) {
                 <Ionicons name="add-circle-outline" size={28} color={dias >= DIAS_AVISO_MAXIMO ? colors.border : colors.primary} />
               </Pressable>
             </View>
+          </View>
+
+          <View style={[styles.preferenciaFila, styles.preferenciaSeparada]}>
+            <View style={styles.preferenciaTextos}>
+              <Text style={styles.preferenciaTitulo}>Alertas de todos mis hogares</Text>
+              <Text style={styles.preferenciaDetalle}>
+                {alertasDeTodos
+                  ? 'En el inicio ves lo próximo a vencer y el stock bajo de todos tus hogares.'
+                  : 'En el inicio ves lo próximo a vencer y el stock bajo solo del hogar que estás usando.'}
+              </Text>
+            </View>
+            <Switch
+              value={alertasDeTodos}
+              onValueChange={handleCambiarAlertasDeTodos}
+              trackColor={{ true: colors.primary, false: colors.border }}
+              thumbColor={colors.white}
+              accessibilityLabel="Alertas de todos mis hogares"
+            />
           </View>
 
           <View style={[styles.preferenciaFila, styles.preferenciaSeparada]}>

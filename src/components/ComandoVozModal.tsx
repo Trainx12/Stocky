@@ -7,6 +7,7 @@ import { listarCatalogoAprobado } from '../services/catalogo';
 import { interpretarComandoDeVoz } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
 import { formatearFechaCorta, formatearFechaInput, nombreConMarca } from '../services/productos';
+import { UNIDADES_DISPONIBLES } from '../services/escaneo';
 import {
   accionAplicable,
   aplicarAccionDeVoz,
@@ -35,6 +36,7 @@ type Paso = 'grabar' | 'procesando' | 'revisar' | 'vacio';
 const EJEMPLOS = [
   'Agregá 2 leches La Serenísima que vencen el 15 de noviembre',
   'Compré un kilo de papas y una docena de huevos',
+  'Compré 2 paquetes de sal y una caja de chocolatada',
   'Usé 3 huevos',
   'La manteca vence el viernes',
   'Eliminá el yogur',
@@ -322,9 +324,30 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
         </Pressable>
       </View>
 
-      {accion.tipo === 'alta' && !accion.catalogo && <Text style={styles.detalle}>Sin catálogo · se guarda en "Otros"</Text>}
+      {accion.tipo === 'alta' && !accion.catalogo && (
+        <Text style={styles.detalle}>Sin catálogo · se guarda en "{accion.categoria}"</Text>
+      )}
 
       {accion.aviso && <Text style={styles.aviso}>{accion.aviso}</Text>}
+
+      {/* No es comida (shampoo, detergente...): no se carga salvo que el
+          usuario lo pida explícitamente. */}
+      {accion.noEsAlimento && (
+        <Pressable
+          onPress={() => onCambiar({ incluir: !accion.incluir })}
+          disabled={deshabilitada}
+          style={[styles.chip, styles.chipCargarIgual, accion.incluir && styles.chipSeleccionado]}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: accion.incluir }}
+        >
+          <Ionicons
+            name={accion.incluir ? 'checkbox' : 'square-outline'}
+            size={16}
+            color={accion.incluir ? colors.white : colors.textSecondary}
+          />
+          <Text style={[styles.chipTexto, accion.incluir && styles.chipTextoSeleccionado]}>Cargar igual</Text>
+        </Pressable>
+      )}
 
       {accion.opciones.length > 0 && (
         <View style={styles.opciones}>
@@ -366,8 +389,27 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
               editable={!deshabilitada}
               accessibilityLabel={`Cantidad de ${titulo}`}
             />
-            <Text style={styles.detalle}>{accion.unidad}</Text>
+            {accion.tipo !== 'alta' && <Text style={styles.detalle}>{accion.unidad}</Text>}
           </View>
+          {/* En un alta la unidad se puede corregir: "1 paquete de pimentón"
+              no es "1 g" (incidentes-sprint10.md #21). */}
+          {accion.tipo === 'alta' && (
+            <View style={styles.unidades}>
+              {UNIDADES_DISPONIBLES.map((unidad) => (
+                <Pressable
+                  key={unidad}
+                  onPress={() => onCambiar({ unidad })}
+                  disabled={deshabilitada}
+                  style={[styles.chip, accion.unidad === unidad && styles.chipSeleccionado]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: accion.unidad === unidad }}
+                  accessibilityLabel={`Unidad ${unidad}`}
+                >
+                  <Text style={[styles.chipTexto, accion.unidad === unidad && styles.chipTextoSeleccionado]}>{unidad}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <View style={styles.fila}>
             <TextInput
               style={[styles.input, styles.flex]}
@@ -545,6 +587,11 @@ const crearEstilos = () =>
   opciones: {
     gap: spacing.xs,
   },
+  unidades: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -563,6 +610,13 @@ const crearEstilos = () =>
   },
   chipTextoSeleccionado: {
     color: colors.white,
+  },
+  // "Cargar igual" (no es un alimento): casilla + texto en fila.
+  chipCargarIgual: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
   },
   error: {
     ...typography.caption,

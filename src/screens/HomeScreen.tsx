@@ -26,6 +26,13 @@ import {
 } from '../services/hogares';
 import type { HogarConRol, MiInvitacionPendiente, MiSolicitudPendiente } from '../services/hogares';
 import { listarActividadReciente } from '../services/actividad';
+import {
+  elegirHogarInicial,
+  guardarHogarSeleccionado,
+  hogaresDeLasAlertas,
+  leerAlertasDeTodos,
+  leerHogarGuardado,
+} from '../services/preferenciasHogar';
 import type { ActividadItem } from '../services/actividad';
 import {
   etiquetaStock,
@@ -58,14 +65,17 @@ import { useEstilos } from '../theme/useEstilos';
  * 20260907130000_actividad_hogar.sql), generados por triggers sobre
  * `productos` -- hoy es lo único con ABM real. "Productos próximos a
  * vencer" (RF2/RF3, ver src/services/productos.ts) va arriba de "Actividad
- * reciente" a propósito -- es la alerta más visible del dashboard -- y a
- * diferencia del resto de las secciones no depende de `hogarSeleccionado`:
- * junta los productos de TODOS los hogares del usuario, porque algo por
- * vencer en un hogar que no es el seleccionado en ese momento no debería
- * quedar escondido. Muestra solo los primeros MAX_ALERTAS_DASHBOARD; la
- * lista completa está en el filtro "Por vencer" de ProductosScreen (botón
- * "Ver todos"). "Stock bajo" sigue el mismo criterio (todos los hogares,
- * los primeros MAX_ALERTAS_DASHBOARD y "Ver todos" al filtro "Stock bajo").
+ * reciente" a propósito -- es la alerta más visible del dashboard. Como el
+ * resto del dashboard, por defecto es solo del `hogarSeleccionado`; con la
+ * opción "Alertas de todos mis hogares" (pantalla Notificaciones, ver
+ * services/preferenciasHogar.ts) junta los de TODOS los hogares del
+ * usuario. Muestra solo los primeros MAX_ALERTAS_DASHBOARD; la lista
+ * completa está en el filtro "Por vencer" de ProductosScreen (botón "Ver
+ * todos"). "Stock bajo" sigue el mismo criterio (mismo alcance, los
+ * primeros MAX_ALERTAS_DASHBOARD y "Ver todos" al filtro "Stock bajo").
+ *
+ * El hogar elegido se recuerda en el dispositivo: al volver a abrir la app o
+ * la página se sigue mostrando el mismo.
  */
 
 // Cuántas alertas de cada tipo entran en el dashboard antes del "Ver todos":
@@ -129,12 +139,20 @@ export function HomeScreen() {
   const [misInvitaciones, setMisInvitaciones] = useState<MiInvitacionPendiente[]>([]);
   const [respondiendoInvitacion, setRespondiendoInvitacion] = useState<string | null>(null);
 
-  // Hogar que el resto del dashboard (Actividad reciente, Accesos rápidos)
-  // toma como referencia. Es una selección local a esta pantalla -- no toca
+  // Hogar que el resto del dashboard (alertas, Actividad reciente, Accesos
+  // rápidos) toma como referencia. Es una selección de esta pantalla,
+  // recordada en el dispositivo (services/preferenciasHogar.ts) -- no toca
   // `usuarios.hogar_id` (el "hogar activo" real que usa el resto de la app y
   // la RLS) -- así que cambiarla acá nunca afecta a qué hogar apunta crear
   // un hogar/aceptar una solicitud en otro lado.
   const [hogarSeleccionadoId, setHogarSeleccionadoId] = useState<string | null>(null);
+  // Hogar recordado de la última vez. `undefined` mientras todavía se está
+  // leyendo: hasta entonces no se elige ninguno, así no se ve un hogar y al
+  // instante otro.
+  const [hogarGuardado, setHogarGuardado] = useState<string | null | undefined>(undefined);
+  // Opción "Alertas de todos mis hogares" (por defecto solo el que se usa).
+  // `null` mientras se lee.
+  const [alertasDeTodos, setAlertasDeTodos] = useState<boolean | null>(null);
   const [cambiarHogarVisible, setCambiarHogarVisible] = useState(false);
   const hogarSeleccionado = misHogares.find((h) => h.id === hogarSeleccionadoId) ?? null;
 
@@ -190,13 +208,28 @@ export function HomeScreen() {
     cargarMisInvitaciones();
   }, [cargarMisHogares, cargarMisSolicitudes, cargarMisInvitaciones]);
 
-  // Si la selección actual ya no es válida (todavía no se eligió ninguna,
-  // o el hogar seleccionado se dejó/expulsó/etc.), se reemplaza por el
-  // "hogar activo" de siempre (usuario.hogar_id) si sigue siendo uno de mis
-  // hogares, o si no por el primero de la lista. Si ya hay una selección
-  // válida, se respeta -- no se le pisa la elección al usuario cada vez que
-  // se recarga la lista por otro motivo (crear/salir de OTRO hogar, etc.).
+  // Lee el hogar recordado de la última vez (una vez por cuenta).
+  const usuarioId = usuario?.id;
   useEffect(() => {
+    if (!usuarioId) return;
+    let vigente = true;
+    leerHogarGuardado(usuarioId).then((id) => {
+      if (vigente) setHogarGuardado(id);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [usuarioId]);
+
+  // Si la selección actual ya no es válida (todavía no se eligió ninguna,
+  // o el hogar seleccionado se dejó/expulsó/etc.), se elige con
+  // elegirHogarInicial: el recordado de la última vez, si no el "hogar
+  // activo" de siempre (usuario.hogar_id), si no el primero de la lista. Si
+  // ya hay una selección válida, se respeta -- no se le pisa la elección al
+  // usuario cada vez que se recarga la lista por otro motivo (crear/salir de
+  // OTRO hogar, etc.).
+  useEffect(() => {
+    if (hogarGuardado === undefined) return; // todavía leyendo
     if (misHogares.length === 0) {
       if (hogarSeleccionadoId !== null) setHogarSeleccionadoId(null);
       return;
@@ -205,9 +238,23 @@ export function HomeScreen() {
     const sigueSiendoValida = misHogares.some((h) => h.id === hogarSeleccionadoId);
     if (sigueSiendoValida) return;
 
-    const activo = misHogares.find((h) => h.id === usuario?.hogar_id);
-    setHogarSeleccionadoId((activo ?? misHogares[0]).id);
-  }, [misHogares, hogarSeleccionadoId, usuario?.hogar_id]);
+    setHogarSeleccionadoId(elegirHogarInicial(misHogares.map((h) => h.id), hogarGuardado, usuario?.hogar_id));
+  }, [misHogares, hogarSeleccionadoId, hogarGuardado, usuario?.hogar_id]);
+
+  // Recuerda el hogar que se está mostrando para la próxima vez que se abra
+  // la app o la página.
+  useEffect(() => {
+    if (usuarioId && hogarSeleccionadoId) guardarHogarSeleccionado(usuarioId, hogarSeleccionadoId);
+  }, [usuarioId, hogarSeleccionadoId]);
+
+  // La opción de alcance se cambia en Notificaciones: se vuelve a leer cada
+  // vez que se vuelve a esta pantalla.
+  useFocusEffect(
+    useCallback(() => {
+      if (!usuarioId) return;
+      leerAlertasDeTodos(usuarioId).then(setAlertasDeTodos);
+    }, [usuarioId]),
+  );
 
   // Llegando desde la notificación "X quiere unirse a ...": selecciona ese
   // hogar y abre "Miembros del hogar" para aceptar o rechazar, apenas la
@@ -251,15 +298,25 @@ export function HomeScreen() {
     }, [hogarSeleccionado?.id, cargarActividad]),
   );
 
-  // Alertas del dashboard (por vencer + stock bajo) de TODOS mis hogares,
-  // pasándole los IDs explícitos en vez de dejar que la RLS filtre sola
-  // (mismo motivo que el resto de las queries "mis X" de este
-  // archivo/servicio -- ver docs/incidentes-sprint2.md #2). Se recargan al
-  // cambiar la lista de hogares o la preferencia de días, al volver a esta
-  // pantalla (por ejemplo, después de cargar productos) y cuando llega una
-  // notificación de stock o vencimiento.
+  // Alertas del dashboard (por vencer + stock bajo) del hogar que se está
+  // usando, o de TODOS mis hogares si se eligió esa opción
+  // (hogaresDeLasAlertas), pasándole los IDs explícitos en vez de dejar que
+  // la RLS filtre sola (mismo motivo que el resto de las queries "mis X" de
+  // este archivo/servicio -- ver docs/incidentes-sprint2.md #2). Se recargan
+  // al cambiar la lista de hogares, el hogar elegido, la opción de alcance o
+  // la preferencia de días, al volver a esta pantalla (por ejemplo, después
+  // de cargar productos) y cuando llega una notificación de stock o
+  // vencimiento.
   const cargarAlertas = useCallback(async () => {
-    const hogarIds = misHogares.map((h) => h.id);
+    // Sin la opción leída, o sin hogar elegido todavía (si hay hogares),
+    // se sigue mostrando el "cargando" en vez de una lista vacía engañosa.
+    if (alertasDeTodos === null) return;
+    if (!alertasDeTodos && misHogares.length > 0 && !hogarSeleccionadoId) return;
+    const hogarIds = hogaresDeLasAlertas(
+      misHogares.map((h) => h.id),
+      hogarSeleccionadoId,
+      alertasDeTodos,
+    );
     const [alertas, porVencer] = await Promise.allSettled([
       listarProductosConStockBajo(hogarIds),
       listarProductosProximosAVencer(hogarIds, diasAviso),
@@ -270,7 +327,7 @@ export function HomeScreen() {
     else console.warn('[Stocky] No se pudieron cargar los productos próximos a vencer:', porVencer.reason);
     setAlertasStockLoading(false);
     setProductosPorVencerLoading(false);
-  }, [misHogares, diasAviso]);
+  }, [misHogares, hogarSeleccionadoId, alertasDeTodos, diasAviso]);
 
   useFocusEffect(
     useCallback(() => {
@@ -577,6 +634,10 @@ export function HomeScreen() {
     navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre, filtroInicial });
   }
 
+  // Las alertas mezclan hogares solo con la opción "todos" y más de un
+  // hogar: recién ahí hace falta decir de qué hogar es cada una.
+  const alertasDeVariosHogares = alertasDeTodos === true && misHogares.length > 1;
+
   // El "Ver todos" lleva al hogar del primer ítem de la lista (el más
   // urgente): la despensa es por hogar, así que con varios hogares el botón
   // lo nombra ("Ver todos en <hogar>").
@@ -776,7 +837,14 @@ export function HomeScreen() {
               {productosPorVencerLoading ? (
                 <ActivityIndicator color={colors.primary} />
               ) : productosPorVencer.length === 0 ? (
-                <EmptyState icon="checkmark-circle-outline" text="No tenés productos por vencer en los próximos días." />
+                <EmptyState
+                  icon="checkmark-circle-outline"
+                  text={
+                    !alertasDeVariosHogares && hogarSeleccionado && misHogares.length > 1
+                      ? `No hay productos por vencer en "${hogarSeleccionado.nombre}" en los próximos días.`
+                      : 'No tenés productos por vencer en los próximos días.'
+                  }
+                />
               ) : (
                 <View style={styles.hogaresList}>
                   {productosPorVencer.slice(0, MAX_ALERTAS_DASHBOARD).map((producto) => {
@@ -789,9 +857,11 @@ export function HomeScreen() {
                           <Text style={styles.hogarNombre} numberOfLines={1}>
                             {nombreConMarca(producto)}
                           </Text>
-                          <Text style={styles.hogarCodigo} numberOfLines={1}>
-                            {hogar?.nombre ?? ''}
-                          </Text>
+                          {alertasDeVariosHogares && (
+                            <Text style={styles.hogarCodigo} numberOfLines={1}>
+                              {hogar?.nombre ?? ''}
+                            </Text>
+                          )}
                         </View>
                         {etiqueta && (
                           <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
@@ -803,7 +873,7 @@ export function HomeScreen() {
                   })}
                   <VerTodosButton
                     total={productosPorVencer.length}
-                    hogarNombre={misHogares.length > 1 ? nombreHogar(productosPorVencer[0].hogar_id) : null}
+                    hogarNombre={alertasDeVariosHogares ? nombreHogar(productosPorVencer[0].hogar_id) : null}
                     onPress={() => handleVerAlertas(productosPorVencer[0].hogar_id, 'porVencer')}
                   />
                 </View>
@@ -816,7 +886,14 @@ export function HomeScreen() {
               {alertasStockLoading ? (
                 <ActivityIndicator color={colors.primary} />
               ) : alertasStock.length === 0 ? (
-                <EmptyState icon="checkmark-circle-outline" text="Ningún producto está por debajo de su stock mínimo." />
+                <EmptyState
+                  icon="checkmark-circle-outline"
+                  text={
+                    !alertasDeVariosHogares && hogarSeleccionado && misHogares.length > 1
+                      ? `En "${hogarSeleccionado.nombre}" ningún producto está por debajo de su stock mínimo.`
+                      : 'Ningún producto está por debajo de su stock mínimo.'
+                  }
+                />
               ) : (
                 <View style={styles.hogaresList}>
                   {alertasStock.slice(0, MAX_ALERTAS_DASHBOARD).map((alerta) => (
@@ -826,7 +903,8 @@ export function HomeScreen() {
                           {alerta.nombre}
                         </Text>
                         <Text style={styles.hogarCodigo} numberOfLines={1}>
-                          Quedan {alerta.cantidadTotal} {alerta.unidad} · {nombreHogar(alerta.hogarId)}
+                          Quedan {alerta.cantidadTotal} {alerta.unidad}
+                          {alertasDeVariosHogares ? ` · ${nombreHogar(alerta.hogarId)}` : ''}
                         </Text>
                       </View>
                       <View style={styles.stockBadge}>
@@ -837,7 +915,7 @@ export function HomeScreen() {
                   ))}
                   <VerTodosButton
                     total={alertasStock.length}
-                    hogarNombre={misHogares.length > 1 ? nombreHogar(alertasStock[0].hogarId) : null}
+                    hogarNombre={alertasDeVariosHogares ? nombreHogar(alertasStock[0].hogarId) : null}
                     onPress={() => handleVerAlertas(alertasStock[0].hogarId, 'stockBajo')}
                   />
                 </View>

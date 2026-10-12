@@ -30,7 +30,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       'En el inicio, debajo de "Tus hogares activos", tocá "Crear hogar", escribí un nombre (por ejemplo "Casa") y tocá "Crear hogar".',
       'Si otra persona ya creó el hogar, tocá "Unirme a un hogar", escribí el código que te pasaron y tocá "Unirme". El dueño tiene que aceptarte.',
       'El código de tu hogar aparece debajo de su nombre ("Código: ..."): pasáselo a quien quieras sumar.',
-      'Si tenés más de un hogar, tocá "Cambiar hogar" para elegir cuál ver.',
+      'Si tenés más de un hogar, tocá "Cambiar hogar" para elegir cuál ver. Stocky se acuerda del que elegiste la próxima vez que abras la app o la página.',
     ],
   },
   {
@@ -81,8 +81,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     pasos: [
       'En "Accesos rápidos", tocá "Cargar por voz" (o el micrófono dentro de la despensa).',
       'Tocá el micrófono, hablá y volvé a tocarlo para terminar. Por ejemplo: "Compré 2 leches que vencen el 15 de noviembre", "Usé 3 huevos" o "Eliminá el yogur".',
+      'Decí la unidad o el envase para que la cargue bien: "un paquete de sal", "2 cajas de chocolatada", "medio kilo de queso". En la revisión podés cambiar la unidad tocándola.',
       'Revisá lo que entendió y tocá "Aplicar" (el botón dice cuántos cambios va a hacer). Si no entendió bien, tocá "Grabar de nuevo".',
     ],
+    consejo: 'Si decís algo que no es comida (por ejemplo "shampoo"), te avisa y no lo carga salvo que toques "Cargar igual".',
   },
   {
     id: 'vencimientos',
@@ -91,7 +93,8 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     resumen: 'Stocky te avisa antes de que algo se venza.',
     pasos: [
       'En el formulario del producto, en "Fecha de vencimiento", escribí la fecha (solo los números) o usá los botones de abajo: "Calendario", "Foto" (le sacás una foto a la fecha impresa en el envase) o "Dictar".',
-      'Los productos que están por vencer aparecen en el inicio, en "Productos próximos a vencer". Tocá "Ver todos" para verlos ordenados por fecha.',
+      'Los productos que están por vencer aparecen en el inicio, en "Productos próximos a vencer" (del hogar que estás usando). Tocá "Ver todos" para verlos ordenados por fecha.',
+      'Si tenés varios hogares y querés ver en el inicio lo que vence en todos, entrá a la campanita y prendé "Alertas de todos mis hogares".',
       'En la despensa, el botón "Por vencer" muestra todos los productos con fecha, del que vence primero al último.',
       'Para elegir con cuántos días de anticipación te avisa, entrá a la campanita y usá los botones − y + de "Avisarme antes de que venza". Para un producto puntual, completá "Días de anticipación" en su formulario.',
     ],

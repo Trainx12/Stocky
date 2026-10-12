@@ -668,3 +668,30 @@ entrega la página:
 curl -s "https://hogarstocky.expo.app/?v=$RANDOM" | grep -o 'index-[a-f0-9]*\.js'
 ```
 Si no coinciden, esperar un minuto y reintentar el `deploy:alias`.
+
+## 21. La voz cargaba "1 paquete de sal" como 1 kg y el pimentón como 1 g
+
+**Síntoma:** por voz, "paquetes de chocolatada" quedaban en litros, "un
+paquete de sal" como 1 kg y "un paquete de pimentón" como 1 g.
+
+**Causa raíz:** en `armarAccion` (`src/services/voz.ts`) un alta tomaba
+**siempre la unidad del catálogo** cuando el producto estaba ahí
+(Chocolatada en l, Sal en kg, Pimentón en g) y la unidad dicha solo se usaba
+para lo que no estaba en el catálogo. Además, el prompt de `voz-a-texto` solo
+pedía unidades de peso/volumen, así que "paquete", "caja" o "sobre" no se
+traducían a nada.
+
+**Solución:** `unidadDeAlta`: la unidad dicha manda; sin unidad dicha se usa
+la del catálogo, salvo g/ml, que pasan a `paquete` con un aviso. El prompt
+ahora traduce envases (paquete, caja, bolsa, sobre, frasco) a `paquete` con
+la cantidad de envases, y la revisión deja cambiar la unidad con chips.
+Tests en `voz.test.ts`.
+
+**Junto con esto (pedido nuevo):** lo que no es comida ("shampoo") ya no se
+pierde (el prompt antes descartaba lo que "no es de la despensa"): llega con
+`es_alimento: false`, se muestra con aviso y se carga solo con "Cargar
+igual".
+
+**Ojo:** la parte del prompt necesita volver a desplegar la Edge Function
+`voz-a-texto`; sin eso, la app igual respeta la unidad cuando el modelo la
+devuelve y deja corregirla a mano.
