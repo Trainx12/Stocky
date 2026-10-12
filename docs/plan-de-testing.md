@@ -595,6 +595,48 @@ pantallas en modo claro (se tocaron los estilos de las 25).
 
 ---
 
+## Tutorial guiado (Sprint 10)
+
+Rama `feature/tutorial` (apilada sobre `feature/cuenta-y-ajustes`). Sin
+migraciones.
+
+**Ruta crítica:**
+1. Cuenta nueva (o una que nunca lo vio en ese dispositivo): Bienvenida →
+   onboarding → Términos → login → **en el inicio** aparece "¡Hola, …! ¿Es
+   tu primera vez en Stocky?". No aparece antes del login.
+2. "Ya sé usarla" → se cierra y no vuelve a aparecer (cerrar y abrir la app).
+3. Cuenta → "Ver el tutorial" (o Ayuda → "Ver el tutorial guiado") →
+   vuelve al inicio y arranca en "1 de 10".
+4. Recorrerlo con "Siguiente": cada paso oscurece la pantalla menos el
+   elemento que explica (hogar, Agregar producto, Escanear ticket, Cargar
+   por voz, Próximos a vencer, Stock bajo, campanita, "?"), con la flecha
+   apuntándole; si el elemento está más abajo, el inicio scrollea solo.
+   "Atrás" vuelve un paso; "Saltar" lo cierra.
+5. En "Tu primer producto" tocar **"Crear mi primer producto"** → abre la
+   despensa con el formulario; cargar el producto y volver al inicio → el
+   tutorial sigue en "4 de 10" (Escanear ticket). Lo mismo con "Probar con
+   un ticket" y "Probar por voz" (cancelar y volver también lo continúa).
+6. Cuenta **sin hogar**: el paso 2 es "Primero, tu hogar" con "Crear mi
+   hogar" → abre el formulario; al crearlo, el tutorial sigue.
+7. Con la pantalla de un celular angosto y en la web: el cartel nunca queda
+   tapado ni fuera de la pantalla (la campanita lo pone arriba).
+8. Modo oscuro y claro: el cartel se lee bien en los dos.
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, `npm test`
+(26 suites / 487 tests, con `src/tutorial/tutorial.test.ts`: pasos,
+avance/pausa, ubicación del cartel, scroll y la respuesta guardada). Visto
+en el navegador (ancho de celular, modo oscuro) con una pantalla de prueba
+temporal que imitaba el inicio: pregunta inicial, paso del hogar (flecha
+hacia arriba), "Agregar producto" (scrollea y flecha hacia abajo) y
+campanita. **No hecho:** el inicio real (requiere login con Google), los
+pasos 5 y 6 (pausa y retorno) en un celular.
+
+**Regresión:** el inicio entero (se envolvieron el ScrollView y algunas
+tarjetas en Views para poder medirlas: revisar que nada se vea corrido),
+la campanita y el "?" siguen funcionando, Cuenta y Ayuda.
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**

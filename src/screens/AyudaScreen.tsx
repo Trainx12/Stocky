@@ -43,6 +43,20 @@ export function AyudaScreen({ navigation }: Props) {
         <Text style={styles.title}>Ayuda</Text>
       </View>
 
+      {/* Tutorial guiado del inicio (src/tutorial/): se vuelve al inicio y arranca. */}
+      <Pressable
+        onPress={() => navigation.navigate('Home', { verTutorial: true })}
+        style={styles.tutorial}
+        accessibilityRole="button"
+      >
+        <Ionicons name="school-outline" size={22} color={colors.white} />
+        <View style={styles.tutorialTextos}>
+          <Text style={styles.tutorialTitulo}>Ver el tutorial guiado</Text>
+          <Text style={styles.tutorialDetalle}>Te mostramos lo principal en el inicio, paso a paso</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.white} />
+      </Pressable>
+
       <TextInput
         style={styles.buscador}
         placeholder="¿Qué querés hacer? (ej: ticket, vencimiento)"
@@ -116,6 +130,27 @@ const crearEstilos = () =>
     title: {
       ...typography.h2,
       color: colors.textPrimary,
+    },
+    tutorial: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.primary,
+      borderRadius: radius.md,
+      padding: spacing.md,
+    },
+    tutorialTextos: {
+      flex: 1,
+      gap: 2,
+    },
+    tutorialTitulo: {
+      ...typography.bodyMedium,
+      color: colors.white,
+    },
+    tutorialDetalle: {
+      ...typography.caption,
+      color: colors.white,
+      opacity: 0.85,
     },
     buscador: {
       ...typography.body,

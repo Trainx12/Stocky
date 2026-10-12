@@ -612,6 +612,42 @@ buscador (`buscarEnAyuda`). Se abre desde el "?" del encabezado del Home
 (`Header` recibe `onAyuda`) y desde Cuenta → Ajustes. **Si se renombra un
 botón, actualizar también el texto de la ayuda.**
 
+## 5quater. `src/tutorial/` — tutorial guiado del inicio
+
+La primera vez que una cuenta llega al inicio (o sea, **después del login y
+de aceptar los Términos**; nunca en la bienvenida ni en el onboarding),
+`BienvenidaTutorialModal` pregunta "¿Es tu primera vez?": "Sí, mostrame" o
+"Ya sé usarla". La respuesta se guarda en el dispositivo por cuenta
+(`services/tutorial.ts`) y no se vuelve a preguntar; el tutorial se repite
+desde Cuenta → "Ver el tutorial" o desde la Ayuda (navegan a `Home` con
+`verTutorial: true`).
+
+- **`tutorial.ts`** (puro, con tests): `pasosTutorial` (bienvenida, hogar
+  o "crear hogar", agregar producto, ticket/OCR, voz, por vencer, stock
+  bajo, campanita, ayuda, final; siempre la misma cantidad para que crear
+  el hogar a mitad de camino no corra el número de paso),
+  `tutorialReducer` (avanzar, volver, saltar y **pausar**: los pasos con
+  botón de acción — "Crear mi primer producto", "Probar con un ticket",
+  "Probar por voz", "Crear mi hogar" — esconden el tutorial mientras la
+  persona lo hace y siguen con el paso siguiente cuando vuelve al inicio sin
+  nada abierto; `esperandoSalida` evita que vuelva en el mismo instante,
+  antes de que la navegación ocurra), `ubicarGlobo` (cartel debajo o arriba
+  del elemento, flecha alineada) y `scrollParaVer`.
+- **`useTutorialInicio.ts`**: el hook que usa `HomeScreen`. Cada elemento a
+  señalar se marca con `ref={tutorial.objetivo('agregarProducto')}` (y
+  `collapsable={false}`, sin eso Android puede no medirlo); el hook lo mide
+  con `measureInWindow`, scrollea el inicio si hace falta y arma las props de
+  `TutorialGuiado`. `Header` (`refAyuda`) y `BottomNavBar` (`refsDeTabs`)
+  aceptan refs para el "?" y la campanita.
+- **`components/TutorialGuiado.tsx`**: Modal transparente que oscurece todo
+  menos el elemento (cuatro rectángulos alrededor), un aro que late, la
+  flecha y el cartel con progreso ("3 de 10"), puntitos, Atrás / Siguiente
+  / Saltar y el botón de acción. Mientras está abierto la pantalla de abajo
+  no recibe toques.
+
+**Si se agrega una función importante al inicio**, sumarle un paso en
+`pasosTutorial` y marcar su elemento con `tutorial.objetivo(...)`.
+
 ## 5bis. `src/legal/` — Términos y Condiciones y créditos
 
 Todo el texto legal vive como datos en `src/legal/terminos.ts` (versión

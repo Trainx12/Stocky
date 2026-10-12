@@ -32,6 +32,8 @@ interface BottomNavBarProps {
   onTabPress?: (tab: TabKey) => void;
   /** Notificaciones sin leer: si hay alguna, la campanita muestra el número (9+ si son más). */
   notificacionesSinLeer?: number;
+  /** Para que el tutorial guiado pueda señalar un botón puntual (la campanita). */
+  refsDeTabs?: Partial<Record<TabKey, React.Ref<View>>>;
 }
 
 /**
@@ -42,7 +44,7 @@ interface BottomNavBarProps {
  * sprints), este componente se puede reemplazar por un
  * createBottomTabNavigator sin tocar el resto de HomeScreen.
  */
-export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLeer = 0 }: BottomNavBarProps) {
+export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLeer = 0, refsDeTabs }: BottomNavBarProps) {
   const styles = useEstilos(crearEstilos);
   // Se resalta el ícono mientras el dedo lo mantiene presionado (feedback
   // visual inmediato del toque, aparte del círculo claro del mockup).
@@ -70,7 +72,11 @@ export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLee
             accessibilityLabel={globito ? `${tab}, ${notificacionesSinLeer} sin leer` : tab}
           >
             {/* Círculo claro de fondo cuando el tab está activo o siendo presionado, como en el mockup */}
-            <View style={[styles.iconWrapper, (isActive || isPressed) && styles.iconWrapperHighlighted]}>
+            <View
+              ref={refsDeTabs?.[tab]}
+              collapsable={false}
+              style={[styles.iconWrapper, (isActive || isPressed) && styles.iconWrapperHighlighted]}
+            >
               <Ionicons name={iconName} size={24} color={isActive ? colors.primary : colors.textSecondary} />
               {globito && (
                 <View style={styles.globito}>
