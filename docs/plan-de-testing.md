@@ -637,6 +637,52 @@ la campanita y el "?" siguen funcionando, Cuenta y Ayuda.
 
 ---
 
+## Mejoras de experiencia (Sprint 10)
+
+Rama `feature/mejoras-experiencia` (apilada sobre `feature/logo`). Migración
+`20261017120000_lista_compras_comentarios_resumen_y_borrar_cuenta.sql` y Edge
+Function `recetas`.
+
+**Ruta crítica:**
+1. **Lista de compras:** Home → "Lista de compras". Escribir "leche" → aparece
+   "Leche" (del catálogo, en litros). Con un producto en stock bajo, arriba
+   aparece "Te faltan N productos" → "Agregar" los suma (sin repetir).
+   Tildar dos, −/+ en otro. **Otro miembro** del hogar con la lista abierta
+   ve los cambios solo. "Guardé las compras" → lo tildado aparece en la
+   despensa (sumado al producto que ya estaba, si es idéntico) y sale de la
+   lista; lo no tildado queda.
+2. **− hasta 0:** en la despensa, restar hasta que un producto (todos sus
+   lotes) quede en 0 → "Se terminó: X. ¿Lo agregamos a la lista?" →
+   "Agregar a la lista" → está en la lista. Repetirlo → "Ya estaba en la
+   lista". Si queda otro lote con cantidad, no pregunta.
+3. **Recetas:** con productos por vencer, "¿Qué cocino con esto?" → 2-3
+   recetas que usan esos productos (no los vencidos); tocar una muestra los
+   pasos; "Otras ideas" pide otras. Sin internet → mensaje de error, no se
+   cuelga.
+4. **Resumen del mes:** tarjeta "Tu octubre en <hogar>" con cargados, usados
+   (restar con − suma uno) y vencidos. Cambiar de hogar cambia los números.
+5. **Comentarios:** Cuenta → "Contanos qué mejorar" → mandar uno. Con una
+   cuenta **admin**: Home → "Comentarios" lo muestra con nombre y fecha. Con
+   una cuenta común no hay acceso (ni botón).
+6. **Borrar mi cuenta** (con una cuenta de prueba): Cuenta → "Borrar mi
+   cuenta" → dos confirmaciones → vuelve a la bienvenida (o a la otra cuenta
+   guardada). Comprobar: el otro miembro de un hogar compartido quedó como
+   dueño; un hogar donde estaba solo ya no existe; la cuenta puede volver a
+   registrarse con Google desde cero (pide términos de nuevo).
+7. **Términos versión nueva (2026-10-12):** cualquier cuenta existente, al
+   entrar, ve "Actualizamos los términos" y tiene que aceptarlos una vez.
+
+**Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, `npm test`
+(nuevos `listaCompras.test.ts`, `recetasYComentarios.test.ts`, y borrar
+cuenta en `auth.test.ts`). **No hecho:** todo lo que necesita login (las
+pantallas nuevas) y Firebase.
+
+**Regresión:** alta de productos (la lista usa `crearProducto`), −/+ de la
+despensa, salir de un hogar (borrar cuenta reusa `salir_de_hogar`), inicio
+completo (se agregaron tarjetas y botones).
+
+---
+
 ## Logo de Stocky (Sprint 10)
 
 Rama `feature/logo` (apilada sobre `feature/tutorial`).

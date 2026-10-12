@@ -98,7 +98,9 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       'Si tenés varios hogares y querés ver en el inicio lo que vence en todos, entrá a la campanita y prendé "Alertas de todos mis hogares".',
       'En la despensa, el botón "Por vencer" muestra todos los productos con fecha, del que vence primero al último.',
       'Para elegir con cuántos días de anticipación te avisa, entrá a la campanita y usá los botones − y + de "Avisarme antes de que venza". Para un producto puntual, completá "Días de anticipación" en su formulario.',
+      'En "Productos próximos a vencer" tocá "¿Qué cocino con esto?" y te sugerimos recetas simples con lo que vence primero.',
     ],
+    consejo: 'En el inicio, la tarjeta del mes te muestra cuánto cargaste, cuánto usaste y qué se venció.',
   },
   {
     id: 'stock',
@@ -109,8 +111,21 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       'En el formulario del producto, completá "Stock mínimo" (por ejemplo 2 para la leche).',
       'Cuando queda menos que eso, el producto se marca en amarillo como "Stock bajo" (o "Sin stock" si se terminó) y te llega una notificación.',
       'En la despensa, el botón "Stock bajo" muestra solo lo que te falta: tu lista para ir a comprar.',
-      'Usá los botones − y + al lado de cada producto para restar o sumar de a uno sin abrir el formulario.',
+      'Usá los botones − y + al lado de cada producto para restar o sumar de a uno sin abrir el formulario. Si con el − se termina, te preguntamos si lo agregamos a la lista de compras.',
     ],
+  },
+  {
+    id: 'lista-compras',
+    titulo: 'Lista de compras',
+    icono: 'cart-outline',
+    resumen: 'Una lista compartida con tu hogar para ir al súper, que se carga sola en la despensa.',
+    pasos: [
+      'En el inicio, en "Accesos rápidos", tocá "Lista de compras" (o "Pasar a la lista de compras" en la tarjeta "Stock bajo").',
+      'Arriba escribí lo que hay que comprar y tocá "+". Si te falta algo con stock bajo, aparece un aviso amarillo: tocá "Agregar" y se suma todo.',
+      'En el súper, tildá lo que vas comprando. Con − y + cambiás la cantidad.',
+      'Al volver, tocá "Guardé las compras": lo tildado se carga en la despensa y sale de la lista.',
+    ],
+    consejo: 'Todos los de tu hogar ven la misma lista al mismo tiempo: si alguien tilda algo, lo ves al toque.',
   },
   {
     id: 'notificaciones',
@@ -132,7 +147,8 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       'Tocá el lápiz al lado de tu nombre para cambiar cómo te ven en tus hogares.',
       'En "Apariencia" elegí "Sistema" (igual que tu celular), "Claro" u "Oscuro".',
       'En "Tus cuentas", tocá "Agregar otra cuenta" para entrar con otra cuenta de Google, y tocá cualquiera para cambiar entre ellas sin volver a iniciar sesión.',
-      'Abajo de todo está "Cerrar sesión".',
+      'Abajo de todo está "Cerrar sesión". Más abajo, "Borrar mi cuenta" la borra para siempre (te lo preguntamos dos veces).',
+      '¿Una idea o algo que falló? Tocá "Contanos qué mejorar": lo lee el equipo de Stocky.',
     ],
   },
 ];

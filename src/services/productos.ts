@@ -479,6 +479,10 @@ export interface AlertaStock {
   cantidadTotal: number;
   stockMinimo: number;
   estado: EstadoStock;
+  // Para pasarlo a la lista de compras y, al comprarlo, cargarlo igual en
+  // la despensa (services/listaCompras.ts).
+  categoria: string | null;
+  catalogoId: string | null;
 }
 
 // Productos con stock bajo o agotados de una lista que puede mezclar varios
@@ -502,6 +506,8 @@ export function productosConStockBajo(productos: Producto[]): AlertaStock[] {
         cantidadTotal: grupo.cantidadTotal,
         stockMinimo: stockMinimoDelGrupo(grupo),
         estado,
+        categoria: grupo.categoria,
+        catalogoId: grupo.lotes[0]?.catalogo_id ?? null,
       });
     }
   }

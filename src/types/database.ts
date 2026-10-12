@@ -190,6 +190,46 @@ type AsRecord<T> = { [K in keyof T]: T[K] };
  * poder tipar tanto `.rpc(...)` como los selects anidados del estilo
  * `.select('hogares(*)')` que usa src/services/hogares.ts.
  */
+// Un ítem de la lista de compras de un hogar (services/listaCompras.ts).
+export interface ItemListaCompras {
+  id: string;
+  hogar_id: string;
+  nombre: string;
+  categoria: string;
+  unidad: UnidadProducto;
+  cantidad: number;
+  catalogo_id: string | null;
+  comprado: boolean;
+  creado_por: string | null;
+  created_at: string;
+}
+
+// Comentario de un usuario ("Contanos qué mejorar", services/comentarios.ts).
+export type TipoComentario = 'idea' | 'problema' | 'otro';
+export interface Comentario {
+  id: string;
+  usuario_id: string | null;
+  tipo: TipoComentario;
+  mensaje: string;
+  plataforma: string | null;
+  version_app: string | null;
+  created_at: string;
+}
+
+// Lo que devuelve admin_listar_comentarios (con quién lo mandó).
+export interface ComentarioConAutor extends Omit<Comentario, 'usuario_id'> {
+  usuario_nombre: string | null;
+  usuario_email: string | null;
+}
+
+// Resumen del mes de un hogar (RPC resumen_del_mes).
+export interface ResumenDelMes {
+  cargados: number;
+  usados: number;
+  vencidos: number;
+  por_vencer_semana: number;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -250,6 +290,18 @@ export interface Database {
         Row: AsRecord<Notificacion>;
         Insert: never;
         Update: Pick<Notificacion, 'leida'>;
+        Relationships: [];
+      };
+      lista_compras: {
+        Row: AsRecord<ItemListaCompras>;
+        Insert: Partial<ItemListaCompras> & Pick<ItemListaCompras, 'hogar_id' | 'nombre'>;
+        Update: Partial<Pick<ItemListaCompras, 'nombre' | 'categoria' | 'unidad' | 'cantidad' | 'catalogo_id' | 'comprado'>>;
+        Relationships: [];
+      };
+      comentarios: {
+        Row: AsRecord<Comentario>;
+        Insert: Partial<Comentario> & Pick<Comentario, 'mensaje'>;
+        Update: never;
         Relationships: [];
       };
       productos_catalogo: {
@@ -363,6 +415,19 @@ export interface Database {
       // Constancia de aceptación de los términos (ver services/terminos.ts).
       aceptar_terminos: {
         Args: { p_version: string };
+        Returns: void;
+      };
+      // Mejoras de experiencia (migración 20261017120000_...).
+      admin_listar_comentarios: {
+        Args: { p_limite?: number };
+        Returns: AsRecord<ComentarioConAutor>[];
+      };
+      resumen_del_mes: {
+        Args: { p_hogar_id: string; p_desde: string };
+        Returns: ResumenDelMes;
+      };
+      eliminar_mi_cuenta: {
+        Args: Record<string, never>;
         Returns: void;
       };
     };

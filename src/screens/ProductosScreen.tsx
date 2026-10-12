@@ -30,6 +30,7 @@ import { avisar, confirmar } from '../lib/alert';
 import { supabase } from '../lib/supabase';
 import { afectaBorrado, agruparLlamadas } from '../lib/tiempoReal';
 import { useAuth } from '../context/AuthContext';
+import { agregarSiFalta, itemDesdeProducto, seTermino } from '../services/listaCompras';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
 import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
@@ -243,9 +244,11 @@ export function ProductosScreen({ route, navigation }: Props) {
       actuales.map((p) => (p.id === producto.id ? { ...p, cantidad: Math.max(p.cantidad + delta, 0) } : p)),
     );
 
+    let actualizado: Producto | null = null;
     try {
-      const actualizado = await ajustarCantidadProducto(producto.id, delta);
-      setProductos((actuales) => actuales.map((p) => (p.id === producto.id ? actualizado : p)));
+      actualizado = await ajustarCantidadProducto(producto.id, delta);
+      const nuevo = actualizado;
+      setProductos((actuales) => actuales.map((p) => (p.id === producto.id ? nuevo : p)));
     } catch (err) {
       setProductos((actuales) => actuales.map((p) => (p.id === producto.id ? { ...p, cantidad: cantidadAnterior } : p)));
       avisar('Error', err instanceof Error ? err.message : 'No se pudo actualizar la cantidad.');
@@ -255,6 +258,33 @@ export function ProductosScreen({ route, navigation }: Props) {
         siguientes.delete(producto.id);
         return siguientes;
       });
+    }
+
+    // Con el "−" se terminó (no queda nada de ese producto en ningún lote):
+    // se ofrece pasarlo a la lista de compras.
+    if (delta < 0 && actualizado && actualizado.cantidad === 0) {
+      const resto = productos.map((p) => (p.id === producto.id ? { ...p, cantidad: 0 } : p));
+      if (seTermino(actualizado, resto)) await ofrecerAgregarALista(actualizado);
+    }
+  }
+
+  async function ofrecerAgregarALista(producto: Producto) {
+    if (!usuario) return;
+    const agregar = await confirmar(
+      `Se terminó: ${producto.nombre}`,
+      '¿Lo agregamos a la lista de compras del hogar?',
+      'Agregar a la lista',
+    );
+    if (!agregar) return;
+    try {
+      const agregado = await agregarSiFalta(hogarId, itemDesdeProducto(producto), usuario.id);
+      avisar(
+        agregado ? 'Agregado a la lista' : 'Ya estaba en la lista',
+        agregado ? `"${producto.nombre}" quedó en la lista de compras.` : `"${producto.nombre}" ya estaba anotado.`,
+        'exito',
+      );
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo agregar a la lista.');
     }
   }
 
