@@ -14,6 +14,7 @@ import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
+import { NombreDeHogar } from '../components/Logo';
 import { TutorialGuiado } from '../components/TutorialGuiado';
 import { BienvenidaTutorialModal } from '../components/BienvenidaTutorialModal';
 import { useTutorialInicio } from '../tutorial/useTutorialInicio';
@@ -738,9 +739,7 @@ export function HomeScreen() {
 
                     <View style={styles.hogarRow}>
                       <View style={styles.hogarInfo}>
-                        <Text style={styles.hogarNombre} numberOfLines={1}>
-                          🏠 {hogarSeleccionado.nombre}
-                        </Text>
+                        <NombreDeHogar nombre={hogarSeleccionado.nombre} style={styles.hogarNombre} />
                         <Text style={styles.hogarCodigo}>
                           Código: {hogarSeleccionado.codigo_invitacion} · {hogarSeleccionado.miRol === 'dueno' ? 'Dueño' : 'Invitado'}
                         </Text>
@@ -823,9 +822,7 @@ export function HomeScreen() {
                   {misSolicitudes.map((solicitud) => (
                     <View key={solicitud.hogarId} style={styles.hogarRow}>
                       <View style={styles.hogarInfo}>
-                        <Text style={styles.hogarNombre} numberOfLines={1}>
-                          🏠 {solicitud.nombreHogar}
-                        </Text>
+                        <NombreDeHogar nombre={solicitud.nombreHogar} style={styles.hogarNombre} />
                         <Text style={styles.hogarCodigo}>Esperando respuesta del dueño</Text>
                       </View>
                       <Pressable
@@ -851,9 +848,7 @@ export function HomeScreen() {
                 <View style={styles.hogaresList}>
                   {misInvitaciones.map((invitacion) => (
                     <View key={invitacion.hogarId} style={styles.hogarRow}>
-                      <Text style={styles.hogarNombre} numberOfLines={1}>
-                        🏠 {invitacion.nombreHogar}
-                      </Text>
+                      <NombreDeHogar nombre={invitacion.nombreHogar} style={styles.hogarNombre} />
                       <View style={styles.invitacionAcciones}>
                         <Pressable
                           onPress={() => handleResponderInvitacion(invitacion, true)}
