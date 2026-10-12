@@ -654,3 +654,17 @@ principal.
 **Solución:** reintentar `npx eas-cli deploy --prod` (o `npm run
 publicar:web`), o promover esa versión desde expo.dev → Hosting →
 Deployments.
+
+**Lo que se vio después (2026-10-11, al publicar desde Claude):** un
+`deploy --prod` dijo "Promoted deployment to production" pero la dirección
+principal siguió entregando la versión anterior más de 3 minutos; reasignarla
+con `npx eas-cli deploy:alias --prod --id <id de la publicación>` respondió
+*otra vez* "Unexpected server error", pero a los pocos segundos la dirección
+principal ya entregaba la versión nueva. O sea: **el mensaje de Expo no es
+confiable; hay que verificar qué se está sirviendo.** Para verificar, comparar
+el nombre del archivo `index-….js` que aparece en `dist/index.html` con el que
+entrega la página:
+```bash
+curl -s "https://hogarstocky.expo.app/?v=$RANDOM" | grep -o 'index-[a-f0-9]*\.js'
+```
+Si no coinciden, esperar un minuto y reintentar el `deploy:alias`.
