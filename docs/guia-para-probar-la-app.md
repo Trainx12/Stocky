@@ -62,8 +62,13 @@ queda en expo.dev → proyecto → Builds.
 La APK tiene **EAS Update**: los cambios de código se publican "por aire".
 
 ```bash
-npx eas-cli update --channel preview --environment preview --message "Qué cambió"
+npm run publicar:app -- --message "Qué cambió"
 ```
+
+(Es `eas update` armando el paquete sin el compilador de Hermes, que Windows
+bloquea en algunas compus: ver [incidentes-sprint10.md](incidentes-sprint10.md)
+#19. En una compu donde no esté bloqueado también sirve
+`npx eas-cli update --channel preview --environment preview --message "..."`.)
 
 La gente lo recibe sola: la app baja la actualización en segundo plano al
 abrirse y la aplica **la próxima vez que se abre** (si no aparece, cerrar la
@@ -129,8 +134,9 @@ inicio"**. Queda un ícono de Stocky que se abre como una app.
 
 ### Actualizarla
 
-Volver a correr `npx expo export --platform web` y `npx eas-cli deploy`
-(con `--prod` si se usa la dirección fija). La gente ve la versión nueva
+`npm run publicar:web` (hace `npx expo export --platform web` y
+`npx eas-cli deploy --prod`). Si falla con "Failed to promote deployment",
+es del lado de Expo: reintentar (incidentes-sprint10.md #20). La gente ve la versión nueva
 al recargar la página o volver a abrir el ícono: no hay que reinstalar nada.
 
 ### Limitaciones de la versión web

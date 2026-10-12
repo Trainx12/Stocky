@@ -555,3 +555,102 @@ campos distinto que el celular nativo.
 
 **No probado en pantalla** (requiere login con Google): la ayuda, el acceso
 rápido y la nueva fila de botones de la fecha; sí `tsc` y los tests.
+
+## 16. Los cambios de otra persona no se veían hasta salir y volver a entrar
+
+**Síntoma (reportado por el equipo):** si una persona agregaba un producto,
+a otra del mismo hogar con la app abierta no se le actualizaba.
+
+**Causa:** `productos` y `actividad_hogar` **no estaban en la publicación de
+Realtime** (solo `hogar_miembros`, `notificaciones` y `usuarios`), y la
+despensa y el inicio no se suscribían a cambios: solo recargaban al entrar.
+
+**Solución:** migración
+[20261016120000_realtime_productos_y_actividad.sql](../supabase/migrations/20261016120000_realtime_productos_y_actividad.sql)
+(ya aplicada) y suscripciones en `ProductosScreen` (cambios de productos del
+hogar; los DELETE no se pueden filtrar por hogar y solo traen el id, así que
+se recarga si el borrado estaba en la lista) y en `HomeScreen` (cada cambio
+genera una fila de actividad: se recargan la actividad y las alertas). Los
+avisos seguidos —un ticket de 10 productos son 10 avisos— se agrupan en una
+sola recarga (`agruparLlamadas` en `src/lib/tiempoReal.ts`), y la recarga es
+silenciosa (sin spinner). Realtime respeta las policies de SELECT: cada uno
+recibe solo cambios de sus hogares (verificado que existen para miembros).
+
+## 17. La pantalla gris al tocar la lupa (buscar)
+
+**Síntoma (reportado por el equipo, versión web en iPhone):** al tocar la
+lupa de la barra de abajo, la pantalla quedaba gris y había que cerrar y
+volver a abrir.
+
+**Investigación:** no se pudo reproducir (requiere login). Dos causas
+probables, y se corrigieron las dos:
+1. El buscador se enfocaba con `autoFocus` **durante** la animación de
+   entrada de la pantalla. En Safari de iPhone, enfocar un campo mientras la
+   pantalla se está moviendo hace que el navegador desplace la página para
+   mostrar el teclado y puede dejar a la vista solo el fondo. Ahora se enfoca
+   recién después de la animación (450 ms).
+2. Si cualquier pantalla falla al dibujarse, React deja la pantalla vacía
+   (gris en modo oscuro). Se agregó `RedDeSeguridad` (error boundary) alrededor
+   de toda la app: muestra "Algo salió mal" con "Reintentar" y deja el error
+   en la consola.
+
+**Pendiente:** si vuelve a pasar, con la red de seguridad ahora debería verse
+el aviso en vez de la pantalla gris; si se ve el aviso, anotar qué se estaba
+haciendo para encontrar el error exacto.
+
+## 18. Los términos quedaban en pantalla después de aceptarlos (primer login)
+
+**Síntoma (le pasó al equipo 3 veces):** al iniciar sesión por primera vez,
+la pantalla de Términos y Condiciones no se cerraba; había que cerrar la app.
+
+**Investigación:** en la base la aceptación **sí** se registraba (la cuenta
+creada a las 00:20:53 tiene `terminos_aceptados_at` 00:20:56): el problema era
+de la pantalla.
+
+**Causa (dos errores):**
+1. Al iniciar sesión, `AuthContext` pide el perfil varias veces seguidas
+   (sesión inicial, login, renovación del token). Si una respuesta **vieja**
+   llegaba después de la nueva, pisaba el perfil actualizado y volvía a decir
+   "no aceptó los términos".
+2. En `RootNavigator`, el "cargando" de registrar la aceptación solo se
+   apagaba si el efecto no se había cancelado; como aceptar cambia el estado
+   (y eso cancela el efecto), podía quedar encendido para siempre.
+
+**Solución:** "gana el último pedido" (`src/lib/ultimoPedido.ts`): se ignora
+cualquier respuesta del perfil que no sea la del pedido más nuevo; y el
+"cargando" se apaga siempre (`finally`). Tests en `tiempoReal.test.ts`.
+
+**Lección:** cuando la misma consulta se dispara varias veces seguidas, hay
+que descartar las respuestas viejas: no llegan necesariamente en orden.
+
+## 19. `eas update` fallaba en Windows: el compilador de Hermes bloqueado
+
+**Síntoma:** `npx eas-cli update ...` terminaba con *Failed to generate Hermes
+bytecode* / *Error: spawn UNKNOWN*.
+
+**Causa:** al ejecutar `hermesc.exe` directo, Windows respondió *"Una
+directiva de Control de aplicaciones bloqueó este archivo"*: **Smart App
+Control** de Windows 11 bloquea ese ejecutable (descargado al actualizar
+Expo). No es un error del código: el build de la APK en los servidores de
+Expo funcionó porque no corre en esta compu.
+
+**Solución (sin tocar la configuración de seguridad de Windows):** exportar
+el paquete de Android **sin bytecode de Hermes** (`--no-bytecode`; Hermes
+también ejecuta el código sin compilar, la app solo tarda un poco más en
+abrir) y subirlo ya armado con `eas update --skip-bundler`. Quedó como
+`npm run publicar:app -- --message "..."` (ver la guía). Alternativas: correr
+`eas update` desde otra compu, desde WSL (Linux) o desde un servicio de CI.
+
+## 20. `eas deploy --prod` falló al "promover" la versión web
+
+**Síntoma:** la subida terminaba bien (`Created deployment`, 100 %) pero
+fallaba *"Failed to promote deployment to production — Unexpected server
+error"*.
+
+**Causa:** error del lado de los servidores de Expo (la respuesta no trae
+más detalle). La versión quedó subida, pero no se pasó a la dirección
+principal.
+
+**Solución:** reintentar `npx eas-cli deploy --prod` (o `npm run
+publicar:web`), o promover esa versión desde expo.dev → Hosting →
+Deployments.

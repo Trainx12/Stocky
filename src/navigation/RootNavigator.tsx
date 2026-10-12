@@ -82,15 +82,19 @@ export function RootNavigator() {
   // aceptó antes de loguearse (después del onboarding), se registra solo.
   useEffect(() => {
     if (!faltanTerminos) return;
-    let cancelado = false;
     setRegistrandoPendiente(true);
-    registrarAceptacionPendiente().then(async (registrado) => {
-      if (registrado) await refreshUsuario();
-      if (!cancelado) setRegistrandoPendiente(false);
-    });
-    return () => {
-      cancelado = true;
-    };
+    registrarAceptacionPendiente()
+      .then(async (registrado) => {
+        if (registrado) await refreshUsuario();
+      })
+      .finally(() => {
+        // Siempre se apaga el "cargando". Antes solo se apagaba si el efecto
+        // no se había cancelado, y como al aceptar cambia `faltanTerminos`
+        // (lo que cancela el efecto), quedaba encendido: la próxima vez que
+        // faltaran los términos se veía un spinner para siempre
+        // (incidentes-sprint10.md #18).
+        setRegistrandoPendiente(false);
+      });
   }, [faltanTerminos]);
 
   // Todavía no sabemos si hay sesión guardada o no: mostramos un spinner

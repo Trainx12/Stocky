@@ -15,6 +15,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { TemaProvider, useTema } from './src/context/TemaContext';
 import { NotificacionesProvider } from './src/context/NotificacionesContext';
 import { AvisosHost } from './src/components/AvisosHost';
+import { RedDeSeguridad } from './src/components/RedDeSeguridad';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
 
@@ -54,7 +55,10 @@ export default function App() {
       <TemaProvider>
         <AuthProvider>
           <NotificacionesProvider>
-            <RootNavigator />
+            {/* Si una pantalla falla al dibujarse, aviso + "Reintentar" en vez de pantalla vacía. */}
+            <RedDeSeguridad>
+              <RootNavigator />
+            </RedDeSeguridad>
             <AvisosHost />
             <BarraDeEstado />
           </NotificacionesProvider>

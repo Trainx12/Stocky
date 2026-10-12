@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -27,6 +27,8 @@ import {
 import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
+import { supabase } from '../lib/supabase';
+import { afectaBorrado, agruparLlamadas } from '../lib/tiempoReal';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -73,20 +75,73 @@ export function ProductosScreen({ route, navigation }: Props) {
   // mano, para que la pantalla siempre refleje lo que realmente quedó
   // guardado en la base (por ejemplo, si dos personas del mismo hogar
   // editan al mismo tiempo).
-  const cargar = useCallback(async () => {
-    setLoading(true);
-    try {
-      setProductos(await listarProductos(hogarId));
-    } catch (err) {
-      avisar('Error', err instanceof Error ? err.message : 'No se pudieron cargar los productos.');
-    } finally {
-      setLoading(false);
-    }
-  }, [hogarId]);
+  // `silencioso`: recarga sin el spinner ni avisos de error (cuando la pide
+  // un cambio de otra persona por Realtime: la lista se actualiza sola, sin
+  // parpadear ni interrumpir lo que el usuario está haciendo).
+  const cargar = useCallback(
+    async (silencioso = false) => {
+      if (!silencioso) setLoading(true);
+      try {
+        setProductos(await listarProductos(hogarId));
+      } catch (err) {
+        if (silencioso) console.warn('[Stocky] No se pudo recargar la despensa:', err);
+        else avisar('Error', err instanceof Error ? err.message : 'No se pudieron cargar los productos.');
+      } finally {
+        if (!silencioso) setLoading(false);
+      }
+    },
+    [hogarId],
+  );
 
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Tiempo real: si otra persona del hogar agrega, cambia o borra un
+  // producto, la lista se actualiza sola en este celular (antes había que
+  // salir y volver a entrar). Necesita `productos` en la publicación de
+  // Realtime (migración 20261016120000_realtime_productos_y_actividad.sql).
+  // Los avisos seguidos (por ejemplo, un ticket de 10 productos) se agrupan
+  // en una sola recarga. Los propios cambios también llegan: recargar de
+  // nuevo es inofensivo y deja la lista igual a la base.
+  const idsEnPantalla = useRef<string[]>([]);
+  idsEnPantalla.current = productos.map((p) => p.id);
+  useEffect(() => {
+    const recarga = agruparLlamadas(() => cargar(true));
+    const canal = supabase
+      .channel(`productos-${hogarId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'productos', filter: `hogar_id=eq.${hogarId}` },
+        () => recarga.disparar(),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'productos', filter: `hogar_id=eq.${hogarId}` },
+        () => recarga.disparar(),
+      )
+      // Los DELETE no se pueden filtrar por hogar (solo traen el id): se
+      // recarga si el borrado estaba en esta lista.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'productos' }, (payload) => {
+        if (afectaBorrado((payload.old as { id?: unknown }).id, idsEnPantalla.current)) recarga.disparar();
+      })
+      .subscribe();
+    return () => {
+      recarga.cancelar();
+      supabase.removeChannel(canal);
+    };
+  }, [hogarId, cargar]);
+
+  // Llegando desde la lupa, el buscador se enfoca RECIÉN cuando terminó la
+  // animación de entrada de la pantalla. Enfocarlo durante la animación
+  // (como hacía `autoFocus`) hacía que Safari en iPhone desplazara la página
+  // para mostrar el teclado y dejara la pantalla gris (incidentes-sprint10.md #17).
+  const buscadorRef = useRef<TextInput>(null);
+  useEffect(() => {
+    if (!enfocarBusqueda) return;
+    const timer = setTimeout(() => buscadorRef.current?.focus(), 450);
+    return () => clearTimeout(timer);
+  }, [enfocarBusqueda]);
 
   // El acceso rápido "Agregar producto" de HomeScreen navega acá con
   // abrirAgregar: true para no obligar a un segundo toque sobre el FAB --
@@ -344,9 +399,8 @@ export function ProductosScreen({ route, navigation }: Props) {
         placeholderTextColor={colors.textSecondary}
         value={busqueda}
         onChangeText={setBusqueda}
-        // Llegando desde la lupa de la barra de abajo, el buscador arranca
-        // activo con el teclado abierto.
-        autoFocus={enfocarBusqueda}
+        // Llegando desde la lupa, se enfoca después de la animación (ver buscadorRef).
+        ref={buscadorRef}
         autoCapitalize="none"
       />
 

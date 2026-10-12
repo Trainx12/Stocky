@@ -39,6 +39,7 @@ import {
 import type { AlertaStock } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
+import { agruparLlamadas } from '../lib/tiempoReal';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -222,14 +223,16 @@ export function HomeScreen() {
     navigation.setParams({ abrirMiembrosDe: undefined });
   }, [abrirMiembrosDe, misHogares, navigation]);
 
-  const cargarActividad = useCallback(async (hogarId: string) => {
-    setActividadLoading(true);
+  // `silencioso`: sin spinner (cuando la recarga la pide un cambio de otra
+  // persona por Realtime, para no hacer parpadear la tarjeta).
+  const cargarActividad = useCallback(async (hogarId: string, silencioso = false) => {
+    if (!silencioso) setActividadLoading(true);
     try {
       setActividad(await listarActividadReciente(hogarId, 5));
     } catch (err) {
       console.warn('[Stocky] No se pudo cargar la actividad reciente:', err);
     } finally {
-      setActividadLoading(false);
+      if (!silencioso) setActividadLoading(false);
     }
   }, []);
 
@@ -282,6 +285,34 @@ export function HomeScreen() {
       }),
     [suscribirseANuevas, cargarAlertas],
   );
+
+  // Tiempo real: cada cambio de productos en mis hogares (de cualquier
+  // miembro) genera una fila en actividad_hogar (trigger). Al llegar, se
+  // actualizan solas la "Actividad reciente" y las alertas, sin salir y
+  // volver a entrar. Los avisos seguidos se agrupan en una sola recarga.
+  // Necesita actividad_hogar en Realtime (migración
+  // 20261016120000_realtime_productos_y_actividad.sql).
+  const idsDeMisHogares = misHogares.map((h) => h.id).join(',');
+  const idSeleccionado = hogarSeleccionado?.id;
+  useEffect(() => {
+    if (!idsDeMisHogares) return;
+    const recarga = agruparLlamadas(() => {
+      cargarAlertas();
+      if (idSeleccionado) cargarActividad(idSeleccionado, true);
+    });
+    const canal = supabase
+      .channel(`actividad-${idsDeMisHogares}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'actividad_hogar', filter: `hogar_id=in.(${idsDeMisHogares})` },
+        () => recarga.disparar(),
+      )
+      .subscribe();
+    return () => {
+      recarga.cancelar();
+      supabase.removeChannel(canal);
+    };
+  }, [idsDeMisHogares, idSeleccionado, cargarAlertas, cargarActividad]);
 
   // Me entero al instante de tres cosas que puede hacer el DUEÑO de un
   // hogar sobre MI propia fila de hogar_miembros, sin que yo tenga que
