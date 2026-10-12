@@ -695,3 +695,21 @@ igual".
 **Ojo:** la parte del prompt necesita volver a desplegar la Edge Function
 `voz-a-texto`; sin eso, la app igual respeta la unidad cuando el modelo la
 devuelve y deja corregirla a mano.
+
+## 22. Chocolatada en litros y en paquete se sumaban en un solo producto
+
+**Síntoma:** cargar "1 litro de chocolatada" y después "1 paquete de
+chocolatada" (líquida y en polvo) dejaba un solo producto con "2 l", en vez
+de dos productos distintos. Pasaba por voz, a mano y por ticket.
+
+**Causa raíz:** al crear un producto, `crearProducto` busca uno "idéntico"
+para sumarle la cantidad en vez de repetir la fila (`buscarDuplicado`), y
+comparaba catálogo/nombre, marca y vencimiento, pero **no la unidad**. Hasta
+el arreglo de la voz (#21) casi no aparecía, porque todo lo del catálogo se
+cargaba siempre en la unidad del catálogo.
+
+**Solución:** `buscarDuplicado` también exige la misma unidad. La lista de
+la despensa ya separaba por unidad (`agruparProductos` agrupa por nombre +
+unidad), así que se ven como dos productos: "Chocolatada · 1 l" y
+"Chocolatada · 1 paquete". Test en `productos.test.ts`. La base no tiene
+ninguna restricción que las junte (verificado), no hizo falta migración.

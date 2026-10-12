@@ -573,6 +573,9 @@ Rama `feature/cuenta-y-ajustes`. Sin migraciones. Detalle en
     chocolatada y un sobre de pimentón" → en la revisión: Sal 1 paquete,
     Chocolatada 2 paquete, Pimentón 1 paquete (no kg, l ni g). Tocar otra
     unidad la cambia. "Medio kilo de queso" → 0.5 kg.
+10b. "Compré un litro de chocolatada" y después "compré un paquete de
+    chocolatada" → en la despensa quedan **dos** productos separados (1 l y
+    1 paquete), no "2 l". Lo mismo cargándolos a mano.
 11. **Voz con algo que no es comida:** "compré un shampoo" → aparece con el
     aviso "no es un alimento" y sin contar en "Aplicar"; tocar "Cargar
     igual" → se suma y se guarda en la categoría Higiene.

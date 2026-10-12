@@ -741,7 +741,7 @@ describe('listarProductosProximosAVencer', () => {
 });
 
 describe('unir duplicados al crear', () => {
-  const existente = producto({ id: 'p-existente', catalogo_id: 'cat-1', nombre: 'Leche', cantidad: 2, marca: 'La Serenísima' });
+  const existente = producto({ id: 'p-existente', catalogo_id: 'cat-1', nombre: 'Leche', unidad: 'l', cantidad: 2, marca: 'La Serenísima' });
 
   it('suma la cantidad al producto idéntico en vez de crear otra fila', async () => {
     mockOrder.mockResolvedValue({ data: [existente], error: null });
@@ -790,12 +790,24 @@ describe('unir duplicados al crear', () => {
 describe('buscarDuplicado', () => {
   it('sin catálogo, compara por nombre normalizado', () => {
     const p = producto({ id: 'a', nombre: 'Tortuguita', catalogo_id: null });
-    expect(buscarDuplicado([p], { nombre: 'tortuguita ', catalogoId: null, marca: null, fechaVencimiento: null })).toBe(p);
+    expect(
+      buscarDuplicado([p], { nombre: 'tortuguita ', catalogoId: null, unidad: p.unidad, marca: null, fechaVencimiento: null }),
+    ).toBe(p);
   });
 
   it('no mezcla un producto de catálogo con uno sin catálogo', () => {
     const p = producto({ id: 'a', nombre: 'Leche', catalogo_id: null });
-    expect(buscarDuplicado([p], { nombre: 'Leche', catalogoId: 'cat-1', marca: null, fechaVencimiento: null })).toBeNull();
+    expect(
+      buscarDuplicado([p], { nombre: 'Leche', catalogoId: 'cat-1', unidad: p.unidad, marca: null, fechaVencimiento: null }),
+    ).toBeNull();
+  });
+
+  // incidentes-sprint10.md #22: chocolatada líquida (l) y en polvo (paquete).
+  it('no junta el mismo producto en otra unidad', () => {
+    const liquida = producto({ id: 'a', nombre: 'Chocolatada', catalogo_id: 'cat-choco', unidad: 'l' });
+    const nuevo = { nombre: 'Chocolatada', catalogoId: 'cat-choco', marca: null, fechaVencimiento: null };
+    expect(buscarDuplicado([liquida], { ...nuevo, unidad: 'paquete' })).toBeNull();
+    expect(buscarDuplicado([liquida], { ...nuevo, unidad: 'l' })).toBe(liquida);
   });
 });
 
