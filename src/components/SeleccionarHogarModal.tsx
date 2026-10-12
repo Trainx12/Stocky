@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { NombreDeHogar } from './Logo';
 import type { HogarConRol } from '../services/hogares';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -44,9 +45,7 @@ export function SeleccionarHogarModal({ visible, onClose, hogares, hogarSeleccio
                   accessibilityRole="button"
                   accessibilityLabel={`Ver el dashboard de ${hogar.nombre}`}
                 >
-                  <Text style={styles.opcionNombre} numberOfLines={1}>
-                    🏠 {hogar.nombre}
-                  </Text>
+                  <NombreDeHogar nombre={hogar.nombre} style={styles.opcionNombre} />
                   {seleccionado && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
                 </Pressable>
               );

@@ -80,6 +80,7 @@ supabase/
 `npx expo start --web` (iniciar la app en la web)
 `npx expo start` (base; abre el menú para elegir dónde correrla)
 
+`https://hogarstocky.expo.app` (Pagina web)
 
 `npx eas-cli update --channel preview --environment preview --message "Hay una actualizacion!"` (Para actualizar la apk)
 

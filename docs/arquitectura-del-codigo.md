@@ -727,10 +727,17 @@ navegación (ver [incidentes-sprint4.md](incidentes-sprint4.md) #2).
 - **`Button.tsx`**: un solo componente para los 3 estilos de botón que
   usa la app (`primary` y `secondary` con degradé, `outline` para
   acciones secundarias). Maneja loading (spinner) y disabled solo.
-- **`Logo.tsx`**: placeholder de marca (emoji de casa + texto) hasta que
-  se agregue el archivo real del logo a `assets/`. Está separado en su
-  propio componente justo para que ese reemplazo futuro sea un cambio
-  en un solo lugar, no buscar y reemplazar en cada pantalla.
+- **`Logo.tsx`**: el logo real. `assets/logo-casa.png` es la casa recortada
+  de `assets/logo-stocky-completo.png` (el archivo original), y "Stocky" +
+  el lema van como texto: en el original las letras son negras y en modo
+  oscuro no se verían. `compact` muestra solo la casa (encabezado del inicio)
+  y `NombreDeHogar` pone el logo chico delante del nombre de un hogar (antes
+  era el emoji 🏠). Original de 2000×2000 px; en él, el blanco de la
+  botella de leche y el tilde del check venían transparentes (se los había
+  llevado el recorte del fondo): al recortar la casa se rellenó de blanco
+  todo lo transparente que queda encerrado dentro del dibujo (la sombra de
+  abajo sigue semitransparente a propósito). Si llega un logo nuevo, revisar
+  eso poniéndolo sobre un fondo de color fuerte.
 - **`ProductoFormModal.tsx`**: un solo modal para "Agregar producto" y
   "Editar producto" (mismo patrón que `HogarFormModal`): el modo se
   infiere de si viene un `producto` seteado o no. Nombre/categoría/unidad
@@ -895,6 +902,13 @@ no valida tipos) y, desde la MCP de Supabase, pasar
   `extra.eas.projectId` +
   `android.package` (identidad del proyecto/app para EAS Build, no se
   deberían cambiar una vez que existan builds subidas).
+  Íconos: `icon` (ícono general), `android.adaptiveIcon` (casa sobre fondo
+  blanco; el foreground deja margen porque Android recorta el ícono en
+  círculo o gota) y `web.favicon`. `web.name` ("STOCKY") es el título de la
+  pestaña en la web, y `RootNavigator` lo mantiene con
+  `documentTitle` (si no, React Navigation pone el nombre de cada pantalla).
+  **Cambiar un ícono es un cambio nativo:** en la APK se ve recién con una
+  build nueva (`eas build`); en la web alcanza con publicar.
 - **`eas.json`**: perfiles de build de EAS (`development`, `preview`,
   `production`). **El equipo prueba la app con el perfil `development`**:
   el development build de [expo.dev](https://expo.dev) (EAS), instalado en

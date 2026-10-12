@@ -713,3 +713,34 @@ la despensa ya separaba por unidad (`agruparProductos` agrupa por nombre +
 unidad), así que se ven como dos productos: "Chocolatada · 1 l" y
 "Chocolatada · 1 paquete". Test en `productos.test.ts`. La base no tiene
 ninguna restricción que las junte (verificado), no hizo falta migración.
+
+## 23. Web: después de "Continuar con Google" quedaban los términos sin salida
+
+**Síntoma:** en la versión web (computadora e iPhone), después de elegir la
+cuenta de Google la app mostraba otra vez los Términos y Condiciones (con la
+flecha de "volver", o sea la versión de *antes* del login) y no había forma
+de entrar.
+
+**Causa raíz:** en la web, `signInWithGoogle` abría Google en una **ventana
+emergente** (`WebBrowser.openAuthSessionAsync`), que al terminar tenía que
+devolverle la sesión a la pestaña original con `postMessage` y cerrarse sola
+(`maybeCompleteAuthSession`). Al pasar por Google, el navegador corta el
+vínculo entre las dos ventanas (`window.opener` queda vacío por las políticas
+de seguridad de Google), así que la emergente no se cerraba: cargaba la app
+entera en `/auth/callback`, **sin sesión** (en la web `detectSessionInUrl`
+estaba apagado), y mostraba las pantallas de antes del login. En el iPhone
+la emergente es otra pestaña, así que uno quedaba atrapado ahí.
+
+**Solución:** en la web el login usa una **redirección en la misma
+pestaña** (`signInWithOAuth` sin `skipBrowserRedirect`): va a Google y vuelve
+a `https://hogarstocky.expo.app/auth/callback#access_token=...`, y
+supabase-js toma la sesión de la URL (`detectSessionInUrl: true` solo en
+web, `lib/supabase.ts`). En el celular sigue igual (navegador de la app +
+deep link `stocky://`). Test en `auth.test.ts`. Verificado en el navegador
+que la pestaña va directo a Google, sin ventana emergente (el login completo
+necesita una cuenta de Google, queda para QA).
+
+**Requisito:** la dirección de vuelta tiene que estar en Supabase →
+Authentication → URL Configuration → Redirect URLs. Ya están
+`https://hogarstocky.expo.app/**` y `https://hogarstocky--*.expo.app/**`
+(guía para probar la app, sección 2).

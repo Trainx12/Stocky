@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
@@ -24,6 +25,24 @@ WebBrowser.maybeCompleteAuthSession();
 export async function signInWithGoogle() {
   // A dónde tiene que volver el navegador cuando termine el login.
   const redirectTo = Linking.createURL('auth/callback');
+
+  // Web: la misma pestaña va a Google y vuelve, sin ventana emergente.
+  // Antes se usaba una ventana emergente (openAuthSessionAsync) que tenía que
+  // devolverle la sesión a la pestaña original y cerrarse sola; Google corta
+  // el vínculo entre las dos ventanas, así que la emergente no se cerraba y
+  // cargaba la app entera sin sesión: quedaba en la bienvenida/los términos
+  // sin poder salir, y en el iPhone (donde la emergente es otra pestaña) uno
+  // quedaba atrapado ahí (incidentes-sprint10.md #23). Al volver, supabase-js
+  // toma la sesión de la URL (`detectSessionInUrl` en lib/supabase.ts) y
+  // AuthContext se entera solo.
+  if (Platform.OS === 'web') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, queryParams: { prompt: 'select_account' } },
+    });
+    if (error) throw error;
+    return null; // la página ya se está yendo a Google
+  }
 
   // Paso 1: le pedimos a Supabase la URL de Google, sin que intente
   // redirigir solo (skipBrowserRedirect) porque acá lo abrimos nosotros.

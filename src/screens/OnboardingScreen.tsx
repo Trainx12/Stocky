@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
+import { Logo } from '../components/Logo';
 import { colors, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
 import type { AuthStackParamList } from '../types/navigation';
@@ -10,7 +11,8 @@ import type { AuthStackParamList } from '../types/navigation';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Onboarding'>;
 
 interface Slide {
-  emoji: string;
+  // null = el logo de Stocky (la casa) en vez de un emoji.
+  emoji: string | null;
   titulo: string;
   descripcion: string;
 }
@@ -22,7 +24,7 @@ interface Slide {
  */
 const slides: Slide[] = [
   {
-    emoji: '🏡',
+    emoji: null,
     titulo: 'Un hogar, un inventario',
     descripcion: 'Creá tu hogar e invitá a quien viva con vos para compartir el mismo inventario.',
   },
@@ -47,7 +49,7 @@ export function OnboardingScreen({ navigation }: Props) {
   return (
     <ScreenContainer style={styles.container}>
       <View style={styles.center}>
-        <Text style={styles.emoji}>{slide.emoji}</Text>
+        {slide.emoji ? <Text style={styles.emoji}>{slide.emoji}</Text> : <Logo compact size={96} />}
         <Text style={styles.titulo}>{slide.titulo}</Text>
         <Text style={styles.descripcion}>{slide.descripcion}</Text>
 

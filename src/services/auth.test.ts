@@ -36,6 +36,7 @@ jest.mock('./cuentas', () => ({
   siguienteCuenta: (cuentas: { userId: string }[], actual: string) => cuentas.find((c) => c.userId !== actual) ?? null,
 }));
 
+import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 import { cerrarTodasLasSesiones, registrarTareaAntesDeCerrarSesion, signInWithGoogle, signOut } from './auth';
@@ -75,6 +76,27 @@ describe('signInWithGoogle', () => {
       refresh_token: 'def456',
     });
     expect(session).toEqual({ user: { id: 'u1' } });
+  });
+
+  // incidentes-sprint10.md #23: en la web, la ventana emergente no se
+  // cerraba y quedaba la app sin sesión (bienvenida/términos sin salida).
+  it('en la web va a Google en la misma pestaña, sin ventana emergente', async () => {
+    jest.replaceProperty(Platform, 'OS', 'web');
+    try {
+      const session = await signInWithGoogle();
+
+      expect(signInWithOAuth).toHaveBeenCalledWith({
+        provider: 'google',
+        options: { redirectTo: 'stocky://auth/callback', queryParams: { prompt: 'select_account' } },
+      });
+      // Sin skipBrowserRedirect: supabase-js redirige la página.
+      expect(signInWithOAuth.mock.calls[0][0].options.skipBrowserRedirect).toBeUndefined();
+      expect(openAuthSessionAsync).not.toHaveBeenCalled();
+      expect(setSession).not.toHaveBeenCalled();
+      expect(session).toBeNull();
+    } finally {
+      jest.restoreAllMocks();
+    }
   });
 
   it('lanza un error si Supabase no devuelve una URL de autorización', async () => {

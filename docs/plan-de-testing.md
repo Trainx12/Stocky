@@ -637,6 +637,23 @@ la campanita y el "?" siguen funcionando, Cuenta y Ayuda.
 
 ---
 
+## Logo de Stocky (Sprint 10)
+
+Rama `feature/logo` (apilada sobre `feature/tutorial`).
+
+1. Web: la pestaña dice **STOCKY** en todas las pantallas (bienvenida,
+   login, inicio, despensa) y muestra la casa del logo como ícono.
+2. Bienvenida y login: el logo (casa) con "Stocky" y el lema debajo, en
+   modo claro y oscuro. La botella de leche se ve entera (blanca).
+3. Inicio: arriba a la derecha la casa del logo; "Tus hogares activos",
+   "Solicitudes que enviaste", "Invitaciones recibidas" y "Cambiar hogar"
+   tienen el logo chico delante del nombre (ya no el emoji 🏠). Un nombre
+   de hogar largo se corta con "…" sin empujar los botones.
+4. APK **nueva** (`eas build`): el ícono de la app en el celular es el
+   logo, también en lanzadores que lo recortan en círculo.
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**

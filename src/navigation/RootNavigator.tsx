@@ -140,7 +140,14 @@ export function RootNavigator() {
   // `navegacion` (ver navegacion.ts) permite navegar desde fuera de una
   // pantalla, por ejemplo al tocar una notificación del sistema.
   return (
-    <NavigationContainer ref={navegacion} theme={temaDeNavegacion(esquema === 'oscuro')}>
+    <NavigationContainer
+      ref={navegacion}
+      theme={temaDeNavegacion(esquema === 'oscuro')}
+      // En la web, la pestaña del navegador dice siempre "STOCKY" (por
+      // defecto React Navigation pone el nombre de la pantalla: "Welcome",
+      // "Home"...).
+      documentTitle={{ formatter: () => 'STOCKY' }}
+    >
       {session ? <AppNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );

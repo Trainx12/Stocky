@@ -85,7 +85,10 @@ export function CuentaScreen({ navigation }: Props) {
   async function handleAgregarCuenta() {
     setAgregando(true);
     try {
-      await signInWithGoogle();
+      const sesion = await signInWithGoogle();
+      // En la web la página se va a Google y vuelve sola: no hay nada que
+      // avisar todavía.
+      if (!sesion) return;
       avisar('Cuenta agregada', 'Podés cambiar entre tus cuentas desde acá.', 'exito');
       navigation.navigate('Home');
     } catch (err) {
@@ -334,7 +337,7 @@ export function CuentaScreen({ navigation }: Props) {
             <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
             <View style={styles.filaTextos}>
               <Text style={styles.filaTitulo}>Acerca de Stocky</Text>
-              <Text style={styles.detalle}>Versión {version} · tu hogar, siempre organizado</Text>
+              <Text style={styles.detalle}>Versión {version} · Tu hogar, siempre organizado</Text>
             </View>
           </View>
         </View>
