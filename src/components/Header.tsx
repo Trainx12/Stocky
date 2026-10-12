@@ -10,6 +10,8 @@ interface HeaderProps {
   nombre?: string | null;
   /** Si viene, muestra el botón "?" (ayuda) al lado del logo. */
   onAyuda?: () => void;
+  /** Para que el tutorial guiado pueda señalar el botón "?". */
+  refAyuda?: React.Ref<View>;
 }
 
 /**
@@ -19,7 +21,7 @@ interface HeaderProps {
  * mismo patrón "saludo + logo" se va a reusar en otras pantallas del stack
  * logueado a medida que se agreguen (hogar, perfil, etc.).
  */
-export function Header({ nombre, onAyuda }: HeaderProps) {
+export function Header({ nombre, onAyuda, refAyuda }: HeaderProps) {
   const styles = useEstilos(crearEstilos);
   return (
     <View style={styles.row}>
@@ -31,9 +33,11 @@ export function Header({ nombre, onAyuda }: HeaderProps) {
       <View style={styles.derecha}>
         {/* Ayuda: cómo hacer lo básico, paso a paso (AyudaScreen). */}
         {onAyuda && (
-          <Pressable onPress={onAyuda} style={styles.ayuda} accessibilityRole="button" accessibilityLabel="Ayuda">
-            <Ionicons name="help-circle-outline" size={30} color={colors.primary} />
-          </Pressable>
+          <View ref={refAyuda} collapsable={false}>
+            <Pressable onPress={onAyuda} style={styles.ayuda} accessibilityRole="button" accessibilityLabel="Ayuda">
+              <Ionicons name="help-circle-outline" size={30} color={colors.primary} />
+            </Pressable>
+          </View>
         )}
         {/* Logo en modo compacto (solo el badge, sin wordmark) para no competir con el saludo */}
         <Logo size={48} compact />

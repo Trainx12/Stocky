@@ -17,7 +17,7 @@ export type AuthStackParamList = {
 export type AppStackParamList = {
   // `abrirMiembrosDe`: id de un hogar cuyo "Miembros del hogar" se abre
   // apenas carga Home (al tocar la notificación "X quiere unirse a ...").
-  Home: { abrirMiembrosDe?: string } | undefined;
+  Home: { abrirMiembrosDe?: string; verTutorial?: boolean } | undefined;
   // RF7: listado/ABM de productos de UN hogar puntual. Va por parámetro de
   // navegación (no por contexto global) porque un usuario puede tener más
   // de un hogar (RF6) y cada uno tiene su propio inventario.

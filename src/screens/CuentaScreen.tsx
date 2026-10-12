@@ -315,6 +315,14 @@ export function CuentaScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Ayuda')}
             separada
           />
+          {/* Repetir el tutorial guiado del inicio (src/tutorial/). */}
+          <FilaEnlace
+            icono="school-outline"
+            titulo="Ver el tutorial"
+            detalle="Un recorrido guiado por lo principal"
+            onPress={() => navigation.navigate('Home', { verTutorial: true })}
+            separada
+          />
           <FilaEnlace
             icono="document-text-outline"
             titulo="Términos y Condiciones"

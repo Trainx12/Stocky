@@ -32,6 +32,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       'El código de tu hogar aparece debajo de su nombre ("Código: ..."): pasáselo a quien quieras sumar.',
       'Si tenés más de un hogar, tocá "Cambiar hogar" para elegir cuál ver. Stocky se acuerda del que elegiste la próxima vez que abras la app o la página.',
     ],
+    consejo: '¿Preferís que te lo muestren? Arriba de esta pantalla tocá "Ver el tutorial guiado".',
   },
   {
     id: 'miembros',

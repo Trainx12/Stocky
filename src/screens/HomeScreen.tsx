@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
@@ -14,6 +14,10 @@ import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
 import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
+import { TutorialGuiado } from '../components/TutorialGuiado';
+import { BienvenidaTutorialModal } from '../components/BienvenidaTutorialModal';
+import { useTutorialInicio } from '../tutorial/useTutorialInicio';
+import type { AccionTutorial } from '../tutorial/tutorial';
 import { useAuth } from '../context/AuthContext';
 import { useNotificaciones } from '../context/NotificacionesContext';
 import {
@@ -88,6 +92,9 @@ export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Home'>>();
   const route = useRoute<RouteProp<AppStackParamList, 'Home'>>();
   const abrirMiembrosDe = route.params?.abrirMiembrosDe;
+  // "Ver tutorial" desde Cuenta o la Ayuda.
+  const verTutorial = route.params?.verTutorial;
+  const enFoco = useIsFocused();
   // Preferencia general "avisarme X días antes" (cada producto puede tener
   // la suya, ver estadoVencimiento): define qué entra en "Productos próximos
   // a vencer".
@@ -174,6 +181,43 @@ export function HomeScreen() {
   // mínimo (mismo criterio que "Productos próximos a vencer").
   const [alertasStock, setAlertasStock] = useState<AlertaStock[]>([]);
   const [alertasStockLoading, setAlertasStockLoading] = useState(true);
+
+  // Tutorial guiado (src/tutorial/): la primera vez pregunta si lo quiere;
+  // se pausa mientras se prueba algo (otra pantalla o un formulario abierto)
+  // y sigue al volver.
+  const ocupado =
+    !enFoco ||
+    crearVisible ||
+    unirseVisible ||
+    sugerirVisible ||
+    cambiarHogarVisible ||
+    hogarEditando !== null ||
+    hogarMiembrosVisible !== null;
+  const tutorial = useTutorialInicio({
+    usuarioId: usuario?.id,
+    tieneHogar: misHogares.length > 0,
+    ocupado,
+    onAccion: (accion: AccionTutorial) => {
+      if (accion === 'crearHogar') {
+        setCrearVisible(true);
+        return true;
+      }
+      if (!hogarSeleccionado) {
+        avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
+        return false;
+      }
+      if (accion === 'agregarProducto') handleIrAProductos({ abrirAgregar: true });
+      else if (accion === 'escanearTicket') handleIrAProductos({ abrirTicket: true });
+      else handleIrAProductos({ abrirVoz: true });
+      return true;
+    },
+  });
+  const iniciarTutorial = tutorial.iniciar;
+  useEffect(() => {
+    if (!verTutorial) return;
+    iniciarTutorial();
+    navigation.setParams({ verTutorial: undefined });
+  }, [verTutorial, iniciarTutorial, navigation]);
 
   const cargarMisHogares = useCallback(async () => {
     setHogaresLoading(true);
@@ -648,11 +692,17 @@ export function HomeScreen() {
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
-        <Header nombre={usuario?.nombre} onAyuda={() => navigation.navigate('Ayuda')} />
+        <Header nombre={usuario?.nombre} onAyuda={() => navigation.navigate('Ayuda')} refAyuda={tutorial.objetivo('ayuda')} />
       </View>
 
-      {/* Contenido scrolleable entre el header y la nav bar fija */}
+      {/* Contenido scrolleable entre el header y la nav bar fija. La View de
+          afuera solo marca la zona visible, para que el tutorial sepa si
+          tiene que scrollear hasta lo que explica. */}
+      <View ref={tutorial.zonaScrollRef} collapsable={false} style={styles.zonaScroll}>
       <ScrollView
+        ref={tutorial.scrollRef}
+        onScroll={tutorial.onScroll}
+        scrollEventThrottle={32}
         style={styles.padded}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -668,7 +718,7 @@ export function HomeScreen() {
                 <EmptyState icon="home-outline" text="Todavía no formás parte de ningún hogar." />
               ) : (
                 hogarSeleccionado && (
-                  <View style={styles.hogaresList}>
+                  <View ref={tutorial.objetivo('hogar')} collapsable={false} style={styles.hogaresList}>
                     {/* Solo se muestra el hogar elegido en "Cambiar hogar"
                         (no toda la lista) -- el resto del dashboard
                         (Actividad reciente, Accesos rápidos) también se
@@ -748,7 +798,7 @@ export function HomeScreen() {
 
               {/* Un toque directo, sin gestos escondidos -- antes vivían
                   atrás de un long-press sobre "Perfil" en la nav bar. */}
-              <View style={styles.hogaresAccionesRow}>
+              <View ref={tutorial.objetivo('crearHogar')} collapsable={false} style={styles.hogaresAccionesRow}>
                 <Button
                   label="Crear hogar"
                   variant="outline"
@@ -833,6 +883,7 @@ export function HomeScreen() {
             {/* RF2/RF3: la alerta más importante del dashboard, por eso va
                 arriba de "Actividad reciente" -- tiene que verse apenas se
                 entra, sin que el usuario tenga que buscarla. */}
+            <View ref={tutorial.objetivo('porVencer')} collapsable={false}>
             <SectionCard title="Productos próximos a vencer">
               {productosPorVencerLoading ? (
                 <ActivityIndicator color={colors.primary} />
@@ -879,9 +930,11 @@ export function HomeScreen() {
                 </View>
               )}
             </SectionCard>
+            </View>
 
             {/* Alerta de stock mínimo: ámbar (stockStatus.low), distinta del
                 coral de vencimientos, para que no se confundan. */}
+            <View ref={tutorial.objetivo('stockBajo')} collapsable={false}>
             <SectionCard title="Stock bajo">
               {alertasStockLoading ? (
                 <ActivityIndicator color={colors.primary} />
@@ -921,6 +974,7 @@ export function HomeScreen() {
                 </View>
               )}
             </SectionCard>
+            </View>
 
             <SectionCard title="Actividad reciente">
               {actividadLoading ? (
@@ -964,10 +1018,25 @@ export function HomeScreen() {
 
             <SectionCard title="Accesos rápidos">
               <View style={styles.quickAccessRow}>
-                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos({ abrirAgregar: true })} />
+                <QuickAccessButton
+                  icon="add-circle-outline"
+                  label="Agregar producto"
+                  onPress={() => handleIrAProductos({ abrirAgregar: true })}
+                  objetivoRef={tutorial.objetivo('agregarProducto')}
+                />
                 {/* Foto de un ticket -> productos detectados para revisar y guardar. */}
-                <QuickAccessButton icon="receipt-outline" label="Escanear ticket" onPress={() => handleIrAProductos({ abrirTicket: true })} />
-                <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos({ abrirVoz: true })} />
+                <QuickAccessButton
+                  icon="receipt-outline"
+                  label="Escanear ticket"
+                  onPress={() => handleIrAProductos({ abrirTicket: true })}
+                  objetivoRef={tutorial.objetivo('escanearTicket')}
+                />
+                <QuickAccessButton
+                  icon="mic-outline"
+                  label="Cargar por voz"
+                  onPress={() => handleIrAProductos({ abrirVoz: true })}
+                  objetivoRef={tutorial.objetivo('cargarPorVoz')}
+                />
                 <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos()} />
                 {/* Cualquier usuario puede sugerir un producto que falta en el
                     catálogo; queda pendiente hasta que un admin lo apruebe. */}
@@ -1007,8 +1076,22 @@ export function HomeScreen() {
         {/* Cerrar sesión y los Términos y Condiciones viven ahora en Cuenta
             (botón de la persona en la barra de abajo). */}
       </ScrollView>
+      </View>
 
-      <BottomNavBar active="home" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
+      <BottomNavBar
+        active="home"
+        onTabPress={handleTabPress}
+        notificacionesSinLeer={noLeidas}
+        refsDeTabs={{ notifications: tutorial.objetivo('campanita'), profile: tutorial.objetivo('cuenta') }}
+      />
+
+      {tutorial.guiado && <TutorialGuiado {...tutorial.guiado} />}
+      <BienvenidaTutorialModal
+        visible={tutorial.preguntaVisible}
+        nombre={usuario?.nombre}
+        onQuiero={tutorial.responderQuiero}
+        onYaSe={tutorial.responderYaSe}
+      />
 
       <CatalogoSelectorModal visible={sugerirVisible} soloSugerir onClose={() => setSugerirVisible(false)} />
 
@@ -1128,14 +1211,15 @@ interface QuickAccessButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  /** Para que el tutorial guiado pueda señalar este botón. */
+  objetivoRef?: React.Ref<View>;
 }
 
-// Botón cuadrado de acceso rápido (ícono arriba, label abajo). Por ahora
-// todos disparan un placeholder hasta que existan sus pantallas.
-function QuickAccessButton({ icon, label, onPress }: QuickAccessButtonProps) {
+// Botón cuadrado de acceso rápido (ícono arriba, label abajo).
+function QuickAccessButton({ icon, label, onPress, objetivoRef }: QuickAccessButtonProps) {
   const styles = useEstilos(crearEstilos);
   return (
-    <Pressable style={styles.quickAccessButton} onPress={onPress}>
+    <Pressable ref={objetivoRef} collapsable={false} style={styles.quickAccessButton} onPress={onPress}>
       <Ionicons name={icon} size={26} color={colors.primary} />
       <Text style={styles.quickAccessLabel}>{label}</Text>
     </Pressable>
@@ -1146,6 +1230,9 @@ const crearEstilos = () =>
   StyleSheet.create({
   container: {
     paddingVertical: 0,
+  },
+  zonaScroll: {
+    flex: 1,
   },
   padded: {
     paddingHorizontal: spacing.lg,
