@@ -247,7 +247,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
       <Pressable style={styles.backdrop} onPress={handleClose}>
         <Pressable style={styles.sheet}>
           <View style={styles.handle} />
-          <ScrollView keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={styles.scrollContenido} keyboardShouldPersistTaps="handled">
             <Text style={styles.title}>{editando ? 'Editar producto' : 'Agregar producto'}</Text>
 
             <Text style={styles.label}>Producto</Text>
@@ -330,31 +330,36 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             </View>
 
             <Text style={styles.label}>Fecha de vencimiento (opcional)</Text>
+            {/* El campo ocupa todo el ancho y las tres formas de cargar la
+                fecha van abajo, con texto: en un celular angosto el campo de
+                texto del navegador tiene un ancho mínimo propio y empujaba los
+                botones fuera de la pantalla (incidentes-sprint10.md #14). */}
+            <TextInput
+              style={styles.input}
+              placeholder="AAAA-MM-DD"
+              placeholderTextColor={colors.textSecondary}
+              value={fechaVencimiento}
+              // Formatea a medida que se tipea: el usuario solo escribe
+              // dígitos, los guiones (AAAA-MM-DD) se insertan solos.
+              onChangeText={(texto) => setFechaVencimiento(formatearFechaInput(texto))}
+              keyboardType="number-pad"
+              maxLength={10}
+              editable={!loading}
+            />
             <View style={styles.filaFecha}>
-              <TextInput
-                style={[styles.input, styles.inputFecha]}
-                placeholder="AAAA-MM-DD"
-                placeholderTextColor={colors.textSecondary}
-                value={fechaVencimiento}
-                // Formatea a medida que se tipea: el usuario solo escribe
-                // dígitos, los guiones (AAAA-MM-DD) se insertan solos.
-                onChangeText={(texto) => setFechaVencimiento(formatearFechaInput(texto))}
-                keyboardType="number-pad"
-                maxLength={10}
-                editable={!loading}
-              />
               <Pressable
                 onPress={() => setCalendarioVisible((visible) => !visible)}
-                style={styles.calendarioButton}
+                style={[styles.botonFecha, calendarioVisible && styles.botonFechaActivo]}
                 disabled={loading}
                 accessibilityRole="button"
                 accessibilityLabel="Elegir fecha de vencimiento con el calendario"
               >
-                <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                <Text style={styles.botonFechaTexto}>Calendario</Text>
               </Pressable>
               <Pressable
                 onPress={handleFotoVencimiento}
-                style={styles.calendarioButton}
+                style={styles.botonFecha}
                 disabled={loading || leyendoFecha}
                 accessibilityRole="button"
                 accessibilityLabel="Leer la fecha de vencimiento desde una foto del envase"
@@ -362,12 +367,13 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 {leyendoFecha ? (
                   <ActivityIndicator color={colors.primary} />
                 ) : (
-                  <Ionicons name="camera-outline" size={22} color={colors.primary} />
+                  <Ionicons name="camera-outline" size={20} color={colors.primary} />
                 )}
+                <Text style={styles.botonFechaTexto}>Foto</Text>
               </Pressable>
               <Pressable
                 onPress={handleVozFecha}
-                style={styles.calendarioButton}
+                style={[styles.botonFecha, grabadorFecha.grabando && styles.botonFechaGrabando]}
                 disabled={loading || escuchandoFecha}
                 accessibilityRole="button"
                 accessibilityLabel={grabadorFecha.grabando ? 'Terminar de dictar la fecha' : 'Dictar la fecha de vencimiento por voz'}
@@ -377,10 +383,11 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 ) : (
                   <Ionicons
                     name={grabadorFecha.grabando ? 'stop-circle' : 'mic-outline'}
-                    size={22}
+                    size={20}
                     color={grabadorFecha.grabando ? colors.danger : colors.primary}
                   />
                 )}
+                <Text style={styles.botonFechaTexto}>{grabadorFecha.grabando ? 'Listo' : 'Dictar'}</Text>
               </Pressable>
             </View>
             {grabadorFecha.grabando && (
@@ -559,17 +566,38 @@ const crearEstilos = () =>
     flexDirection: 'row',
     gap: spacing.md,
   },
+  // Las tres formas de cargar la fecha, debajo del campo y repartidas a lo
+  // ancho (cada una ocupa un tercio, entran en cualquier celular).
   filaFecha: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
-  },
-  inputFecha: {
-    flex: 1,
-  },
-  calendarioButton: {
-    padding: spacing.sm,
+    marginTop: -spacing.xs,
     marginBottom: spacing.md,
+  },
+  botonFecha: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  botonFechaActivo: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  botonFechaGrabando: {
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerLight,
+  },
+  botonFechaTexto: {
+    ...typography.caption,
+    color: colors.primary,
   },
   switchRow: {
     flexDirection: 'row',
@@ -584,6 +612,9 @@ const crearEstilos = () =>
     ...typography.caption,
     color: colors.danger,
     marginBottom: spacing.sm,
+  },
+  scrollContenido: {
+    paddingBottom: spacing.xl,
   },
   submitButton: {
     marginTop: spacing.xs,

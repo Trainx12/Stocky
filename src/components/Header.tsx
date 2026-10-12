@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Logo } from './Logo';
 import { colors, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -7,6 +8,8 @@ import { useEstilos } from '../theme/useEstilos';
 interface HeaderProps {
   /** Nombre del usuario logueado; si es null/undefined se muestra un saludo genérico. */
   nombre?: string | null;
+  /** Si viene, muestra el botón "?" (ayuda) al lado del logo. */
+  onAyuda?: () => void;
 }
 
 /**
@@ -16,7 +19,7 @@ interface HeaderProps {
  * mismo patrón "saludo + logo" se va a reusar en otras pantallas del stack
  * logueado a medida que se agreguen (hogar, perfil, etc.).
  */
-export function Header({ nombre }: HeaderProps) {
+export function Header({ nombre, onAyuda }: HeaderProps) {
   const styles = useEstilos(crearEstilos);
   return (
     <View style={styles.row}>
@@ -25,8 +28,16 @@ export function Header({ nombre }: HeaderProps) {
         <Text style={styles.saludo}>¡Hola{nombre ? `, ${nombre}` : ''}!</Text>
         <Text style={styles.subtitulo}>Así está tu hogar hoy</Text>
       </View>
-      {/* Logo en modo compacto (solo el badge, sin wordmark) para no competir con el saludo */}
-      <Logo size={48} compact />
+      <View style={styles.derecha}>
+        {/* Ayuda: cómo hacer lo básico, paso a paso (AyudaScreen). */}
+        {onAyuda && (
+          <Pressable onPress={onAyuda} style={styles.ayuda} accessibilityRole="button" accessibilityLabel="Ayuda">
+            <Ionicons name="help-circle-outline" size={30} color={colors.primary} />
+          </Pressable>
+        )}
+        {/* Logo en modo compacto (solo el badge, sin wordmark) para no competir con el saludo */}
+        <Logo size={48} compact />
+      </View>
     </View>
   );
 }
@@ -43,6 +54,14 @@ const crearEstilos = () =>
   textos: {
     flexShrink: 1,
     gap: 2,
+  },
+  derecha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  ayuda: {
+    padding: 2,
   },
   saludo: {
     ...typography.h2,

@@ -43,7 +43,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Productos'>;
  */
 export function ProductosScreen({ route, navigation }: Props) {
   const styles = useEstilos(crearEstilos);
-  const { hogarId, hogarNombre, abrirAgregar, abrirVoz, enfocarBusqueda, filtroInicial } = route.params;
+  const { hogarId, hogarNombre, abrirAgregar, abrirVoz, abrirTicket, enfocarBusqueda, filtroInicial } = route.params;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   // Preferencia general "avisarme X días antes" (cada producto puede pisarla
@@ -95,6 +95,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (abrirAgregar) handleAgregar();
     else if (abrirVoz) setVozVisible(true);
+    else if (abrirTicket) setTicketVisible(true);
   }, []);
 
   // Categorías realmente en uso en ESTE hogar (no una lista fija): se

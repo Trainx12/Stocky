@@ -552,6 +552,15 @@ Rama `feature/cuenta-y-ajustes`. Sin migraciones. Detalle en
    aviso debajo y botón deshabilitado. Al confirmar, los productos se
    guardan con lo corregido (incluida la fecha).
 
+6. **Fecha de vencimiento en un celular angosto** (web en iPhone y APK):
+   en "Agregar producto", debajo del campo de fecha se ven los tres botones
+   "Calendario", "Foto" y "Dictar", y el botón "Agregar producto" se puede
+   ver entero.
+7. Home → "Accesos rápidos" → **"Escanear ticket"** abre la despensa con el
+   escaneo abierto. **"?"** arriba a la derecha → Ayuda: cada tema se abre,
+   el buscador encuentra ("ticket", "vencimiento"), y lo que dice coincide
+   con los botones reales.
+
 **Testing de quien desarrolla (hecho por Claude):** `tsc` limpio, `npm test`
 (22 suites / 439 tests: `cuentas.test.ts`, `tema.test.ts`, corrección del
 ticket en `escaneo.test.ts`, cierre de sesión y elección de cuenta en

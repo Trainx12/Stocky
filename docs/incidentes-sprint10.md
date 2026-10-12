@@ -517,3 +517,41 @@ aire; `web.output: single` para publicar la versión web con EAS Hosting.
 **A tener en cuenta:** solo las APK armadas **después** de este cambio
 reciben actualizaciones por aire. Si se cambia algo nativo, subir `version`
 en `app.json` y armar una APK nueva.
+
+## 14. En el celular no se veían los botones de la fecha de vencimiento
+
+**Síntoma (captura del equipo, versión web en un iPhone):** en "Agregar
+producto", al lado del campo "Fecha de vencimiento" solo se veía un pedazo
+del botón del calendario; la foto y el micrófono quedaban fuera de la
+pantalla.
+
+**Causa:** el campo de fecha y los tres botones (calendario, foto, voz)
+estaban en una misma fila. En el navegador, un campo de texto tiene un
+ancho mínimo propio aunque se le diga que se achique, así que en una
+pantalla angosta empujaba los botones hacia afuera.
+
+**Solución:** el campo ocupa todo el ancho y los tres botones van debajo,
+**con texto** ("Calendario", "Foto", "Dictar"), repartidos en tercios
+(`minWidth: 0` para que se achiquen). Además se agregó margen al final del
+formulario para que el botón "Agregar producto" no quede tapado por la
+barra del navegador.
+
+**Lección:** en filas con un campo de texto y botones, probar a 375 px de
+ancho (iPhone) y en la versión web: el navegador maneja los anchos de los
+campos distinto que el celular nativo.
+
+## 15. Acceso rápido "Escanear ticket" y ayuda con "?" (pedido del equipo)
+
+- **Escanear ticket** en "Accesos rápidos" del Home: abre la despensa del
+  hogar seleccionado con el escaneo ya abierto (parámetro `abrirTicket`,
+  igual que "Cargar por voz" con `abrirVoz`). De paso, `handleIrAProductos`
+  pasó a recibir un objeto con nombres en vez de varios true/false sueltos.
+- **Ayuda** (botón "?" arriba a la derecha del Home, y en Cuenta →
+  Ajustes): `AyudaScreen` con temas que se abren al tocarlos y un buscador.
+  El texto vive en `src/ayuda/contenido.ts` y nombra cada botón con el
+  mismo texto que se ve en la app (se revisaron los textos reales de los
+  formularios antes de escribirla); `ayuda.test.ts` verifica que cada tema
+  esté completo, que los íconos existan y el buscador.
+
+**No probado en pantalla** (requiere login con Google): la ayuda, el acceso
+rápido y la nueva fila de botones de la fecha; sí `tsc` y los tests.

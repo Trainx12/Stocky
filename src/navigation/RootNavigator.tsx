@@ -15,6 +15,7 @@ import { AdminUsuariosScreen } from '../screens/AdminUsuariosScreen';
 import { CuentaDeshabilitadaScreen } from '../screens/CuentaDeshabilitadaScreen';
 import { NotificacionesScreen } from '../screens/NotificacionesScreen';
 import { CuentaScreen } from '../screens/CuentaScreen';
+import { AyudaScreen } from '../screens/AyudaScreen';
 import { TerminosPrevioScreen, TerminosVerScreen, TerminosVista } from '../screens/TerminosScreen';
 import { aceptarTerminos, necesitaAceptarTerminos, registrarAceptacionPendiente } from '../services/terminos';
 import { navegacion } from './navegacion';
@@ -58,6 +59,8 @@ function AppNavigator() {
       <AppStack.Screen name="Terminos" component={TerminosVerScreen} />
       {/* Cuenta y configuración (botón de la persona en la barra de abajo). */}
       <AppStack.Screen name="Cuenta" component={CuentaScreen} />
+      {/* Ayuda: botón "?" del Home y Cuenta → Ajustes. */}
+      <AppStack.Screen name="Ayuda" component={AyudaScreen} />
     </AppStack.Navigator>
   );
 }

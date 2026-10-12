@@ -582,6 +582,15 @@ Las notificaciones push van a la cuenta activa: al cambiar de cuenta, el
 celular se vuelve a registrar a nombre de la nueva (`registrar_push_token`
 mueve el token).
 
+## 5ter. `src/ayuda/` — la ayuda (botón "?")
+
+Mismo criterio que `src/legal/`: el texto de la ayuda vive como datos en
+`src/ayuda/contenido.ts` (temas con pasos que nombran los botones tal como
+se ven en la app) y `screens/AyudaScreen.tsx` solo lo muestra, con un
+buscador (`buscarEnAyuda`). Se abre desde el "?" del encabezado del Home
+(`Header` recibe `onAyuda`) y desde Cuenta → Ajustes. **Si se renombra un
+botón, actualizar también el texto de la ayuda.**
+
 ## 5bis. `src/legal/` — Términos y Condiciones y créditos
 
 Todo el texto legal vive como datos en `src/legal/terminos.ts` (versión

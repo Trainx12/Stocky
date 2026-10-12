@@ -451,7 +451,11 @@ export function HomeScreen() {
   // uno (RF6), para eso está el selector. "Agregar producto" además le pide
   // a ProductosScreen que abra el modal de carga apenas llega, para no
   // obligar a un segundo toque sobre el FAB.
-  function handleIrAProductos(abrirAgregar: boolean, abrirVoz = false, enfocarBusqueda = false) {
+  // Recibe un objeto con nombres (y no varios true/false sueltos) para que
+  // cada llamada se lea sola: handleIrAProductos({ abrirTicket: true }).
+  function handleIrAProductos(
+    opciones: { abrirAgregar?: boolean; abrirVoz?: boolean; abrirTicket?: boolean; enfocarBusqueda?: boolean } = {},
+  ) {
     if (!hogarSeleccionado) {
       avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder cargar productos.');
       return;
@@ -459,9 +463,7 @@ export function HomeScreen() {
     navigation.navigate('Productos', {
       hogarId: hogarSeleccionado.id,
       hogarNombre: hogarSeleccionado.nombre,
-      abrirAgregar,
-      abrirVoz,
-      enfocarBusqueda,
+      ...opciones,
     });
   }
 
@@ -514,7 +516,7 @@ export function HomeScreen() {
   function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
     // La lupa lleva al buscador de la despensa del hogar seleccionado.
     if (tab === 'search') {
-      handleIrAProductos(false, false, true);
+      handleIrAProductos({ enfocarBusqueda: true });
       return;
     }
     // La campanita abre las notificaciones recientes.
@@ -554,7 +556,7 @@ export function HomeScreen() {
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
-        <Header nombre={usuario?.nombre} />
+        <Header nombre={usuario?.nombre} onAyuda={() => navigation.navigate('Ayuda')} />
       </View>
 
       {/* Contenido scrolleable entre el header y la nav bar fija */}
@@ -853,9 +855,11 @@ export function HomeScreen() {
 
             <SectionCard title="Accesos rápidos">
               <View style={styles.quickAccessRow}>
-                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos(true)} />
-                <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos(false, true)} />
-                <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos(false)} />
+                <QuickAccessButton icon="add-circle-outline" label="Agregar producto" onPress={() => handleIrAProductos({ abrirAgregar: true })} />
+                {/* Foto de un ticket -> productos detectados para revisar y guardar. */}
+                <QuickAccessButton icon="receipt-outline" label="Escanear ticket" onPress={() => handleIrAProductos({ abrirTicket: true })} />
+                <QuickAccessButton icon="mic-outline" label="Cargar por voz" onPress={() => handleIrAProductos({ abrirVoz: true })} />
+                <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos()} />
                 {/* Cualquier usuario puede sugerir un producto que falta en el
                     catálogo; queda pendiente hasta que un admin lo apruebe. */}
                 <QuickAccessButton icon="bulb-outline" label="Sugerir producto" onPress={() => setSugerirVisible(true)} />

@@ -309,6 +309,13 @@ export function CuentaScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Notificaciones')}
           />
           <FilaEnlace
+            icono="help-circle-outline"
+            titulo="Ayuda"
+            detalle="Cómo hacer lo básico, paso a paso"
+            onPress={() => navigation.navigate('Ayuda')}
+            separada
+          />
+          <FilaEnlace
             icono="document-text-outline"
             titulo="Términos y Condiciones"
             detalle="Privacidad, uso de la información y créditos"

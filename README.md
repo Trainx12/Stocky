@@ -49,6 +49,7 @@ src/
   lib/           Cliente de Supabase, avisos/cartelitos (alert.ts),
                  notificaciones del teléfono (notificacionesPush.ts), fotos, audio
   legal/         Términos y Condiciones (texto) y créditos de lo que usamos
+  ayuda/         Contenido de la ayuda (botón "?" del Home)
   theme/         Colores (claro y oscuro), tipografía, spacing y useEstilos
                  (estilos que se adaptan al modo oscuro: ver la arquitectura, sección 2)
   types/         Tipos espejo del esquema SQL + tipos de navegación
@@ -78,6 +79,15 @@ supabase/
 `npx expo start --dev-client` (celular, con el development build de expo.dev — la forma habitual)
 `npx expo start --web` (iniciar la app en la web)
 `npx expo start` (base; abre el menú para elegir dónde correrla)
+
+
+`npx eas-cli update --channel preview --environment preview --message "Hay una actualizacion!"` (Para actualizar la apk)
+
+`npx expo export --platform web` (Para actualizar la pagina web)
+`npx eas-cli deploy --prod` (Este dsp del amterior)
+
+`npx eas-cli build --profile preview --platform android` (Esto para la web si cambiamos algo nativo)
+`npx eas-cli build --profile development --platform android` (Este para la apk si es algo nativo)
 
 ## Probar el login de Google en desarrollo
 
@@ -207,6 +217,8 @@ lógica pura que ya existe (no hay tests de pantallas/UI todavía):
   para push y avisos locales, con los módulos nativos mockeados.
 - `src/lib/alert.test.ts` — avisos y confirmaciones: cartelitos propios
   cuando el `AvisosHost` está montado y el diálogo del sistema si no.
+- `src/ayuda/ayuda.test.ts` — la ayuda (botón "?"): temas completos,
+  íconos que existen y el buscador.
 - `src/services/cuentas.test.ts` — varias cuentas en el mismo celular:
   qué se guarda, cambiar de cuenta y qué pasa si una sesión venció.
 - `src/theme/tema.test.ts` — modo oscuro: qué esquema corresponde y que las
