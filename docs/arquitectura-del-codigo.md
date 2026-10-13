@@ -392,6 +392,13 @@ cambiar.
 
 ### `catalogo.ts` — catálogo global de productos (pedido directo del equipo)
 
+**Orden del selector** (`ordenarParaCargar` / `categoriasParaCargar`):
+primero los básicos de cocina (`BASICOS_DE_COCINA`: fideos, arroz, harina,
+azúcar, leche...), después el resto por categoría de más a menos "de cocina"
+(`PRIORIDAD_CATEGORIAS`, con Bebidas al final) y, al buscar, primero lo que
+empieza con lo escrito. Para cambiar el orden alcanza con editar esas dos
+listas. El panel de admin sigue mostrando el catálogo alfabético.
+
 Cargar un producto en un hogar ya no es texto libre: se elige de un
 catálogo GLOBAL (no es por hogar, lo comparten todos) en
 `productos_catalogo`, con nombre/categoría/unidad ya cargados y espacio

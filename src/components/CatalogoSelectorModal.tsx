@@ -2,7 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
-import { categoriasDelCatalogo, filtrarCatalogo, listarCatalogoAprobado, sugerirProducto } from '../services/catalogo';
+import {
+  categoriasParaCargar,
+  filtrarCatalogo,
+  listarCatalogoAprobado,
+  ordenarParaCargar,
+  sugerirProducto,
+} from '../services/catalogo';
 import type { ProductoCatalogo } from '../types/database';
 import type { UnidadProducto } from '../types/database';
 import { avisar } from '../lib/alert';
@@ -86,9 +92,11 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
     })();
   }, [visible, soloSugerir]);
 
-  const categorias = useMemo(() => categoriasDelCatalogo(catalogo), [catalogo]);
+  // Lo más usado para cocinar primero (fideos, arroz, leche...) y las
+  // bebidas al final: ver ordenarParaCargar en services/catalogo.ts.
+  const categorias = useMemo(() => categoriasParaCargar(catalogo), [catalogo]);
   const catalogoFiltrado = useMemo(
-    () => filtrarCatalogo(catalogo, busqueda, categoriaSeleccionada),
+    () => ordenarParaCargar(filtrarCatalogo(catalogo, busqueda, categoriaSeleccionada), busqueda),
     [catalogo, busqueda, categoriaSeleccionada],
   );
 

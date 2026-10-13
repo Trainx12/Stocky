@@ -175,3 +175,57 @@ export function filtrarCatalogo(catalogo: ProductoCatalogo[], busqueda: string, 
     return coincideBusqueda && coincideCategoria;
   });
 }
+
+/**
+ * Orden del selector de "Agregar producto": lo que más se usa para cocinar
+ * primero, en vez de alfabético por categoría (que ponía "Bebidas" arriba
+ * de todo).
+ *   1. Los básicos de cocina (BASICOS_DE_COCINA), en ese orden.
+ *   2. El resto por categoría, de la más "de cocina" a la menos
+ *      (PRIORIDAD_CATEGORIAS), y alfabético dentro de cada una.
+ *   3. Al buscar, primero los que EMPIEZAN con lo escrito ("le" → Leche
+ *      antes que Dulce de Leche).
+ * Para cambiar el orden alcanza con editar estas dos listas.
+ */
+export const BASICOS_DE_COCINA = [
+  'Fideos', 'Spaghetti', 'Arroz', 'Harina', 'Azúcar', 'Sal', 'Aceite', 'Huevos', 'Leche', 'Manteca',
+  'Pan Francés', 'Yerba Mate', 'Papa', 'Cebolla', 'Tomate', 'Zanahoria', 'Ajo', 'Queso Rallado',
+  'Puré de Tomate', 'Tomate Triturado', 'Polenta', 'Lentejas', 'Tallarines', 'Fideos Guiseros',
+  'Muzzarella', 'Pan Lactal', 'Café', 'Yogur', 'Manzana', 'Banana', 'Lechuga',
+];
+
+// Categorías que no estén en la lista van entre "Infusiones" y "Snacks".
+export const PRIORIDAD_CATEGORIAS = ['Otros', 'Lácteos', 'Verduras y frutas', 'Panadería', 'Infusiones', 'Snacks', 'Bebidas'];
+
+function sinTildes(texto: string): string {
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+function prioridadDeCategoria(categoria: string): number {
+  const i = PRIORIDAD_CATEGORIAS.indexOf(categoria);
+  if (i >= 0) return i;
+  return PRIORIDAD_CATEGORIAS.indexOf('Snacks') - 0.5;
+}
+
+const POSICION_BASICO = new Map(BASICOS_DE_COCINA.map((nombre, i) => [sinTildes(nombre), i]));
+
+export function ordenarParaCargar(catalogo: ProductoCatalogo[], busqueda = ''): ProductoCatalogo[] {
+  const buscado = sinTildes(busqueda);
+  const clave = (p: ProductoCatalogo): [number, number, number, string] => {
+    const nombre = sinTildes(p.nombre);
+    const empieza = buscado && nombre.startsWith(buscado) ? 0 : 1;
+    const basico = POSICION_BASICO.get(nombre);
+    return [empieza, basico ?? Number.MAX_SAFE_INTEGER, prioridadDeCategoria(p.categoria), nombre];
+  };
+  return [...catalogo].sort((a, b) => {
+    const ka = clave(a);
+    const kb = clave(b);
+    for (let i = 0; i < 3; i++) if (ka[i] !== kb[i]) return (ka[i] as number) - (kb[i] as number);
+    return ka[3].localeCompare(kb[3]);
+  });
+}
+
+// Los chips de categoría del selector, en el mismo orden que la lista.
+export function categoriasParaCargar(catalogo: ProductoCatalogo[]): string[] {
+  return categoriasDelCatalogo(catalogo).sort((a, b) => prioridadDeCategoria(a) - prioridadDeCategoria(b));
+}

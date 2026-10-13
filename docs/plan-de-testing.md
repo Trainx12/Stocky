@@ -662,6 +662,10 @@ Rama `feature/panel-admin` (apilada sobre `feature/logo`). Migración
    "Sacar foto" → "Guardar cambios" → la foto nueva aparece en la lista y al
    cargar ese producto en cualquier hogar. "Quitar foto" vuelve a la foto
    original de la app (o al ícono). Los botones de categoría no se estiran.
+10. **Orden al cargar:** "Agregar producto" → sin buscar, arriba aparecen
+    Fideos, Spaghetti, Arroz, Harina, Azúcar, Sal, Aceite, Huevos, Leche...
+    y las bebidas al final; los chips de categoría empiezan por "Otros" y
+    terminan en "Bebidas". Buscar "le" → Leche antes que Dulce de Leche.
 6. **Registro de acciones:** aparece cada cosa de los pasos 3-5 con el mail
    del admin y la hora. Desde la app no se puede borrar.
 7. **Comentarios:** con otra cuenta, Cuenta → "Contanos qué mejorar" →
