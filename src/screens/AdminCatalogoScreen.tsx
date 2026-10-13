@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
@@ -120,12 +120,19 @@ export function AdminCatalogoScreen({ navigation }: Props) {
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : (
-        <ScrollView style={styles.lista} contentContainerStyle={styles.listaContenido}>
-          {visibles.length === 0 ? (
-            <Text style={styles.vacio}>Ningún producto coincide.</Text>
-          ) : (
-            visibles.map((p) => (
-              <View key={p.id} style={styles.fila}>
+        // FlatList: solo dibuja (y pide la foto de) lo que está a la vista
+        // (ver CatalogoSelectorModal e incidentes-sprint10.md #26).
+        <FlatList
+          style={styles.lista}
+          contentContainerStyle={styles.listaContenido}
+          data={visibles}
+          keyExtractor={(p) => p.id}
+          initialNumToRender={15}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+          ListEmptyComponent={<Text style={styles.vacio}>Ningún producto coincide.</Text>}
+          renderItem={({ item: p }) => (
+              <View style={styles.fila}>
                 <Miniatura producto={p} />
                 <Pressable
                   onPress={() => setEdicion({ producto: p })}
@@ -147,9 +154,8 @@ export function AdminCatalogoScreen({ navigation }: Props) {
                   <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 </Pressable>
               </View>
-            ))
           )}
-        </ScrollView>
+        />
       )}
 
       <FormularioCatalogo

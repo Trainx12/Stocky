@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import {
@@ -305,9 +305,23 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
               <Button label="Sugerir este producto" variant="outline" onPress={handleAbrirSugerir} style={styles.sugerirButton} />
             </View>
           ) : (
-            <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
-              <View style={styles.grilla}>
-                {catalogoFiltrado.map((item) => (
+            // FlatList (no ScrollView + map): dibuja y pide la foto solo de lo
+            // que está a la vista. Con un ScrollView se pedían las ~270 fotos
+            // del catálogo de una vez cada vez que alguien abría "Agregar
+            // producto", y en la web eso pasaba el límite de pedidos del
+            // hosting gratuito ("Too Many Requests", incidentes-sprint10.md #26).
+            <FlatList
+              style={styles.lista}
+              data={catalogoFiltrado}
+              keyExtractor={(item) => item.id}
+              numColumns={3}
+              columnWrapperStyle={styles.grilla}
+              initialNumToRender={15}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
                   <Pressable
                     key={item.id}
                     style={styles.item}
@@ -327,10 +341,8 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
                     </Text>
                     <Text style={styles.itemUnidad}>{item.unidad}</Text>
                   </Pressable>
-                ))}
-              </View>
-
-            </ScrollView>
+              )}
+            />
           )}
 
           {/* Siempre a la vista (no solo cuando la búsqueda no encuentra
@@ -428,9 +440,8 @@ const crearEstilos = () =>
   lista: {
     flex: 1,
   },
+  // Cada fila de 3 de la FlatList.
   grilla: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   item: {

@@ -792,3 +792,23 @@ En el peor caso ahora se espera ~1 minuto antes del aviso.
 **Si vuelve a pasar seguido:** probar otros modelos sin tocar código con el
 secret `GEMINI_MODEL` (lista separada por comas) en Supabase → Edge
 Functions → Secrets, o pasar a un plan pago de Gemini (más prioridad).
+
+## 26. Web: "This deployment is receiving too many requests"
+
+**Síntoma:** al abrir `https://hogarstocky.expo.app` aparecía la página de
+EAS Hosting "Too Many Requests — This free-tier deployment has temporarily
+exceeded its request rate limit". A los pocos minutos volvía sola.
+
+**Causa raíz:** el plan gratuito de EAS Hosting limita cuántos pedidos por
+segundo recibe la página. La lista de "Agregar producto"
+(`CatalogoSelectorModal`) y la de Admin → Catálogo dibujaban el catálogo
+completo con `ScrollView` + `map`: al abrirlas se pedían **las ~270 fotos de
+una vez** (en la web cada foto es un pedido aparte a la misma página). Con
+un par de personas probando, más los chequeos automáticos después de cada
+publicación (un pedido cada 10 s), se pasaba el límite.
+
+**Solución:** las dos listas pasaron a `FlatList` (`initialNumToRender` 15,
+`windowSize` 5): solo se dibuja y se pide la foto de lo que está a la vista
+y lo que se va acercando al scrollear. Los chequeos después de publicar ahora
+consultan cada 30 s. Si con más usuarios vuelve a pasar, las opciones son el
+plan pago de EAS Hosting o servir las fotos desde Supabase Storage.
