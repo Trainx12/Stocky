@@ -16,10 +16,10 @@
  */
 
 // Versión vigente. Se guarda en usuarios.terminos_version al aceptar.
-export const VERSION_TERMINOS = '2026-10-11';
+export const VERSION_TERMINOS = '2026-10-12';
 
 // Fecha legible de la última actualización (se muestra arriba del texto).
-export const FECHA_TERMINOS = '11 de octubre de 2026';
+export const FECHA_TERMINOS = '12 de octubre de 2026';
 
 export interface SeccionLegal {
   titulo: string;
@@ -45,7 +45,8 @@ export const SECCIONES_TERMINOS: SeccionLegal[] = [
     titulo: '3. Qué información usamos',
     parrafos: [
       'Datos de tu cuenta: tu nombre y tu correo electrónico, que nos comparte Google al iniciar sesión.',
-      'Datos que cargás en la app: los hogares que creás o a los que te unís, sus miembros, los productos de cada hogar (nombre, marca, cantidad, stock mínimo, fecha de vencimiento) y la actividad sobre ellos (quién agregó, modificó o eliminó cada producto).',
+      'Datos que cargás en la app: los hogares que creás o a los que te unís, sus miembros, los productos de cada hogar (nombre, marca, cantidad, stock mínimo, fecha de vencimiento), la lista de compras de cada hogar y la actividad sobre los productos (quién agregó, modificó o eliminó cada uno).',
+      'Comentarios: lo que nos escribís en "Contanos qué mejorar", junto con el tipo de teléfono (Android, iPhone o web) y la versión de la app. Los leen los administradores de Stocky para mejorar la app.',
       'Fotos y audios: las fotos de tickets y de fechas de vencimiento, y los audios que grabás para cargar productos por voz, se envían a servicios de reconocimiento de texto y de voz (ver punto 6) solo para interpretarlos en ese momento; Stocky no los guarda. Las fotos que adjuntás al sugerir un producto para el catálogo sí se guardan (ver punto 5).',
       'Preferencias y notificaciones: tus preferencias de aviso (por ejemplo, con cuántos días de anticipación avisarte de un vencimiento), las notificaciones que te enviamos y, si las activás, un identificador de tu teléfono para mandarte notificaciones.',
     ],
@@ -72,7 +73,7 @@ export const SECCIONES_TERMINOS: SeccionLegal[] = [
     parrafos: [
       'Para funcionar, Stocky usa servicios de otras empresas, que procesan datos en nuestro nombre y pueden estar ubicados fuera de la Argentina:',
       '• Supabase: base de datos, inicio de sesión y almacenamiento de la app.',
-      '• Google: inicio de sesión con tu cuenta de Google, y Gemini (inteligencia artificial de Google) para leer fechas de vencimiento en fotos e interpretar los comandos de voz.',
+      '• Google: inicio de sesión con tu cuenta de Google, y Gemini (inteligencia artificial de Google) para leer fechas de vencimiento en fotos, interpretar los comandos de voz y sugerir recetas con los productos que están por vencer (solo se le mandan sus nombres, cantidades y fechas).',
       '• OCR.space: lectura del texto de las fotos de tickets.',
       '• Expo y Firebase Cloud Messaging (Google): envío de notificaciones al teléfono.',
       'Cada uno de estos servicios tiene sus propias políticas de privacidad. Solo les mandamos lo necesario para cada función.',
@@ -88,7 +89,8 @@ export const SECCIONES_TERMINOS: SeccionLegal[] = [
   {
     titulo: '8. Tus derechos sobre tus datos',
     parrafos: [
-      'De acuerdo con la Ley 25.326 de Protección de Datos Personales, podés pedir acceso a tus datos, que los corrijamos o que los eliminemos, contactando al equipo de Stocky. La eliminación de la cuenta borra tus datos personales; los productos que cargaste en hogares compartidos pueden quedar en esos hogares sin tu nombre.',
+      'De acuerdo con la Ley 25.326 de Protección de Datos Personales, podés pedir acceso a tus datos, que los corrijamos o que los eliminemos, contactando al equipo de Stocky.',
+      'Podés borrar tu cuenta cuando quieras desde Cuenta → "Borrar mi cuenta". Se borran tu perfil, tus notificaciones y tu lugar en cada hogar. Si eras dueño de un hogar con más personas, pasa a ser dueño el miembro más antiguo; los hogares donde estabas solo se borran con todos sus productos. Los productos y la actividad que cargaste en hogares compartidos quedan en esos hogares sin tu nombre, y tus comentarios quedan sin autor.',
       'La Agencia de Acceso a la Información Pública, órgano de control de la Ley 25.326, tiene la atribución de atender las denuncias y reclamos que se interpongan con relación al incumplimiento de las normas sobre protección de datos personales.',
     ],
   },

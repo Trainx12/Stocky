@@ -22,6 +22,7 @@ jest.mock('../lib/supabase', () => ({
       signOut: jest.fn(),
       getSession: jest.fn(),
     },
+    rpc: jest.fn(),
   },
 }));
 
@@ -39,7 +40,7 @@ jest.mock('./cuentas', () => ({
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
-import { cerrarTodasLasSesiones, registrarTareaAntesDeCerrarSesion, signInWithGoogle, signOut } from './auth';
+import { cerrarTodasLasSesiones, eliminarMiCuenta, registrarTareaAntesDeCerrarSesion, signInWithGoogle, signOut } from './auth';
 import { cambiarACuenta, listarCuentas, olvidarCuenta, olvidarTodas } from './cuentas';
 
 const signInWithOAuth = supabase.auth.signInWithOAuth as jest.Mock;
@@ -228,5 +229,44 @@ describe('signInWithGoogle elige cuenta', () => {
         options: expect.objectContaining({ queryParams: { prompt: 'select_account' } }),
       }),
     );
+  });
+});
+
+describe('eliminarMiCuenta', () => {
+  const rpc = supabase.rpc as jest.Mock;
+
+  it('desregistra el push, borra la cuenta en la base, cierra sesión y la olvida', async () => {
+    const orden: string[] = [];
+    const quitar = registrarTareaAntesDeCerrarSesion(async () => {
+      orden.push('tarea');
+    });
+    rpc.mockImplementation(async () => {
+      orden.push('rpc');
+      return { error: null };
+    });
+    signOutMock.mockResolvedValue({ error: null });
+
+    await eliminarMiCuenta();
+    quitar();
+
+    expect(orden).toEqual(['tarea', 'rpc']);
+    expect(rpc).toHaveBeenCalledWith('eliminar_mi_cuenta');
+    expect(signOutMock).toHaveBeenCalledWith({ scope: 'local' });
+    expect(olvidarCuenta).toHaveBeenCalledWith('u1');
+  });
+
+  it('si la base no la borra, no cierra la sesión ni olvida la cuenta', async () => {
+    rpc.mockResolvedValue({ error: new Error('sin red') });
+    await expect(eliminarMiCuenta()).rejects.toThrow('sin red');
+    expect(signOutMock).not.toHaveBeenCalled();
+    expect(olvidarCuenta).not.toHaveBeenCalled();
+  });
+
+  it('si quedan otras cuentas en el celular, pasa a la siguiente', async () => {
+    rpc.mockResolvedValue({ error: null });
+    signOutMock.mockResolvedValue({ error: null });
+    (listarCuentas as jest.Mock).mockResolvedValue([{ userId: 'u2' }]);
+    await eliminarMiCuenta();
+    expect(cambiarACuenta).toHaveBeenCalledWith('u2');
   });
 });

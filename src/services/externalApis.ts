@@ -161,3 +161,32 @@ export async function reconocerFechaPorVoz(audio: AudioGrabado, hoy: string): Pr
     confianza: data?.confianza,
   };
 }
+
+// Un producto que se le pasa a la función de recetas.
+export interface IngredienteParaRecetas {
+  nombre: string;
+  cantidad: number;
+  unidad: string;
+  vence: string | null; // AAAA-MM-DD
+}
+
+// Una receta sugerida (ver supabase/functions/recetas).
+export interface RecetaSugerida {
+  titulo: string;
+  minutos: number | null;
+  // Productos de la despensa que usa (los que vencen pronto).
+  usa: string[];
+  // Lo que además hace falta (cosas básicas que quizás haya en casa).
+  ademas: string[];
+  pasos: string[];
+}
+
+/**
+ * "¿Qué cocino con esto?": Gemini propone recetas simples con lo que está
+ * por vencer. No guarda nada; si falla, la pantalla muestra el error.
+ */
+export async function sugerirRecetas(ingredientes: IngredienteParaRecetas[]): Promise<RecetaSugerida[]> {
+  const { data, error } = await supabase.functions.invoke('recetas', { body: { ingredientes } });
+  if (error) return lanzarErrorDeFuncion(error);
+  return Array.isArray(data?.recetas) ? (data.recetas as RecetaSugerida[]) : [];
+}

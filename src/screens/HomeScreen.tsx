@@ -16,6 +16,10 @@ import { SeleccionarHogarModal } from '../components/SeleccionarHogarModal';
 import { Button } from '../components/Button';
 import { NombreDeHogar } from '../components/Logo';
 import { TutorialGuiado } from '../components/TutorialGuiado';
+import { RecetasModal } from '../components/RecetasModal';
+import { ingredientesParaRecetas } from '../services/recetas';
+import { mensajeDelResumen, nombreDelMes, obtenerResumenDelMes } from '../services/comentarios';
+import type { ResumenDelMes } from '../types/database';
 import { BienvenidaTutorialModal } from '../components/BienvenidaTutorialModal';
 import { useTutorialInicio } from '../tutorial/useTutorialInicio';
 import type { AccionTutorial } from '../tutorial/tutorial';
@@ -183,6 +187,12 @@ export function HomeScreen() {
   const [alertasStock, setAlertasStock] = useState<AlertaStock[]>([]);
   const [alertasStockLoading, setAlertasStockLoading] = useState(true);
 
+  // "¿Qué cocino con esto?" (recetas con lo que vence pronto).
+  const [recetasVisible, setRecetasVisible] = useState(false);
+
+  // Resumen del mes del hogar que se está usando (null = cargando o sin hogar).
+  const [resumen, setResumen] = useState<ResumenDelMes | null>(null);
+
   // Tutorial guiado (src/tutorial/): la primera vez pregunta si lo quiere;
   // se pausa mientras se prueba algo (otra pantalla o un formulario abierto)
   // y sigue al volver.
@@ -315,6 +325,17 @@ export function HomeScreen() {
     navigation.setParams({ abrirMiembrosDe: undefined });
   }, [abrirMiembrosDe, misHogares, navigation]);
 
+  // Resumen del mes (services/comentarios.ts → RPC resumen_del_mes). Si
+  // falla, la tarjeta simplemente no se muestra: es un extra, no un error.
+  async function cargarResumen(hogarId: string) {
+    try {
+      setResumen(await obtenerResumenDelMes(hogarId));
+    } catch (err) {
+      console.warn('[Stocky] No se pudo cargar el resumen del mes:', err);
+      setResumen(null);
+    }
+  }
+
   // `silencioso`: sin spinner (cuando la recarga la pide un cambio de otra
   // persona por Realtime, para no hacer parpadear la tarjeta).
   const cargarActividad = useCallback(async (hogarId: string, silencioso = false) => {
@@ -337,8 +358,10 @@ export function HomeScreen() {
     useCallback(() => {
       if (hogarSeleccionado) {
         cargarActividad(hogarSeleccionado.id);
+        cargarResumen(hogarSeleccionado.id);
       } else {
         setActividad([]);
+        setResumen(null);
       }
     }, [hogarSeleccionado?.id, cargarActividad]),
   );
@@ -400,7 +423,10 @@ export function HomeScreen() {
     if (!idsDeMisHogares) return;
     const recarga = agruparLlamadas(() => {
       cargarAlertas();
-      if (idSeleccionado) cargarActividad(idSeleccionado, true);
+      if (idSeleccionado) {
+        cargarActividad(idSeleccionado, true);
+        cargarResumen(idSeleccionado);
+      }
     });
     const canal = supabase
       .channel(`actividad-${idsDeMisHogares}`)
@@ -600,6 +626,15 @@ export function HomeScreen() {
     });
   }
 
+  // Lista de compras del hogar que se está usando.
+  function handleIrALista() {
+    if (!hogarSeleccionado) {
+      avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero.');
+      return;
+    }
+    navigation.navigate('ListaCompras', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre });
+  }
+
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
   // pantalla como `usuario` del AuthContext (por si `hogar_id` pasó de null
   // a un valor, que es lo que usa el resto de la app como "hogar activo").
@@ -678,6 +713,9 @@ export function HomeScreen() {
     if (!hogar) return;
     navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre, filtroInicial });
   }
+
+  // Lo que se le pasa a "¿Qué cocino con esto?": solo lo por vencer (no lo vencido).
+  const ingredientes = ingredientesParaRecetas(productosPorVencer, undefined, diasAviso);
 
   // Las alertas mezclan hogares solo con la opción "todos" y más de un
   // hogar: recién ahí hace falta decir de qué hogar es cada una.
@@ -922,6 +960,13 @@ export function HomeScreen() {
                     hogarNombre={alertasDeVariosHogares ? nombreHogar(productosPorVencer[0].hogar_id) : null}
                     onPress={() => handleVerAlertas(productosPorVencer[0].hogar_id, 'porVencer')}
                   />
+                  {/* Recetas con lo que vence pronto (no con lo ya vencido). */}
+                  {ingredientes.length > 0 && (
+                    <Pressable onPress={() => setRecetasVisible(true)} style={styles.recetasBoton} accessibilityRole="button">
+                      <Ionicons name="restaurant-outline" size={18} color={colors.primary} />
+                      <Text style={styles.recetasBotonTexto}>¿Qué cocino con esto?</Text>
+                    </Pressable>
+                  )}
                 </View>
               )}
             </SectionCard>
@@ -966,10 +1011,28 @@ export function HomeScreen() {
                     hogarNombre={alertasDeVariosHogares ? nombreHogar(alertasStock[0].hogarId) : null}
                     onPress={() => handleVerAlertas(alertasStock[0].hogarId, 'stockBajo')}
                   />
+                  {hogarSeleccionado && (
+                    <Pressable onPress={handleIrALista} style={styles.recetasBoton} accessibilityRole="button">
+                      <Ionicons name="cart-outline" size={18} color={colors.primary} />
+                      <Text style={styles.recetasBotonTexto}>Pasar a la lista de compras</Text>
+                    </Pressable>
+                  )}
                 </View>
               )}
             </SectionCard>
             </View>
+
+            {/* Resumen del mes del hogar que se está usando. */}
+            {hogarSeleccionado && resumen && (
+              <SectionCard title={`Tu ${nombreDelMes()} en ${hogarSeleccionado.nombre}`}>
+                <View style={styles.resumenFila}>
+                  <ResumenNumero valor={resumen.cargados} etiqueta="cargados" icono="add-circle-outline" color={colors.primary} />
+                  <ResumenNumero valor={resumen.usados} etiqueta="usados" icono="checkmark-circle-outline" color={colors.success} />
+                  <ResumenNumero valor={resumen.vencidos} etiqueta="se vencieron" icono="alert-circle-outline" color={colors.danger} />
+                </View>
+                <Text style={styles.resumenMensaje}>{mensajeDelResumen(resumen)}</Text>
+              </SectionCard>
+            )}
 
             <SectionCard title="Actividad reciente">
               {actividadLoading ? (
@@ -1033,6 +1096,7 @@ export function HomeScreen() {
                   objetivoRef={tutorial.objetivo('cargarPorVoz')}
                 />
                 <QuickAccessButton icon="basket-outline" label="Ver despensa" onPress={() => handleIrAProductos()} />
+                <QuickAccessButton icon="cart-outline" label="Lista de compras" onPress={handleIrALista} />
                 {/* Cualquier usuario puede sugerir un producto que falta en el
                     catálogo; queda pendiente hasta que un admin lo apruebe. */}
                 <QuickAccessButton icon="bulb-outline" label="Sugerir producto" onPress={() => setSugerirVisible(true)} />
@@ -1054,6 +1118,14 @@ export function HomeScreen() {
                     icon="people-circle-outline"
                     label="Usuarios"
                     onPress={() => navigation.navigate('AdminUsuarios')}
+                  />
+                )}
+                {/* Lo que mandan los usuarios desde Cuenta → "Contanos qué mejorar". */}
+                {usuario.rol === 'administrador' && (
+                  <QuickAccessButton
+                    icon="chatbubbles-outline"
+                    label="Comentarios"
+                    onPress={() => navigation.navigate('AdminComentarios')}
                   />
                 )}
               </View>
@@ -1079,6 +1151,8 @@ export function HomeScreen() {
         notificacionesSinLeer={noLeidas}
         refsDeTabs={{ notifications: tutorial.objetivo('campanita'), profile: tutorial.objetivo('cuenta') }}
       />
+
+      <RecetasModal visible={recetasVisible} onClose={() => setRecetasVisible(false)} ingredientes={ingredientes} />
 
       {tutorial.guiado && <TutorialGuiado {...tutorial.guiado} />}
       <BienvenidaTutorialModal
@@ -1186,6 +1260,28 @@ function VerTodosButton({ total, hogarNombre, onPress }: { total: number; hogarN
       <Text style={styles.verTodosTexto}>{texto}</Text>
       <Ionicons name="chevron-forward" size={14} color={colors.primary} />
     </Pressable>
+  );
+}
+
+// Un número del resumen del mes ("12 usados").
+function ResumenNumero({
+  valor,
+  etiqueta,
+  icono,
+  color,
+}: {
+  valor: number;
+  etiqueta: string;
+  icono: keyof typeof Ionicons.glyphMap;
+  color: string;
+}) {
+  const styles = useEstilos(crearEstilos);
+  return (
+    <View style={styles.resumenNumero} accessible accessibilityLabel={`${valor} ${etiqueta}`}>
+      <Ionicons name={icono} size={20} color={color} />
+      <Text style={[styles.resumenValor, { color }]}>{valor}</Text>
+      <Text style={styles.resumenEtiqueta}>{etiqueta}</Text>
+    </View>
   );
 }
 
@@ -1351,6 +1447,44 @@ const crearEstilos = () =>
     ...typography.caption,
     color: colors.textPrimary,
     fontSize: 11,
+  },
+  recetasBoton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  recetasBotonTexto: {
+    ...typography.bodyMedium,
+    color: colors.primary,
+  },
+  resumenFila: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  resumenNumero: {
+    alignItems: 'center',
+    gap: 2,
+    flex: 1,
+  },
+  resumenValor: {
+    ...typography.h2,
+  },
+  resumenEtiqueta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  resumenMensaje: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
   verTodosButton: {
     flexDirection: 'row',

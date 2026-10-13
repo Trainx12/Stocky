@@ -56,6 +56,10 @@ export type AppStackParamList = {
   Cuenta: undefined;
   // Ayuda: cómo hacer lo básico (botón "?" del Home, ver src/ayuda/contenido.ts).
   Ayuda: undefined;
+  // Lista de compras compartida de un hogar (services/listaCompras.ts).
+  ListaCompras: { hogarId: string; hogarNombre: string };
+  // Admin: comentarios que mandan los usuarios desde Cuenta.
+  AdminComentarios: undefined;
 };
 
 // Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer

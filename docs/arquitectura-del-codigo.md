@@ -517,6 +517,45 @@ de todos (`hogaresDeLasAlertas`). Solo cambia lo que muestra el inicio: las
 notificaciones de la campanita y el push siguen llegando de todos los
 hogares, para no perder un aviso.
 
+### Mejoras de experiencia (Sprint 10): lista de compras, recetas, comentarios, resumen y borrar cuenta
+
+Migración `20261017120000_lista_compras_comentarios_resumen_y_borrar_cuenta.sql`
+y Edge Function `recetas`.
+
+- **`listaCompras.ts` + `ListaComprasScreen`**: tabla `lista_compras` (un ítem
+  por cosa a comprar, por hogar; RLS por `es_miembro_de`; en Realtime). Lo de
+  "Stock bajo" que no está en la lista se ofrece arriba
+  (`faltantesParaLista`, cantidad = lo que falta para el mínimo). Lo escrito a
+  mano se cruza con el catálogo (`itemDesdeTexto`) para que, al comprarlo,
+  caiga en el mismo producto de la despensa. "Guardé las compras"
+  (`guardarComprasEnDespensa`) usa `crearProducto` (mismas reglas que el alta
+  manual: suma al producto idéntico) y borra de la lista solo lo que se
+  guardó. Además, en la despensa, cuando el **−** deja un producto sin nada
+  en ningún lote (`seTermino`), se ofrece pasarlo a la lista
+  (`agregarSiFalta`, que no lo repite si ya está pendiente).
+- **`recetas.ts` + `RecetasModal` + `supabase/functions/recetas`**: "¿Qué
+  cocino con esto?" en "Productos próximos a vencer". Se mandan a Gemini
+  solo los productos **por vencer** (nunca los vencidos), sin repetir, como
+  mucho 12 (`ingredientesParaRecetas`); lo que vuelve se filtra con
+  `recetasValidas`. La función usa `_shared/gemini.ts` (mismos modelos de
+  respaldo que la voz).
+- **`comentarios.ts` + `ComentarioModal` + `AdminComentariosScreen`**:
+  "Contanos qué mejorar" en Cuenta (tipo idea/problema/otro + texto +
+  plataforma y versión). Tabla `comentarios`: cada uno inserta a su nombre;
+  solo los admins leen, vía `admin_listar_comentarios` (con nombre y mail).
+- **Resumen del mes** (tarjeta "Tu <mes> en <hogar>" del inicio): RPC
+  `resumen_del_mes(hogar, desde)` con cargados y usados (de
+  `actividad_hogar`, que se recorta a 90 días / 150 filas: en un hogar muy
+  activo pueden quedar un poco cortos) y vencidos (productos que vencieron
+  este mes y siguen en la despensa). `mensajeDelResumen` arma la frase.
+- **Borrar mi cuenta** (`auth.eliminarMiCuenta`, Cuenta → abajo de todo, con
+  dos confirmaciones): RPC `eliminar_mi_cuenta` sale de cada hogar como
+  `salir_de_hogar` (el rol de dueño pasa al miembro más antiguo), borra los
+  hogares que quedan vacíos (**primero sus productos**: el trigger de
+  actividad no puede anotar borrados de un hogar que ya no existe) y borra el
+  usuario de Auth (el resto cae por las FK en cascada). Se reflejó en los
+  Términos (versión `2026-10-12`, sección 8).
+
 ### `usuarios.ts` — ABM de usuarios para administradores (RF9 parcial)
 
 `listarUsuarios`, `cambiarHabilitado` y `cambiarRol` van todas por RPC

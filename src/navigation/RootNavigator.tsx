@@ -16,6 +16,8 @@ import { CuentaDeshabilitadaScreen } from '../screens/CuentaDeshabilitadaScreen'
 import { NotificacionesScreen } from '../screens/NotificacionesScreen';
 import { CuentaScreen } from '../screens/CuentaScreen';
 import { AyudaScreen } from '../screens/AyudaScreen';
+import { ListaComprasScreen } from '../screens/ListaComprasScreen';
+import { AdminComentariosScreen } from '../screens/AdminComentariosScreen';
 import { TerminosPrevioScreen, TerminosVerScreen, TerminosVista } from '../screens/TerminosScreen';
 import { aceptarTerminos, necesitaAceptarTerminos, registrarAceptacionPendiente } from '../services/terminos';
 import { navegacion } from './navegacion';
@@ -61,6 +63,11 @@ function AppNavigator() {
       <AppStack.Screen name="Cuenta" component={CuentaScreen} />
       {/* Ayuda: botón "?" del Home y Cuenta → Ajustes. */}
       <AppStack.Screen name="Ayuda" component={AyudaScreen} />
+      {/* Lista de compras del hogar (acceso rápido y "Stock bajo" del Home). */}
+      <AppStack.Screen name="ListaCompras" component={ListaComprasScreen} />
+      {/* Mismo gateo que AdminUsuarios: acceso solo para admins en el Home
+          y la RPC admin_listar_comentarios rechaza a cualquier otro. */}
+      <AppStack.Screen name="AdminComentarios" component={AdminComentariosScreen} />
     </AppStack.Navigator>
   );
 }

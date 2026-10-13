@@ -10,7 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNotificaciones } from '../context/NotificacionesContext';
 import { useTema } from '../context/TemaContext';
 import type { ModoTema } from '../context/TemaContext';
-import { cerrarTodasLasSesiones, signInWithGoogle, signOut } from '../services/auth';
+import { cerrarTodasLasSesiones, eliminarMiCuenta, signInWithGoogle, signOut } from '../services/auth';
+import { ComentarioModal } from '../components/ComentarioModal';
 import { cambiarACuenta, listarCuentas } from '../services/cuentas';
 import type { ResumenCuenta } from '../services/cuentas';
 import { actualizarMiNombre, inicialDe, LARGO_MAXIMO_NOMBRE } from '../services/usuarios';
@@ -51,6 +52,8 @@ export function CuentaScreen({ navigation }: Props) {
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nombre, setNombre] = useState('');
   const [guardandoNombre, setGuardandoNombre] = useState(false);
+  const [comentarioVisible, setComentarioVisible] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   const userIdActual = session?.user.id;
   const email = usuario?.email ?? session?.user.email ?? '';
@@ -142,6 +145,32 @@ export function CuentaScreen({ navigation }: Props) {
       await cerrarTodasLasSesiones();
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo cerrar la sesión.');
+    }
+  }
+
+  // Borrar la cuenta para siempre (services/auth.eliminarMiCuenta). Dos
+  // confirmaciones: es lo único de la app que no tiene vuelta atrás.
+  async function handleBorrarCuenta() {
+    const primera = await confirmar(
+      'Borrar mi cuenta',
+      'Se borran tu perfil, tus notificaciones y tu lugar en cada hogar. Si sos dueño de un hogar con más personas, ' +
+        'pasa a ser dueño el miembro más antiguo; los hogares donde estás solo se borran con todos sus productos.',
+      'Continuar',
+    );
+    if (!primera) return;
+    const segunda = await confirmar(
+      '¿Seguro?',
+      `Esto no se puede deshacer. Se borra la cuenta ${email}.`,
+      'Borrar mi cuenta',
+    );
+    if (!segunda) return;
+    setBorrando(true);
+    try {
+      await eliminarMiCuenta();
+      avisar('Cuenta borrada', 'Tu cuenta y tus datos se borraron. ¡Gracias por haber usado Stocky!', 'exito');
+    } catch (err) {
+      setBorrando(false);
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo borrar la cuenta.');
     }
   }
 
@@ -318,6 +347,14 @@ export function CuentaScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Ayuda')}
             separada
           />
+          {/* Comentarios que leen los administradores (services/comentarios.ts). */}
+          <FilaEnlace
+            icono="chatbubble-ellipses-outline"
+            titulo="Contanos qué mejorar"
+            detalle="Una idea, algo que falló o lo que quieras"
+            onPress={() => setComentarioVisible(true)}
+            separada
+          />
           {/* Repetir el tutorial guiado del inicio (src/tutorial/). */}
           <FilaEnlace
             icono="school-outline"
@@ -355,7 +392,22 @@ export function CuentaScreen({ navigation }: Props) {
             </Pressable>
           )}
         </View>
+
+        {/* Borrar la cuenta: aparte y al final, para que no se toque sin querer. */}
+        <Pressable
+          onPress={handleBorrarCuenta}
+          disabled={borrando}
+          style={styles.borrarCuenta}
+          accessibilityRole="button"
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+          <Text style={[styles.detalle, styles.textoPeligro]}>{borrando ? 'Borrando...' : 'Borrar mi cuenta'}</Text>
+        </Pressable>
       </ScrollView>
+
+      {usuario && (
+        <ComentarioModal visible={comentarioVisible} onClose={() => setComentarioVisible(false)} usuarioId={usuario.id} />
+      )}
 
       <BottomNavBar active="profile" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
     </ScreenContainer>
@@ -391,6 +443,13 @@ function FilaEnlace({
 
 const crearEstilos = () =>
   StyleSheet.create({
+  borrarCuenta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+  },
     container: {
       gap: 0,
     },
