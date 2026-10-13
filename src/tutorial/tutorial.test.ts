@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   MARGEN_PANTALLA,
   pasosTutorial,
+  relativoACapa,
   scrollParaVer,
   SEPARACION_GLOBO,
   textoProgreso,
@@ -135,6 +136,14 @@ describe('ubicarGlobo', () => {
   it('objetivo enorme: el cartel se apoya abajo de la pantalla', () => {
     const u = ubicarGlobo({ x: 0, y: 50, ancho: 400, alto: 700 }, pantalla, 200);
     expect(u).toMatchObject({ top: 800 - MARGEN_PANTALLA - 200, flecha: null });
+  });
+});
+
+describe('relativoACapa', () => {
+  it('resta el origen de la capa (Android: la barra de estado)', () => {
+    expect(relativoACapa({ x: 10, y: 300, ancho: 50, alto: 40 }, { x: 0, y: -24 })).toEqual({ x: 10, y: 324, ancho: 50, alto: 40 });
+    expect(relativoACapa({ x: 10, y: 300, ancho: 50, alto: 40 }, { x: 0, y: 0 })).toEqual({ x: 10, y: 300, ancho: 50, alto: 40 });
+    expect(relativoACapa(null, { x: 0, y: 5 })).toBeNull();
   });
 });
 

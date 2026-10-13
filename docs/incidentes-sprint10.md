@@ -812,3 +812,23 @@ publicación (un pedido cada 10 s), se pasaba el límite.
 y lo que se va acercando al scrollear. Los chequeos después de publicar ahora
 consultan cada 30 s. Si con más usuarios vuelve a pasar, las opciones son el
 plan pago de EAS Hosting o servir las fotos desde Supabase Storage.
+
+## 27. Tutorial en Android: el recuadro quedaba corrido hacia arriba
+
+**Síntoma:** en la APK, el recuadro que resalta cada botón del tutorial
+quedaba más arriba que el botón real (por ejemplo, entre "Agregar producto"
+y "Escanear ticket"). En la web se veía bien.
+
+**Causa raíz:** la capa del tutorial era un `Modal` con
+`statusBarTranslucent`: en Android es otra ventana que empieza en el borde de
+arriba de la pantalla (debajo de la barra de estado), mientras que la
+posición de los botones (`measureInWindow`) se mide en la ventana de la app,
+que empieza **abajo** de la barra de estado. La diferencia (el alto de esa
+barra) corría el recuadro hacia arriba.
+
+**Solución:** la capa ya no es un Modal: es una vista absoluta dentro de la
+misma pantalla del inicio (último hijo, `zIndex`), así botones y capa se
+miden en la misma ventana, y además se resta el origen de la capa
+(`relativoACapa`, con test). El botón "atrás" de Android sigue cerrando el
+tutorial (`BackHandler`). Verificado en la web (ancho de celular) con el
+recuadro sobre "Escanear ticket" y la campanita; falta verlo en un Android.
