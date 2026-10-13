@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { AccionAdmin, MetricasAdmin, ProductoCatalogo, UnidadProducto } from '../types/database';
 import { UNIDADES_DISPONIBLES } from './escaneo';
+import { base64ABytes, BUCKET_SUGERENCIAS, rutaDeFotoSugerencia } from './catalogo';
 
 /**
  * Panel de administración (pestaña "Admin" de la barra de abajo, solo para
@@ -160,11 +161,17 @@ export async function listarCatalogoParaAdmin(): Promise<ProductoCatalogo[]> {
 }
 
 // Un admin agrega productos ya aprobados (no pasan por "sugerencias").
-export async function agregarAlCatalogo(datos: DatosCatalogo): Promise<void> {
+// Devuelve el producto creado (para poder ponerle la foto después).
+export async function agregarAlCatalogo(datos: DatosCatalogo): Promise<ProductoCatalogo> {
   const validado = validarProductoCatalogo(datos);
   if ('error' in validado) throw new Error(validado.error);
-  const { error } = await supabase.from('productos_catalogo').insert({ ...validado.datos, estado: 'aprobado' });
+  const { data, error } = await supabase
+    .from('productos_catalogo')
+    .insert({ ...validado.datos, estado: 'aprobado' })
+    .select()
+    .single();
   if (error) throw errorDeCatalogo(error);
+  return data;
 }
 
 export async function editarCatalogo(id: string, datos: DatosCatalogo): Promise<void> {
@@ -179,4 +186,42 @@ export async function editarCatalogo(id: string, datos: DatosCatalogo): Promise<
 export async function sacarDelCatalogo(id: string): Promise<void> {
   const { error } = await supabase.rpc('admin_sacar_del_catalogo', { p_catalogo_id: id });
   if (error) throw error;
+}
+
+// --- Fotos del catálogo ---------------------------------------------------------
+
+// Sube la foto (JPEG en base64, ver lib/fotos.ts) a la carpeta "catalogo/"
+// del bucket, la pone como foto del producto y borra la anterior si también
+// era nuestra. Queda en el registro de acciones ("Cambió la foto de...").
+export async function cambiarFotoCatalogo(producto: Pick<ProductoCatalogo, 'id' | 'imagen_url'>, fotoBase64: string): Promise<string> {
+  const ruta = `catalogo/${producto.id}-${Date.now()}.jpg`;
+  const { error: errorSubida } = await supabase.storage
+    .from(BUCKET_SUGERENCIAS)
+    .upload(ruta, base64ABytes(fotoBase64), { contentType: 'image/jpeg' });
+  if (errorSubida) throw new Error(`No se pudo subir la foto: ${errorSubida.message}`);
+
+  const url = supabase.storage.from(BUCKET_SUGERENCIAS).getPublicUrl(ruta).data.publicUrl;
+  const { error } = await supabase.from('productos_catalogo').update({ imagen_url: url }).eq('id', producto.id);
+  if (error) {
+    // No quedó vinculada: no dejar la foto suelta en el bucket.
+    await supabase.storage.from(BUCKET_SUGERENCIAS).remove([ruta]);
+    throw error;
+  }
+  await borrarFotoVieja(producto.imagen_url);
+  return url;
+}
+
+// Saca la foto subida: el producto vuelve a mostrar la que trae la app (si
+// tiene) o el ícono de canasta.
+export async function quitarFotoCatalogo(producto: Pick<ProductoCatalogo, 'id' | 'imagen_url'>): Promise<void> {
+  const { error } = await supabase.from('productos_catalogo').update({ imagen_url: null }).eq('id', producto.id);
+  if (error) throw error;
+  await borrarFotoVieja(producto.imagen_url);
+}
+
+// Si no se puede borrar el archivo viejo no pasa nada grave (queda suelto en
+// el bucket): el cambio de foto ya se guardó.
+async function borrarFotoVieja(url: string | null | undefined): Promise<void> {
+  const ruta = rutaDeFotoSugerencia(url);
+  if (ruta) await supabase.storage.from(BUCKET_SUGERENCIAS).remove([ruta]);
 }

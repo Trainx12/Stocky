@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
 import {
   agregarAlCatalogo,
+  cambiarFotoCatalogo,
   editarCatalogo,
+  quitarFotoCatalogo,
   LARGO_MAXIMO_NOMBRE_CATALOGO,
   listarCatalogoParaAdmin,
   sacarDelCatalogo,
@@ -14,6 +16,9 @@ import {
 import type { DatosCatalogo } from '../services/admin';
 import { categoriasDelCatalogo, filtrarCatalogo } from '../services/catalogo';
 import { UNIDADES_DISPONIBLES } from '../services/escaneo';
+import { esFotoSubidaAStocky, imagenDeCatalogo } from '../lib/catalogoImagenes';
+import { obtenerFotoBase64 } from '../lib/fotos';
+import type { OrigenFoto } from '../lib/fotos';
 import type { ProductoCatalogo } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -98,7 +103,7 @@ export function AdminCatalogoScreen({ navigation }: Props) {
         onChangeText={setBusqueda}
       />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filaChips} contentContainerStyle={styles.chips}>
         {[null, ...categorias].map((c) => (
           <Pressable
             key={c ?? 'todas'}
@@ -121,6 +126,7 @@ export function AdminCatalogoScreen({ navigation }: Props) {
           ) : (
             visibles.map((p) => (
               <View key={p.id} style={styles.fila}>
+                <Miniatura producto={p} />
                 <Pressable
                   onPress={() => setEdicion({ producto: p })}
                   style={styles.filaTextos}
@@ -159,6 +165,21 @@ export function AdminCatalogoScreen({ navigation }: Props) {
   );
 }
 
+// Foto chica del producto en la lista (la misma que ven los usuarios al cargar).
+function Miniatura({ producto }: { producto: ProductoCatalogo }) {
+  const styles = useEstilos(crearEstilos);
+  const imagen = imagenDeCatalogo(producto);
+  return (
+    <View style={[styles.miniatura, !imagen && styles.miniaturaVacia]}>
+      {imagen ? (
+        <Image source={imagen} style={styles.foto} resizeMode="contain" />
+      ) : (
+        <Ionicons name="basket-outline" size={18} color={colors.textSecondary} />
+      )}
+    </View>
+  );
+}
+
 // Formulario para agregar o corregir un producto del catálogo.
 function FormularioCatalogo({
   edicion,
@@ -175,9 +196,16 @@ function FormularioCatalogo({
   const producto = edicion?.producto ?? null;
   const [datos, setDatos] = useState<DatosCatalogo>({ nombre: '', categoria: '', unidad: 'unidad' });
   const [guardando, setGuardando] = useState(false);
+  // Foto: `fotoNueva` = elegida y todavía sin guardar (base64); `quitarFoto`
+  // = se tocó "Quitar foto". Se aplican al tocar "Guardar".
+  const [fotoNueva, setFotoNueva] = useState<string | null>(null);
+  const [quitarFoto, setQuitarFoto] = useState(false);
+  const [cargandoFoto, setCargandoFoto] = useState(false);
 
   useEffect(() => {
     if (!edicion) return;
+    setFotoNueva(null);
+    setQuitarFoto(false);
     setDatos(
       producto
         ? { nombre: producto.nombre, categoria: producto.categoria, unidad: producto.unidad as DatosCatalogo['unidad'] }
@@ -185,11 +213,29 @@ function FormularioCatalogo({
     );
   }, [edicion, producto, categorias]);
 
+  async function handleElegirFoto(origen: OrigenFoto) {
+    setCargandoFoto(true);
+    try {
+      // 600 px de ancho alcanza para mostrarla (igual que las sugerencias).
+      const foto = await obtenerFotoBase64(origen, 600);
+      if (foto) {
+        setFotoNueva(foto);
+        setQuitarFoto(false);
+      }
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo cargar la foto.');
+    } finally {
+      setCargandoFoto(false);
+    }
+  }
+
   async function handleGuardar() {
     setGuardando(true);
     try {
       if (producto) await editarCatalogo(producto.id, datos);
-      else await agregarAlCatalogo(datos);
+      const destino = producto ?? (await agregarAlCatalogo(datos));
+      if (fotoNueva) await cambiarFotoCatalogo(destino, fotoNueva);
+      else if (quitarFoto && producto) await quitarFotoCatalogo(producto);
       avisar('Listo', producto ? 'Producto corregido.' : 'Producto agregado al catálogo.', 'exito');
       onGuardado();
     } catch (err) {
@@ -203,6 +249,8 @@ function FormularioCatalogo({
     <Modal visible={edicion !== null} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet}>
+          {/* Deslizable: con la foto, el formulario no entra en pantallas bajas. */}
+          <ScrollView contentContainerStyle={styles.sheetContenido} keyboardShouldPersistTaps="handled">
           <Text style={styles.sheetTitulo}>{producto ? 'Corregir producto' : 'Agregar al catálogo'}</Text>
 
           <Text style={styles.etiqueta}>Nombre</Text>
@@ -216,7 +264,7 @@ function FormularioCatalogo({
           />
 
           <Text style={styles.etiqueta}>Categoría</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filaChips} contentContainerStyle={styles.chips}>
             {categorias.map((c) => (
               <Pressable
                 key={c}
@@ -248,6 +296,50 @@ function FormularioCatalogo({
             ))}
           </View>
 
+          <Text style={styles.etiqueta}>Foto</Text>
+          <View style={styles.fotoFila}>
+            <View style={styles.fotoMarco}>
+              {fotoNueva ? (
+                <Image source={{ uri: `data:image/jpeg;base64,${fotoNueva}` }} style={styles.foto} resizeMode="contain" />
+              ) : !quitarFoto && producto && imagenDeCatalogo(producto) ? (
+                <Image source={imagenDeCatalogo(producto)!} style={styles.foto} resizeMode="contain" />
+              ) : (
+                <Ionicons name="image-outline" size={32} color={colors.textSecondary} />
+              )}
+            </View>
+            <View style={styles.fotoAcciones}>
+              {cargandoFoto ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <>
+                  <Pressable onPress={() => handleElegirFoto('galeria')} style={styles.fotoBoton} accessibilityRole="button">
+                    <Ionicons name="images-outline" size={16} color={colors.primary} />
+                    <Text style={styles.fotoBotonTexto}>Elegir de la galería</Text>
+                  </Pressable>
+                  <Pressable onPress={() => handleElegirFoto('camara')} style={styles.fotoBoton} accessibilityRole="button">
+                    <Ionicons name="camera-outline" size={16} color={colors.primary} />
+                    <Text style={styles.fotoBotonTexto}>Sacar foto</Text>
+                  </Pressable>
+                  {/* Solo se puede quitar una foto subida (las guardadas en
+                      la app vienen con la versión). */}
+                  {(fotoNueva || (producto && esFotoSubidaAStocky(producto.imagen_url) && !quitarFoto)) && (
+                    <Pressable
+                      onPress={() => {
+                        setFotoNueva(null);
+                        setQuitarFoto(true);
+                      }}
+                      style={styles.fotoBoton}
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                      <Text style={[styles.fotoBotonTexto, styles.textoPeligro]}>Quitar foto</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+
           {producto && (
             <Text style={styles.nota}>
               Corregir el catálogo cambia lo que se ve al cargar productos nuevos; los que ya están en las despensas
@@ -257,6 +349,7 @@ function FormularioCatalogo({
 
           <Button label={producto ? 'Guardar cambios' : 'Agregar'} onPress={handleGuardar} loading={guardando} />
           <Button label="Cancelar" variant="outline" onPress={onClose} disabled={guardando} />
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -301,8 +394,64 @@ const crearEstilos = () =>
       paddingVertical: spacing.sm,
       backgroundColor: colors.surface,
     },
+    // Sin esto, en la web la fila horizontal de chips se estira a todo el
+    // alto libre (los chips se veían como columnas gigantes).
+    filaChips: {
+      flexGrow: 0,
+      flexShrink: 0,
+    },
     chips: {
       gap: spacing.xs,
+      alignItems: 'center',
+    },
+    miniatura: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.md,
+      backgroundColor: colors.white,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    miniaturaVacia: {
+      backgroundColor: colors.background,
+    },
+    fotoFila: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      alignItems: 'center',
+    },
+    fotoMarco: {
+      width: 96,
+      height: 96,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.white,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    foto: {
+      width: '100%',
+      height: '100%',
+    },
+    fotoAcciones: {
+      flex: 1,
+      gap: spacing.xs,
+    },
+    fotoBoton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingVertical: 4,
+    },
+    fotoBotonTexto: {
+      ...typography.caption,
+      color: colors.primary,
+    },
+    textoPeligro: {
+      color: colors.danger,
     },
     chip: {
       paddingHorizontal: spacing.md,
@@ -366,9 +515,12 @@ const crearEstilos = () =>
       backgroundColor: 'rgba(0,0,0,0.45)',
     },
     sheet: {
+      maxHeight: '92%',
       backgroundColor: colors.surface,
       borderTopLeftRadius: radius.lg,
       borderTopRightRadius: radius.lg,
+    },
+    sheetContenido: {
       padding: spacing.lg,
       gap: spacing.sm,
     },

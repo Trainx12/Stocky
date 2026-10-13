@@ -744,3 +744,26 @@ necesita una cuenta de Google, queda para QA).
 Authentication → URL Configuration → Redirect URLs. Ya están
 `https://hogarstocky.expo.app/**` y `https://hogarstocky--*.expo.app/**`
 (guía para probar la app, sección 2).
+
+## 24. Panel admin → Catálogo: categorías gigantes y sin foto
+
+**Síntoma:** en la web, los botones de categoría de Admin → Catálogo se
+veían como columnas altísimas que ocupaban media pantalla, y al corregir un
+producto no se podía ver ni cambiar su foto.
+
+**Causa raíz:** (1) en react-native-web, un `ScrollView` horizontal dentro de
+una columna crece para ocupar todo el alto libre (`flexGrow` por defecto), y
+los chips se estiraban con él. (2) El formulario simplemente no tenía la
+parte de la foto; además, la app mostraba siempre primero la foto guardada
+dentro de la app (`assets/catalogo`), así que aunque se cambiara
+`imagen_url` en la base no se hubiera visto.
+
+**Solución:** `flexGrow: 0` en las filas de chips. El formulario del catálogo
+muestra la foto actual y permite elegirla de la galería, sacarla con la
+cámara o quitarla (`cambiarFotoCatalogo` / `quitarFotoCatalogo` en
+`services/admin.ts`, carpeta `catalogo/` del bucket, permiso solo para
+admins en la migración `20261018130000_fotos_catalogo_admin.sql`). Ahora una
+foto **subida a Stocky** le gana a la guardada en la app
+(`imagenDeCatalogo`); las direcciones externas viejas siguen perdiendo. Los
+cambios de foto quedan en el registro de acciones. Tests en `admin.test.ts`
+y `catalogoImagenes.test.ts`.

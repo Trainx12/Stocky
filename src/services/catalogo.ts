@@ -20,11 +20,11 @@ export interface DatosSugerencia {
 
 // Bucket público donde se guardan las fotos de las sugerencias (ver migración
 // 20260916120000_fotos_sugerencias.sql): cada usuario sube a su carpeta.
-const BUCKET_SUGERENCIAS = 'catalogo-sugerencias';
+export const BUCKET_SUGERENCIAS = 'catalogo-sugerencias';
 
 // 'AAAA...' (base64) -> bytes, para subir a Storage sin pasar por Blob (que
 // en React Native no se arma bien a partir de datos binarios).
-function base64ABytes(base64: string): Uint8Array {
+export function base64ABytes(base64: string): Uint8Array {
   const binario = atob(base64);
   const bytes = new Uint8Array(binario.length);
   for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);

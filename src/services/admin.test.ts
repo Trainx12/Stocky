@@ -8,12 +8,29 @@ const mockRpc = jest.fn();
 const mockInsert = jest.fn();
 const mockUpdateEq = jest.fn();
 const mockLimit = jest.fn();
+const mockSingle = jest.fn();
+const mockUpload = jest.fn();
+const mockRemove = jest.fn();
 
 jest.mock('../lib/supabase', () => ({
   supabase: {
     rpc: (...a: unknown[]) => mockRpc(...a),
+    storage: {
+      from: () => ({
+        upload: (...a: unknown[]) => mockUpload(...a),
+        remove: (...a: unknown[]) => mockRemove(...a),
+        getPublicUrl: (ruta: string) => ({
+          data: { publicUrl: `https://x.supabase.co/storage/v1/object/public/catalogo-sugerencias/${ruta}` },
+        }),
+      }),
+    },
     from: jest.fn(() => ({
-      insert: (...a: unknown[]) => mockInsert(...a),
+      // insert() se usa solo (comentarios) o encadenado con select().single()
+      // (agregar al catálogo devuelve el producto creado).
+      insert: (...a: unknown[]) => {
+        const resultado = mockInsert(...a);
+        return Object.assign(Promise.resolve(resultado), { select: () => ({ single: () => mockSingle(...a) }) });
+      },
       update: (datos: unknown) => ({ eq: (...a: unknown[]) => mockUpdateEq(datos, ...a) }),
       select: () => ({ order: () => ({ limit: (...a: unknown[]) => mockLimit(...a) }) }),
     })),
@@ -22,7 +39,9 @@ jest.mock('../lib/supabase', () => ({
 
 import {
   agregarAlCatalogo,
+  cambiarFotoCatalogo,
   editarCatalogo,
+  quitarFotoCatalogo,
   esCuentaProtegida,
   iconoDeAccion,
   listarRegistro,
@@ -51,7 +70,10 @@ const METRICAS: MetricasAdmin = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockInsert.mockResolvedValue({ error: null });
+  mockInsert.mockReturnValue({ error: null });
+  mockSingle.mockResolvedValue({ data: { id: 'nuevo', imagen_url: null }, error: null });
+  mockUpload.mockResolvedValue({ error: null });
+  mockRemove.mockResolvedValue({ error: null });
   mockUpdateEq.mockResolvedValue({ error: null });
   mockRpc.mockResolvedValue({ data: null, error: null });
 });
@@ -100,13 +122,14 @@ describe('catálogo administrado', () => {
     expect('error' in validarProductoCatalogo({ nombre: 'x'.repeat(61), categoria: 'Otros', unidad: 'g' })).toBe(true);
   });
 
-  it('un admin agrega productos ya aprobados', async () => {
-    await agregarAlCatalogo({ nombre: 'yerba', categoria: 'Infusiones', unidad: 'kg' });
+  it('un admin agrega productos ya aprobados y recibe el producto creado', async () => {
+    const creado = await agregarAlCatalogo({ nombre: 'yerba', categoria: 'Infusiones', unidad: 'kg' });
     expect(mockInsert).toHaveBeenCalledWith({ nombre: 'Yerba', categoria: 'Infusiones', unidad: 'kg', estado: 'aprobado' });
+    expect(creado.id).toBe('nuevo');
   });
 
   it('un nombre repetido da un mensaje entendible', async () => {
-    mockInsert.mockResolvedValue({ error: { code: '23505', message: 'duplicate key' } });
+    mockSingle.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } });
     await expect(agregarAlCatalogo({ nombre: 'Leche', categoria: 'Lácteos', unidad: 'l' })).rejects.toThrow(
       'Ya hay un producto con ese nombre',
     );
@@ -125,6 +148,45 @@ describe('catálogo administrado', () => {
   it('sacar del catálogo usa la función que conserva las despensas', async () => {
     await sacarDelCatalogo('c1');
     expect(mockRpc).toHaveBeenCalledWith('admin_sacar_del_catalogo', { p_catalogo_id: 'c1' });
+  });
+});
+
+describe('fotos del catálogo', () => {
+  const VIEJA = 'https://x.supabase.co/storage/v1/object/public/catalogo-sugerencias/u1/123.jpg';
+
+  it('cambiar: sube a catalogo/, la vincula y borra la foto vieja (si era nuestra)', async () => {
+    const url = await cambiarFotoCatalogo({ id: 'c1', imagen_url: VIEJA }, 'QUJD');
+    const ruta = mockUpload.mock.calls[0][0] as string;
+    expect(ruta).toMatch(/^catalogo\/c1-\d+\.jpg$/);
+    expect(mockUpload.mock.calls[0][2]).toEqual({ contentType: 'image/jpeg' });
+    expect(url).toContain(ruta);
+    expect(mockUpdateEq).toHaveBeenCalledWith({ imagen_url: url }, 'id', 'c1');
+    expect(mockRemove).toHaveBeenCalledWith(['u1/123.jpg']);
+  });
+
+  it('cambiar: si no se puede vincular, borra la foto recién subida y no toca la vieja', async () => {
+    mockUpdateEq.mockResolvedValue({ error: new Error('sin permiso') });
+    await expect(cambiarFotoCatalogo({ id: 'c1', imagen_url: VIEJA }, 'QUJD')).rejects.toThrow('sin permiso');
+    const ruta = mockUpload.mock.calls[0][0] as string;
+    expect(mockRemove).toHaveBeenCalledTimes(1);
+    expect(mockRemove).toHaveBeenCalledWith([ruta]);
+  });
+
+  it('cambiar: si falla la subida, avisa y no cambia nada', async () => {
+    mockUpload.mockResolvedValue({ error: { message: 'muy grande' } });
+    await expect(cambiarFotoCatalogo({ id: 'c1', imagen_url: null }, 'QUJD')).rejects.toThrow('muy grande');
+    expect(mockUpdateEq).not.toHaveBeenCalled();
+  });
+
+  it('quitar: deja el producto sin foto subida y borra el archivo', async () => {
+    await quitarFotoCatalogo({ id: 'c1', imagen_url: VIEJA });
+    expect(mockUpdateEq).toHaveBeenCalledWith({ imagen_url: null }, 'id', 'c1');
+    expect(mockRemove).toHaveBeenCalledWith(['u1/123.jpg']);
+  });
+
+  it('no intenta borrar fotos que no son de Stocky', async () => {
+    await quitarFotoCatalogo({ id: 'c1', imagen_url: 'https://otro.sitio/foto.jpg' });
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 });
 

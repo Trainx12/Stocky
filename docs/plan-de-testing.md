@@ -658,6 +658,10 @@ Rama `feature/panel-admin` (apilada sobre `feature/logo`). Migración
    intentar agregar uno con un nombre repetido (aviso "Ya hay un
    producto..."), y "Sacar" uno que esté en alguna despensa: desaparece del
    catálogo pero la despensa lo conserva y su "Actividad reciente" no cambia.
+   **Foto:** al corregir un producto se ve su foto; "Elegir de la galería" o
+   "Sacar foto" → "Guardar cambios" → la foto nueva aparece en la lista y al
+   cargar ese producto en cualquier hogar. "Quitar foto" vuelve a la foto
+   original de la app (o al ícono). Los botones de categoría no se estiran.
 6. **Registro de acciones:** aparece cada cosa de los pasos 3-5 con el mail
    del admin y la hora. Desde la app no se puede borrar.
 7. **Comentarios:** con otra cuenta, Cuenta → "Contanos qué mejorar" →
