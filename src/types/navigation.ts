@@ -56,6 +56,15 @@ export type AppStackParamList = {
   Cuenta: undefined;
   // Ayuda: cómo hacer lo básico (botón "?" del Home, ver src/ayuda/contenido.ts).
   Ayuda: undefined;
+  // Panel de administración (escudo de la barra de abajo, solo admins):
+  // métricas y accesos a la gestión (services/admin.ts).
+  Admin: undefined;
+  // Admin: catálogo global (agregar, corregir, sacar productos).
+  AdminCatalogo: undefined;
+  // Admin: comentarios que mandan los usuarios desde Cuenta.
+  AdminComentarios: undefined;
+  // Admin: registro de acciones de los administradores.
+  AdminRegistro: undefined;
 };
 
 // Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer

@@ -6,6 +6,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { useAuth } from '../context/AuthContext';
 import { cambiarHabilitado, cambiarRol, filtrarUsuarios, listarUsuarios } from '../services/usuarios';
 import type { FiltroUsuarios, UsuarioAdmin } from '../services/usuarios';
+import { esCuentaProtegida } from '../services/admin';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -97,7 +98,7 @@ export function AdminUsuariosScreen({ navigation }: Props) {
     const confirmado = await confirmar(
       nuevoRol === 'administrador' ? 'Hacer administrador' : 'Quitar administrador',
       nuevoRol === 'administrador'
-        ? `${objetivo.nombre ?? objetivo.email} va a poder ver y modificar los datos de todos los usuarios y hogares.`
+        ? `${objetivo.nombre ?? objetivo.email} va a poder administrar usuarios, el catálogo, las sugerencias y ver las métricas y los comentarios.`
         : `${objetivo.nombre ?? objetivo.email} va a pasar a ser un usuario común.`,
       'Confirmar',
     );
@@ -144,6 +145,8 @@ export function AdminUsuariosScreen({ navigation }: Props) {
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
           {visibles.map((u) => {
             const soyYo = u.id === usuario?.id;
+            // La cuenta principal no se toca (lo frena la base igual).
+            const protegida = esCuentaProtegida(u.email);
             const cambiando = cambiandoIds.has(u.id);
             return (
               <View key={u.id} style={[styles.fila, !u.habilitado && styles.filaDeshabilitada]}>
@@ -158,7 +161,7 @@ export function AdminUsuariosScreen({ navigation }: Props) {
                   <View style={styles.etiquetasRow}>
                     {u.rol === 'administrador' && (
                       <View style={[styles.etiqueta, styles.etiquetaAdmin]}>
-                        <Text style={styles.etiquetaAdminTexto}>Admin</Text>
+                        <Text style={styles.etiquetaAdminTexto}>{protegida ? 'Cuenta principal' : 'Admin'}</Text>
                       </View>
                     )}
                     {!u.habilitado && (
@@ -172,8 +175,9 @@ export function AdminUsuariosScreen({ navigation }: Props) {
                   </View>
                 </View>
 
-                {/* Sin acciones sobre la propia cuenta (ver comentario de la pantalla). */}
-                {!soyYo && (
+                {/* Sin acciones sobre la propia cuenta (ver comentario de la
+                    pantalla) ni sobre la cuenta principal del proyecto. */}
+                {!soyYo && !protegida && (
                   <View style={styles.filaAcciones}>
                     <Pressable
                       onPress={() => handleRol(u)}

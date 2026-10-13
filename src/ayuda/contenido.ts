@@ -132,7 +132,8 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       'Tocá el lápiz al lado de tu nombre para cambiar cómo te ven en tus hogares.',
       'En "Apariencia" elegí "Sistema" (igual que tu celular), "Claro" u "Oscuro".',
       'En "Tus cuentas", tocá "Agregar otra cuenta" para entrar con otra cuenta de Google, y tocá cualquiera para cambiar entre ellas sin volver a iniciar sesión.',
-      'Abajo de todo está "Cerrar sesión".',
+      'Abajo de todo está "Cerrar sesión". Más abajo, "Borrar mi cuenta" la borra para siempre (te lo preguntamos dos veces).',
+      '¿Una idea o algo que falló? Tocá "Contanos qué mejorar": lo lee el equipo de Stocky.',
     ],
   },
 ];

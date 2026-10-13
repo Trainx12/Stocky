@@ -517,6 +517,60 @@ de todos (`hogaresDeLasAlertas`). Solo cambia lo que muestra el inicio: las
 notificaciones de la campanita y el push siguen llegando de todos los
 hogares, para no perder un aviso.
 
+### Panel de administración (RF10 + RF9 completo) — `admin.ts`, `comentarios.ts`
+
+Migración `20261018120000_panel_admin_comentarios_y_borrar_cuenta.sql`.
+
+- **Pestaña "Admin"** (escudo en `BottomNavBar`, que lee el rol del
+  `AuthContext` y solo la muestra a administradores) → `AdminScreen`:
+  métricas arriba (`admin_metricas`, solo números agregados: usuarios,
+  activos y nuevos en 30 días, hogares y hogares activos, productos en
+  despensas y cargados en 30 días, catálogo, sugerencias pendientes, admins,
+  cuentas deshabilitadas, comentarios) y abajo el menú de gestión: Usuarios
+  (`AdminUsuariosScreen`), Sugerencias (`AdminSugerenciasScreen`), Catálogo
+  (`AdminCatalogoScreen`), Comentarios (`AdminComentariosScreen`) y Registro
+  (`AdminRegistroScreen`). Los accesos de admin que había en el inicio se
+  sacaron (ahora viven acá).
+- **Catálogo:** un admin agrega productos ya aprobados (policy
+  `productos_catalogo_insert_admin`), corrige nombre/categoría/unidad y saca
+  productos con `admin_sacar_del_catalogo`, que antes desvincula las
+  despensas que lo usaban (no se les borra nada) sin anotarlo en su
+  "Actividad reciente" (marca `stocky.sin_actividad` que respeta
+  `registrar_actividad_producto`).
+- **Registro de acciones** (`admin_registro`): lo escriben solo triggers
+  (`registrar_cambio_catalogo`, `registrar_cambio_usuario`) cuando un admin
+  aprueba/rechaza sugerencias, toca el catálogo, cambia un rol o
+  habilita/deshabilita a alguien. Nadie puede insertar, editar ni borrar a
+  mano; el mail del admin se guarda copiado por si la cuenta se borra.
+- **Protecciones de roles** (trigger `proteger_roles`): la **cuenta
+  principal** (`es_cuenta_protegida`, hoy `ruttyfacundo@gmail.com`) no puede
+  perder el rol de admin ni ser deshabilitada por nadie, ni borrarse desde la
+  app; y nunca se puede quedar la app sin admins (no se le quita el rol ni se
+  deshabilita al último admin habilitado, ni puede borrar su cuenta). Para
+  cambiar la cuenta principal hay que editar `es_cuenta_protegida` con una
+  migración; `CUENTAS_PROTEGIDAS` en `admin.ts` es solo para esconder
+  botones.
+- **Comentarios** ("Contanos qué mejorar" en Cuenta, `ComentarioModal`):
+  tabla `comentarios`, cada uno inserta a su nombre, solo admins leen
+  (`admin_listar_comentarios`).
+- **Borrar mi cuenta** (`auth.eliminarMiCuenta`, Cuenta → abajo de todo, dos
+  confirmaciones): `eliminar_mi_cuenta` sale de cada hogar como
+  `salir_de_hogar`, borra los hogares que quedan vacíos (primero sus
+  productos, por el trigger de actividad) y el usuario de Auth. Términos
+  versión `2026-10-13`.
+
+**Qué puede un admin en la base vs. en la app.** Algunas policies de las
+primeras migraciones (productos, hogares, miembros) incluyen
+`or es_administrador()`: en la base, un admin *podría* leer o modificar
+datos de hogares ajenos. La app **nunca lo usa**: todas las consultas de
+hogares y productos filtran explícitamente por los hogares de los que uno es
+miembro (`listarMisHogares`, `listarProductos(hogarId)`, ver
+[incidentes-sprint2.md](incidentes-sprint2.md) #2), y las acciones de
+miembros pasan por funciones que exigen ser dueño (`expulsar_miembro`,
+`ceder_dueno`...). Por eso un admin, desde la app, solo ve sus propios
+hogares. Queda pendiente decidir si se recortan esas policies (más seguro)
+o se declaran en los Términos.
+
 ### `usuarios.ts` — ABM de usuarios para administradores (RF9 parcial)
 
 `listarUsuarios`, `cambiarHabilitado` y `cambiarRol` van todas por RPC

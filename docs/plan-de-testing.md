@@ -637,6 +637,54 @@ la campanita y el "?" siguen funcionando, Cuenta y Ayuda.
 
 ---
 
+## Panel de administración, comentarios y borrar cuenta (Sprint 10)
+
+Rama `feature/panel-admin` (apilada sobre `feature/logo`). Migración
+`20261018120000_panel_admin_comentarios_y_borrar_cuenta.sql` (aplicada).
+
+**Ruta crítica (con una cuenta admin):**
+1. En la barra de abajo aparece el **escudo** (entre la campanita y la
+   persona). Con una cuenta común **no** aparece.
+2. Escudo → "Administración": métricas (usuarios, hogares, productos,
+   catálogo, admins, comentarios) con números que tienen sentido; "↻" las
+   actualiza.
+3. **Usuarios:** la cuenta principal (ruttyfacundo@gmail.com) dice "Cuenta
+   principal" y no tiene botones. Deshabilitar y volver a habilitar a otro
+   usuario, darle y quitarle el rol de admin.
+4. **Sugerencias:** aprobar una y rechazar otra. El número de pendientes del
+   panel baja.
+5. **Catálogo:** buscar, filtrar por categoría, "Agregar" un producto
+   (aparece al cargar productos en cualquier hogar), corregir su categoría,
+   intentar agregar uno con un nombre repetido (aviso "Ya hay un
+   producto..."), y "Sacar" uno que esté en alguna despensa: desaparece del
+   catálogo pero la despensa lo conserva y su "Actividad reciente" no cambia.
+6. **Registro de acciones:** aparece cada cosa de los pasos 3-5 con el mail
+   del admin y la hora. Desde la app no se puede borrar.
+7. **Comentarios:** con otra cuenta, Cuenta → "Contanos qué mejorar" →
+   enviar; con la admin aparece en "Comentarios de usuarios" con nombre y
+   fecha.
+8. **Borrar mi cuenta** (con una cuenta de prueba no admin): dos
+   confirmaciones → bienvenida (o la otra cuenta guardada). En un hogar
+   compartido, el otro miembro queda como dueño; un hogar donde estaba sola
+   desaparece. La cuenta principal no muestra "Borrar mi cuenta".
+9. **Términos versión 2026-10-13:** cualquier cuenta existente, al entrar,
+   tiene que aceptarlos una vez.
+
+**Hecho por Claude:** migración aplicada; en la base, con transacciones que
+se deshacen: otro admin intentando quitarle el rol o deshabilitar la cuenta
+principal → rechazado; registro de acciones (deshabilitar/habilitar,
+agregar/corregir/sacar del catálogo) con el mail del admin; métricas con
+números reales; trigger de actividad funcionando con su permiso de ejecución
+revocado. `get_advisors` sin problemas nuevos (solo los SECURITY DEFINER ya
+aceptados). `tsc` limpio, `npm test` (nuevo `admin.test.ts`, borrar cuenta en
+`auth.test.ts`); la web compila. **No hecho:** las pantallas con login.
+
+**Regresión:** login, campanita y Cuenta (cambió la barra de abajo),
+sugerir un producto (trigger nuevo en el catálogo), cargar productos
+(se redefinió `registrar_actividad_producto`).
+
+---
+
 ## Logo de Stocky (Sprint 10)
 
 Rama `feature/logo` (apilada sobre `feature/tutorial`).
