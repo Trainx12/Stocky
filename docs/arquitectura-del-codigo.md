@@ -399,6 +399,18 @@ azúcar, leche...), después el resto por categoría de más a menos "de cocina"
 empieza con lo escrito. Para cambiar el orden alcanza con editar esas dos
 listas. El panel de admin sigue mostrando el catálogo alfabético.
 
+**Categorías del catálogo** (reorganización del 2026-10-13, migraciones
+`20261018140000_categorias_catalogo_y_pastas.sql` y
+`20261018150000_categoria_conservas.sql`): "Otros" tenía 84 de 257 productos
+y se repartió en **Almacén, Pastas, Condimentos y especias, Aderezos,
+Conservas y Repostería** (además de Lácteos, Verduras y frutas, Panadería,
+Infusiones, Snacks y Bebidas). Se sumaron tipos de pasta (mostachol, codito,
+tirabuzón, moñito, municiones, cabello de ángel, fideos de arroz, canelones,
+sorrentinos) y conservas (atún, caballa, sardinas, tomate perita). Sus fotos
+vienen de Wikimedia Commons, con autor y licencia en
+`assets/catalogo/creditos.json`. Las despensas conservan la categoría con la
+que se cargó cada producto.
+
 Cargar un producto en un hogar ya no es texto libre: se elige de un
 catálogo GLOBAL (no es por hogar, lo comparten todos) en
 `productos_catalogo`, con nombre/categoría/unidad ya cargados y espacio

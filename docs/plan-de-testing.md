@@ -664,8 +664,15 @@ Rama `feature/panel-admin` (apilada sobre `feature/logo`). Migración
    original de la app (o al ícono). Los botones de categoría no se estiran.
 10. **Orden al cargar:** "Agregar producto" → sin buscar, arriba aparecen
     Fideos, Spaghetti, Arroz, Harina, Azúcar, Sal, Aceite, Huevos, Leche...
-    y las bebidas al final; los chips de categoría empiezan por "Otros" y
+    y las bebidas al final; los chips de categoría empiezan por "Almacén" y
     terminan en "Bebidas". Buscar "le" → Leche antes que Dulce de Leche.
+11. **Categorías nuevas:** los chips muestran Almacén, Pastas, Lácteos,
+    Verduras y frutas, Condimentos y especias, Aderezos, Conservas,
+    Panadería, Repostería, Infusiones, Snacks y Bebidas (sin "Otros"). En
+    Pastas aparecen mostachol, codito, tirabuzón, moñito, municiones,
+    cabello de ángel, fideos de arroz, canelones y sorrentinos, todos con
+    foto; en Conservas, atún, caballa, sardinas y tomate perita. Términos →
+    Créditos lista las fotos nuevas (Wikimedia Commons).
 6. **Registro de acciones:** aparece cada cosa de los pasos 3-5 con el mail
    del admin y la hora. Desde la app no se puede borrar.
 7. **Comentarios:** con otra cuenta, Cuenta → "Contanos qué mejorar" →

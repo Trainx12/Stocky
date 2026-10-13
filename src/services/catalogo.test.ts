@@ -364,9 +364,11 @@ describe('ordenarParaCargar', () => {
     producto({ id: 'b2', nombre: 'Cerveza', categoria: 'Bebidas' }),
     producto({ id: 'l1', nombre: 'Dulce de Leche', categoria: 'Lácteos' }),
     producto({ id: 'l2', nombre: 'Leche', categoria: 'Lácteos' }),
-    producto({ id: 'o1', nombre: 'Arroz', categoria: 'Otros' }),
-    producto({ id: 'o2', nombre: 'Fideos', categoria: 'Otros' }),
-    producto({ id: 'o3', nombre: 'Canela', categoria: 'Otros' }),
+    producto({ id: 'o1', nombre: 'Arroz', categoria: 'Almacén' }),
+    producto({ id: 'o2', nombre: 'Fideos', categoria: 'Pastas' }),
+    producto({ id: 'o3', nombre: 'Canela', categoria: 'Condimentos y especias' }),
+    producto({ id: 'o4', nombre: 'Moñito', categoria: 'Pastas' }),
+    producto({ id: 'o5', nombre: 'Avena', categoria: 'Almacén' }),
     producto({ id: 's1', nombre: 'Alfajor', categoria: 'Snacks' }),
     producto({ id: 'n1', nombre: 'Lavandina', categoria: 'Limpieza' }),
   ];
@@ -376,8 +378,10 @@ describe('ordenarParaCargar', () => {
       'Fideos',
       'Arroz',
       'Leche',
-      'Canela', // resto de "Otros" (almacén)
+      'Avena', // resto de Almacén
+      'Moñito', // Pastas
       'Dulce de Leche', // Lácteos
+      'Canela', // Condimentos y especias
       'Lavandina', // categoría desconocida: antes de Snacks
       'Alfajor',
       'Agua Mineral',
@@ -403,8 +407,9 @@ describe('categoriasParaCargar', () => {
       producto({ categoria: 'Bebidas' }),
       producto({ categoria: 'Snacks' }),
       producto({ categoria: 'Lácteos' }),
-      producto({ categoria: 'Otros' }),
+      producto({ categoria: 'Pastas' }),
+      producto({ categoria: 'Almacén' }),
     ];
-    expect(categoriasParaCargar(catalogo)).toEqual(['Otros', 'Lácteos', 'Snacks', 'Bebidas']);
+    expect(categoriasParaCargar(catalogo)).toEqual(['Almacén', 'Pastas', 'Lácteos', 'Snacks', 'Bebidas']);
   });
 });

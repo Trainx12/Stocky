@@ -194,8 +194,24 @@ export const BASICOS_DE_COCINA = [
   'Muzzarella', 'Pan Lactal', 'Café', 'Yogur', 'Manzana', 'Banana', 'Lechuga',
 ];
 
-// Categorías que no estén en la lista van entre "Infusiones" y "Snacks".
-export const PRIORIDAD_CATEGORIAS = ['Otros', 'Lácteos', 'Verduras y frutas', 'Panadería', 'Infusiones', 'Snacks', 'Bebidas'];
+// Categorías que no estén en la lista van entre "Otros" y "Snacks".
+// (Reorganización del 2026-10-13: "Otros" se repartió en Almacén, Pastas,
+// Condimentos y especias, Aderezos, Conservas y Repostería.)
+export const PRIORIDAD_CATEGORIAS = [
+  'Almacén',
+  'Pastas',
+  'Lácteos',
+  'Verduras y frutas',
+  'Condimentos y especias',
+  'Aderezos',
+  'Conservas',
+  'Panadería',
+  'Repostería',
+  'Infusiones',
+  'Otros',
+  'Snacks',
+  'Bebidas',
+];
 
 function sinTildes(texto: string): string {
   return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
