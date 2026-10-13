@@ -164,13 +164,44 @@ describe('consultarGemini: orden y respaldo', () => {
     expect(llamados.map((l) => l.modelo)).toEqual([RAPIDO]);
   });
 
-  it('si todos están saturados, devuelve el último error', async () => {
+  // incidentes-sprint10.md #25: Google saturado en todos los modelos a la vez.
+  it('si todos están saturados, prueba una segunda vuelta y recién ahí devuelve el último error', async () => {
     simular({ [RAPIDO]: { ms: 100, status: 503 }, [LITE]: { ms: 100, status: 429 }, [ULTIMO]: { ms: 100, status: 503 } });
 
     const r = await consultar();
 
     expect(r.error).toMatch(/503/);
-    expect(llamados.map((l) => l.modelo)).toEqual([RAPIDO, LITE, ULTIMO]);
+    expect(llamados.map((l) => l.modelo)).toEqual([RAPIDO, LITE, ULTIMO, RAPIDO, LITE, ULTIMO]);
+  });
+
+  it('si en la segunda vuelta un modelo ya responde, usa esa respuesta', async () => {
+    // Los 3 primeros pedidos (primera vuelta) responden 503; después, Google
+    // se recupera.
+    let pedidos = 0;
+    globalThis.fetch = jest.fn((url: string) => {
+      const modelo = String(url).match(/models\/(.*):generateContent/)![1];
+      llamados.push({ modelo, pensamiento: true });
+      pedidos++;
+      const respuesta =
+        pedidos <= 3
+          ? new Response('saturado', { status: 503 })
+          : new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ modelo }) }] } }] }));
+      return new Promise((resolver) => setTimeout(() => resolver(respuesta), 100));
+    }) as unknown as typeof fetch;
+
+    const r = await consultar();
+
+    expect(r.modelo).toBe(RAPIDO);
+    expect(llamados.map((l) => l.modelo)).toEqual([RAPIDO, LITE, ULTIMO, RAPIDO]);
+  });
+
+  it('un error real (key inválida) no hace segunda vuelta', async () => {
+    simular({ [RAPIDO]: { ms: 100, status: 401 }, [LITE]: { ms: 100 }, [ULTIMO]: { ms: 100 } });
+
+    const r = await consultar();
+
+    expect(r.error).toMatch(/401/);
+    expect(llamados.map((l) => l.modelo)).toEqual([RAPIDO]);
   });
 
   it('si un modelo no acepta el nivel de pensamiento (400), lo reintenta sin él', async () => {

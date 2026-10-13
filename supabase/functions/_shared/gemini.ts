@@ -15,7 +15,15 @@ const MODELOS_POR_DEFECTO = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemin
 const ESTADOS_REINTENTABLES = [404, 429, 500, 503];
 // Tiempo máximo por intento: un modelo lento o saturado no puede colgar la
 // pantalla (en pruebas llegó a tardar ~80 s en un modelo de respaldo).
-const TIMEOUT_POR_INTENTO_MS = 15_000;
+//
+// 25 s (antes 15): en momentos de mucha demanda el modelo de respaldo llegó a
+// tardar ~12 s en responder bien, y con 15 s se cortaba justo antes
+// (incidentes-sprint10.md #25).
+const TIMEOUT_POR_INTENTO_MS = 25_000;
+// Si en la primera vuelta TODOS los modelos estaban saturados (503, sin
+// cuota o lentos), se espera esto y se prueba una vuelta más antes de
+// rendirse: la saturación de Google suele durar segundos.
+const ESPERA_SEGUNDA_VUELTA_MS = 3_000;
 // Si un modelo no contestó en este tiempo, se le pregunta en paralelo al
 // siguiente y gana el primero que responda: la demora de Gemini varía mucho
 // entre pedidos (el mismo modelo tardó 1 s y 15 s+ con minutos de diferencia),
@@ -92,7 +100,7 @@ async function intentarModelo<T>(
 
 // Saturado, sin cuota, retirado o lento: se pasa al siguiente modelo.
 // Cualquier otro error es real (audio inválido, key mala) y corta todo.
-function esReintentable(error: unknown): boolean {
+export function esReintentable(error: unknown): boolean {
   const esTimeout = error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError');
   return esTimeout || (error instanceof ErrorGemini && ESTADOS_REINTENTABLES.includes(error.estado));
 }
@@ -108,7 +116,25 @@ function variableDeEntorno(nombre: string): string | undefined {
 // sin contestar (sin cortar al anterior, que puede seguir y ganar). Al
 // terminar se cancelan los pedidos que quedaron en vuelo. `etiqueta` solo
 // sirve para identificar la función en los logs.
-export function consultarGemini<T>(
+export async function consultarGemini<T>(
+  partes: ParteGemini[],
+  esquema: Record<string, unknown>,
+  apiKey: string,
+  etiqueta: string
+): Promise<T> {
+  try {
+    return await unaVuelta<T>(partes, esquema, apiKey, etiqueta);
+  } catch (error) {
+    // Un error real (key inválida, audio roto) no se arregla esperando.
+    if (!esReintentable(error)) throw error;
+    console.log(`[${etiqueta}] todos los modelos saturados: segunda vuelta en ${ESPERA_SEGUNDA_VUELTA_MS} ms`);
+    await new Promise((r) => setTimeout(r, ESPERA_SEGUNDA_VUELTA_MS));
+    return await unaVuelta<T>(partes, esquema, apiKey, etiqueta);
+  }
+}
+
+// Una vuelta por todos los modelos (ver consultarGemini).
+function unaVuelta<T>(
   partes: ParteGemini[],
   esquema: Record<string, unknown>,
   apiKey: string,

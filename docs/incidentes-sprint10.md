@@ -767,3 +767,28 @@ foto **subida a Stocky** le gana a la guardada en la app
 (`imagenDeCatalogo`); las direcciones externas viejas siguen perdiendo. Los
 cambios de foto quedan en el registro de acciones. Tests en `admin.test.ts`
 y `catalogoImagenes.test.ts`.
+
+## 25. "No funciona la carga por voz" (Google saturado)
+
+**Síntoma:** la carga por voz fallaba siempre con "No pudimos entender el
+audio en este momento" (13/10/2026 al mediodía).
+
+**Causa raíz:** no era la app. En los logs de `voz-a-texto` los tres modelos
+de Gemini fallaban a la vez: `gemini-3.5-flash` y `gemini-3.8-flash`
+respondían **503 "This model is currently experiencing high demand"** y
+`gemini-3.5-flash-lite` tardaba más de los 15 s de límite por intento. El día
+anterior los mismos modelos respondían (uno en 11,9 s). Es saturación del lado
+de Google, que va y viene.
+
+**Solución (para aguantar mejor esos picos):** en `_shared/gemini.ts`, (1) si
+TODOS los modelos fallan por saturación, se espera 3 s y se hace una
+**segunda vuelta** antes de rendirse; (2) el límite por intento subió de 15 a
+**25 s**; (3) `voz-a-texto` y `vencimiento-foto` ahora dicen claramente
+"El servicio de Google está saturado, probá en unos minutos o cargalo a
+mano" (503) en vez de "no pudimos entender el audio". Desplegadas
+`voz-a-texto` v7 y `vencimiento-foto` v9. Tests en `geminiRespaldo.test.ts`.
+En el peor caso ahora se espera ~1 minuto antes del aviso.
+
+**Si vuelve a pasar seguido:** probar otros modelos sin tocar código con el
+secret `GEMINI_MODEL` (lista separada por comas) en Supabase → Edge
+Functions → Secrets, o pasar a un plan pago de Gemini (más prioridad).
