@@ -9,6 +9,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { BottomNavBar } from '../components/BottomNavBar';
+import type { TabKey } from '../components/BottomNavBar';
 import { CatalogoSelectorModal } from '../components/CatalogoSelectorModal';
 import { HogarFormModal } from '../components/HogarFormModal';
 import { HogarMiembrosModal } from '../components/HogarMiembrosModal';
@@ -646,7 +647,7 @@ export function HomeScreen() {
   // Toques cortos sobre tabs que todavía no tienen pantalla propia
   // (Búsqueda, Notificaciones y Perfil). "Home" no hace nada porque ya
   // estamos ahí.
-  function handleTabPress(tab: 'home' | 'search' | 'notifications' | 'profile') {
+  function handleTabPress(tab: TabKey) {
     // La lupa lleva al buscador de la despensa del hogar seleccionado.
     if (tab === 'search') {
       handleIrAProductos({ enfocarBusqueda: true });
@@ -660,6 +661,10 @@ export function HomeScreen() {
     // La persona abre Cuenta (perfil, cuentas, modo oscuro, ajustes, cerrar sesión).
     if (tab === 'profile') {
       navigation.navigate('Cuenta');
+    }
+    // El escudo (solo admins) abre el panel de administración.
+    if (tab === 'admin') {
+      navigation.navigate('Admin');
     }
   }
 
@@ -1036,26 +1041,9 @@ export function HomeScreen() {
                 {/* Cualquier usuario puede sugerir un producto que falta en el
                     catálogo; queda pendiente hasta que un admin lo apruebe. */}
                 <QuickAccessButton icon="bulb-outline" label="Sugerir producto" onPress={() => setSugerirVisible(true)} />
-                {/* Primer acceso gateado por rol de la app (ver comentario
-                    en AdminSugerenciasScreen): un usuario común ni ve el
-                    botón, y aunque fuerce la navegación la RLS tampoco le
-                    muestra ninguna sugerencia pendiente ajena. */}
-                {usuario.rol === 'administrador' && (
-                  <QuickAccessButton
-                    icon="pricetags-outline"
-                    label="Sugerencias de productos"
-                    onPress={() => navigation.navigate('AdminSugerencias')}
-                  />
-                )}
-                {/* ABM de usuarios: mismo gateo que el de arriba (la barrera
-                    real son las RPCs admin_*, ver services/usuarios.ts). */}
-                {usuario.rol === 'administrador' && (
-                  <QuickAccessButton
-                    icon="people-circle-outline"
-                    label="Usuarios"
-                    onPress={() => navigation.navigate('AdminUsuarios')}
-                  />
-                )}
+                {/* Sugerencias, usuarios, catálogo, comentarios y registro de
+                    los admins están en el panel de administración (escudo de
+                    la barra de abajo, solo para admins). */}
               </View>
             </SectionCard>
           </>

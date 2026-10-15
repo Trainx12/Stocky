@@ -1,8 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
-import { categoriasDelCatalogo, filtrarCatalogo, listarCatalogoAprobado, sugerirProducto } from '../services/catalogo';
+import { FotoAmpliadaModal } from './FotoAmpliadaModal';
+import {
+  categoriasParaCargar,
+  filtrarCatalogo,
+  listarCatalogoAprobado,
+  ordenarParaCargar,
+  sugerirProducto,
+} from '../services/catalogo';
 import type { ProductoCatalogo } from '../types/database';
 import type { UnidadProducto } from '../types/database';
 import { avisar } from '../lib/alert';
@@ -59,6 +66,8 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
   // sacando/eligiendo en este momento.
   const [fotoSugerida, setFotoSugerida] = useState<string | null>(null);
   const [cargandoFoto, setCargandoFoto] = useState(false);
+  // Producto cuya foto se está mirando en grande (null = ninguna).
+  const [fotoAmpliada, setFotoAmpliada] = useState<ProductoCatalogo | null>(null);
 
   // Se recarga cada vez que se abre, para reflejar sugerencias aprobadas
   // desde la última vez (por ejemplo, si un admin aprobó una mientras el
@@ -86,9 +95,11 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
     })();
   }, [visible, soloSugerir]);
 
-  const categorias = useMemo(() => categoriasDelCatalogo(catalogo), [catalogo]);
+  // Lo más usado para cocinar primero (fideos, arroz, leche...) y las
+  // bebidas al final: ver ordenarParaCargar en services/catalogo.ts.
+  const categorias = useMemo(() => categoriasParaCargar(catalogo), [catalogo]);
   const catalogoFiltrado = useMemo(
-    () => filtrarCatalogo(catalogo, busqueda, categoriaSeleccionada),
+    () => ordenarParaCargar(filtrarCatalogo(catalogo, busqueda, categoriaSeleccionada), busqueda),
     [catalogo, busqueda, categoriaSeleccionada],
   );
 
@@ -297,9 +308,23 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
               <Button label="Sugerir este producto" variant="outline" onPress={handleAbrirSugerir} style={styles.sugerirButton} />
             </View>
           ) : (
-            <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
-              <View style={styles.grilla}>
-                {catalogoFiltrado.map((item) => (
+            // FlatList (no ScrollView + map): dibuja y pide la foto solo de lo
+            // que está a la vista. Con un ScrollView se pedían las ~270 fotos
+            // del catálogo de una vez cada vez que alguien abría "Agregar
+            // producto", y en la web eso pasaba el límite de pedidos del
+            // hosting gratuito ("Too Many Requests", incidentes-sprint10.md #26).
+            <FlatList
+              style={styles.lista}
+              data={catalogoFiltrado}
+              keyExtractor={(item) => item.id}
+              numColumns={3}
+              columnWrapperStyle={styles.grilla}
+              initialNumToRender={15}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
                   <Pressable
                     key={item.id}
                     style={styles.item}
@@ -307,22 +332,29 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
                     accessibilityRole="button"
                     accessibilityLabel={`Elegir ${item.nombre}`}
                   >
-                    <View style={styles.itemFoto}>
-                      {imagenDeCatalogo(item) ? (
+                    {/* Tocar la foto la muestra en grande (no elige el
+                        producto); tocar el nombre lo elige. */}
+                    {imagenDeCatalogo(item) ? (
+                      <Pressable
+                        style={styles.itemFoto}
+                        onPress={() => setFotoAmpliada(item)}
+                        accessibilityRole="imagebutton"
+                        accessibilityLabel={`Ver la foto de ${item.nombre} en grande`}
+                      >
                         <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="contain" />
-                      ) : (
+                      </Pressable>
+                    ) : (
+                      <View style={styles.itemFoto}>
                         <Ionicons name="basket-outline" size={28} color={colors.primary} />
-                      )}
-                    </View>
+                      </View>
+                    )}
                     <Text style={styles.itemNombre} numberOfLines={2}>
                       {item.nombre}
                     </Text>
                     <Text style={styles.itemUnidad}>{item.unidad}</Text>
                   </Pressable>
-                ))}
-              </View>
-
-            </ScrollView>
+              )}
+            />
           )}
 
           {/* Siempre a la vista (no solo cuando la búsqueda no encuentra
@@ -344,6 +376,12 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
           )}
         </Pressable>
       </Pressable>
+
+      <FotoAmpliadaModal
+        imagen={fotoAmpliada ? imagenDeCatalogo(fotoAmpliada) : null}
+        titulo={fotoAmpliada?.nombre}
+        onClose={() => setFotoAmpliada(null)}
+      />
     </Modal>
   );
 }
@@ -420,9 +458,8 @@ const crearEstilos = () =>
   lista: {
     flex: 1,
   },
+  // Cada fila de 3 de la FlatList.
   grilla: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   item: {

@@ -744,3 +744,91 @@ necesita una cuenta de Google, queda para QA).
 Authentication → URL Configuration → Redirect URLs. Ya están
 `https://hogarstocky.expo.app/**` y `https://hogarstocky--*.expo.app/**`
 (guía para probar la app, sección 2).
+
+## 24. Panel admin → Catálogo: categorías gigantes y sin foto
+
+**Síntoma:** en la web, los botones de categoría de Admin → Catálogo se
+veían como columnas altísimas que ocupaban media pantalla, y al corregir un
+producto no se podía ver ni cambiar su foto.
+
+**Causa raíz:** (1) en react-native-web, un `ScrollView` horizontal dentro de
+una columna crece para ocupar todo el alto libre (`flexGrow` por defecto), y
+los chips se estiraban con él. (2) El formulario simplemente no tenía la
+parte de la foto; además, la app mostraba siempre primero la foto guardada
+dentro de la app (`assets/catalogo`), así que aunque se cambiara
+`imagen_url` en la base no se hubiera visto.
+
+**Solución:** `flexGrow: 0` en las filas de chips. El formulario del catálogo
+muestra la foto actual y permite elegirla de la galería, sacarla con la
+cámara o quitarla (`cambiarFotoCatalogo` / `quitarFotoCatalogo` en
+`services/admin.ts`, carpeta `catalogo/` del bucket, permiso solo para
+admins en la migración `20261018130000_fotos_catalogo_admin.sql`). Ahora una
+foto **subida a Stocky** le gana a la guardada en la app
+(`imagenDeCatalogo`); las direcciones externas viejas siguen perdiendo. Los
+cambios de foto quedan en el registro de acciones. Tests en `admin.test.ts`
+y `catalogoImagenes.test.ts`.
+
+## 25. "No funciona la carga por voz" (Google saturado)
+
+**Síntoma:** la carga por voz fallaba siempre con "No pudimos entender el
+audio en este momento" (13/10/2026 al mediodía).
+
+**Causa raíz:** no era la app. En los logs de `voz-a-texto` los tres modelos
+de Gemini fallaban a la vez: `gemini-3.5-flash` y `gemini-3.8-flash`
+respondían **503 "This model is currently experiencing high demand"** y
+`gemini-3.5-flash-lite` tardaba más de los 15 s de límite por intento. El día
+anterior los mismos modelos respondían (uno en 11,9 s). Es saturación del lado
+de Google, que va y viene.
+
+**Solución (para aguantar mejor esos picos):** en `_shared/gemini.ts`, (1) si
+TODOS los modelos fallan por saturación, se espera 3 s y se hace una
+**segunda vuelta** antes de rendirse; (2) el límite por intento subió de 15 a
+**25 s**; (3) `voz-a-texto` y `vencimiento-foto` ahora dicen claramente
+"El servicio de Google está saturado, probá en unos minutos o cargalo a
+mano" (503) en vez de "no pudimos entender el audio". Desplegadas
+`voz-a-texto` v7 y `vencimiento-foto` v9. Tests en `geminiRespaldo.test.ts`.
+En el peor caso ahora se espera ~1 minuto antes del aviso.
+
+**Si vuelve a pasar seguido:** probar otros modelos sin tocar código con el
+secret `GEMINI_MODEL` (lista separada por comas) en Supabase → Edge
+Functions → Secrets, o pasar a un plan pago de Gemini (más prioridad).
+
+## 26. Web: "This deployment is receiving too many requests"
+
+**Síntoma:** al abrir `https://hogarstocky.expo.app` aparecía la página de
+EAS Hosting "Too Many Requests — This free-tier deployment has temporarily
+exceeded its request rate limit". A los pocos minutos volvía sola.
+
+**Causa raíz:** el plan gratuito de EAS Hosting limita cuántos pedidos por
+segundo recibe la página. La lista de "Agregar producto"
+(`CatalogoSelectorModal`) y la de Admin → Catálogo dibujaban el catálogo
+completo con `ScrollView` + `map`: al abrirlas se pedían **las ~270 fotos de
+una vez** (en la web cada foto es un pedido aparte a la misma página). Con
+un par de personas probando, más los chequeos automáticos después de cada
+publicación (un pedido cada 10 s), se pasaba el límite.
+
+**Solución:** las dos listas pasaron a `FlatList` (`initialNumToRender` 15,
+`windowSize` 5): solo se dibuja y se pide la foto de lo que está a la vista
+y lo que se va acercando al scrollear. Los chequeos después de publicar ahora
+consultan cada 30 s. Si con más usuarios vuelve a pasar, las opciones son el
+plan pago de EAS Hosting o servir las fotos desde Supabase Storage.
+
+## 27. Tutorial en Android: el recuadro quedaba corrido hacia arriba
+
+**Síntoma:** en la APK, el recuadro que resalta cada botón del tutorial
+quedaba más arriba que el botón real (por ejemplo, entre "Agregar producto"
+y "Escanear ticket"). En la web se veía bien.
+
+**Causa raíz:** la capa del tutorial era un `Modal` con
+`statusBarTranslucent`: en Android es otra ventana que empieza en el borde de
+arriba de la pantalla (debajo de la barra de estado), mientras que la
+posición de los botones (`measureInWindow`) se mide en la ventana de la app,
+que empieza **abajo** de la barra de estado. La diferencia (el alto de esa
+barra) corría el recuadro hacia arriba.
+
+**Solución:** la capa ya no es un Modal: es una vista absoluta dentro de la
+misma pantalla del inicio (último hijo, `zIndex`), así botones y capa se
+miden en la misma ventana, y además se resta el origen de la capa
+(`relativoACapa`, con test). El botón "atrás" de Android sigue cerrando el
+tutorial (`BackHandler`). Verificado en la web (ancho de celular) con el
+recuadro sobre "Escanear ticket" y la campanita; falta verlo en un Android.

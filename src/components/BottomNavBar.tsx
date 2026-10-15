@@ -4,8 +4,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
 import { textoGlobito } from '../services/notificaciones';
+import { useAuth } from '../context/AuthContext';
 
-type TabKey = 'home' | 'search' | 'notifications' | 'profile';
+// 'admin' solo aparece para administradores (panel de administración).
+export type TabKey = 'home' | 'search' | 'notifications' | 'admin' | 'profile';
 
 // Nombres de ícono de Ionicons para cada tab, en estado inactivo y activo
 // (versión "outline" vs. rellena) para dar feedback visual de cuál está
@@ -14,6 +16,7 @@ const ICONS: Record<TabKey, { outline: keyof typeof Ionicons.glyphMap; filled: k
   home: { outline: 'home-outline', filled: 'home' },
   search: { outline: 'search-outline', filled: 'search' },
   notifications: { outline: 'notifications-outline', filled: 'notifications' },
+  admin: { outline: 'shield-checkmark-outline', filled: 'shield-checkmark' },
   profile: { outline: 'person-outline', filled: 'person' },
 };
 
@@ -50,7 +53,14 @@ export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLee
   // visual inmediato del toque, aparte del círculo claro del mockup).
   const [pressedTab, setPressedTab] = useState<TabKey | null>(null);
 
-  const tabs: TabKey[] = ['home', 'search', 'notifications', 'profile'];
+  // El escudo (panel de administración) solo para administradores. Es solo
+  // para mostrar el botón: el panel igual lo protege la base (RLS y
+  // funciones que chequean es_administrador()).
+  const { usuario } = useAuth();
+  const esAdmin = usuario?.rol === 'administrador';
+  const tabs: TabKey[] = esAdmin
+    ? ['home', 'search', 'notifications', 'admin', 'profile']
+    : ['home', 'search', 'notifications', 'profile'];
 
   return (
     <View style={styles.bar}>
