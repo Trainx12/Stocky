@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
+import { FotoAmpliadaModal } from './FotoAmpliadaModal';
 import {
   categoriasParaCargar,
   filtrarCatalogo,
@@ -65,6 +66,8 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
   // sacando/eligiendo en este momento.
   const [fotoSugerida, setFotoSugerida] = useState<string | null>(null);
   const [cargandoFoto, setCargandoFoto] = useState(false);
+  // Producto cuya foto se está mirando en grande (null = ninguna).
+  const [fotoAmpliada, setFotoAmpliada] = useState<ProductoCatalogo | null>(null);
 
   // Se recarga cada vez que se abre, para reflejar sugerencias aprobadas
   // desde la última vez (por ejemplo, si un admin aprobó una mientras el
@@ -329,13 +332,22 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
                     accessibilityRole="button"
                     accessibilityLabel={`Elegir ${item.nombre}`}
                   >
-                    <View style={styles.itemFoto}>
-                      {imagenDeCatalogo(item) ? (
+                    {/* Tocar la foto la muestra en grande (no elige el
+                        producto); tocar el nombre lo elige. */}
+                    {imagenDeCatalogo(item) ? (
+                      <Pressable
+                        style={styles.itemFoto}
+                        onPress={() => setFotoAmpliada(item)}
+                        accessibilityRole="imagebutton"
+                        accessibilityLabel={`Ver la foto de ${item.nombre} en grande`}
+                      >
                         <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="contain" />
-                      ) : (
+                      </Pressable>
+                    ) : (
+                      <View style={styles.itemFoto}>
                         <Ionicons name="basket-outline" size={28} color={colors.primary} />
-                      )}
-                    </View>
+                      </View>
+                    )}
                     <Text style={styles.itemNombre} numberOfLines={2}>
                       {item.nombre}
                     </Text>
@@ -364,6 +376,12 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
           )}
         </Pressable>
       </Pressable>
+
+      <FotoAmpliadaModal
+        imagen={fotoAmpliada ? imagenDeCatalogo(fotoAmpliada) : null}
+        titulo={fotoAmpliada?.nombre}
+        onClose={() => setFotoAmpliada(null)}
+      />
     </Modal>
   );
 }

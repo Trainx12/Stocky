@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
+import { FotoAmpliadaModal } from '../components/FotoAmpliadaModal';
 import {
   agregarAlCatalogo,
   cambiarFotoCatalogo,
@@ -28,7 +29,7 @@ import type { AppStackParamList } from '../types/navigation';
 type Props = NativeStackScreenProps<AppStackParamList, 'AdminCatalogo'>;
 
 // Formulario abierto: null = cerrado; producto null = agregar uno nuevo.
-type Edicion = { producto: ProductoCatalogo | null } | null;
+export type Edicion = { producto: ProductoCatalogo | null } | null;
 
 /**
  * Admin: el catálogo global (los productos aprobados que todos eligen al
@@ -171,32 +172,49 @@ export function AdminCatalogoScreen({ navigation }: Props) {
   );
 }
 
-// Foto chica del producto en la lista (la misma que ven los usuarios al cargar).
+// Foto chica del producto en la lista (la misma que ven los usuarios al
+// cargar). Tocarla la muestra en grande.
 function Miniatura({ producto }: { producto: ProductoCatalogo }) {
   const styles = useEstilos(crearEstilos);
   const imagen = imagenDeCatalogo(producto);
-  return (
-    <View style={[styles.miniatura, !imagen && styles.miniaturaVacia]}>
-      {imagen ? (
-        <Image source={imagen} style={styles.foto} resizeMode="contain" />
-      ) : (
+  const [ampliada, setAmpliada] = useState(false);
+  if (!imagen) {
+    return (
+      <View style={[styles.miniatura, styles.miniaturaVacia]}>
         <Ionicons name="basket-outline" size={18} color={colors.textSecondary} />
-      )}
-    </View>
+      </View>
+    );
+  }
+  return (
+    <>
+      <Pressable
+        onPress={() => setAmpliada(true)}
+        style={styles.miniatura}
+        accessibilityRole="imagebutton"
+        accessibilityLabel={`Ver la foto de ${producto.nombre} en grande`}
+      >
+        <Image source={imagen} style={styles.foto} resizeMode="contain" />
+      </Pressable>
+      <FotoAmpliadaModal imagen={ampliada ? imagen : null} titulo={producto.nombre} onClose={() => setAmpliada(false)} />
+    </>
   );
 }
 
-// Formulario para agregar o corregir un producto del catálogo.
-function FormularioCatalogo({
+// Formulario para agregar o corregir un producto del catálogo. También lo
+// usa Admin → Sugerencias (`esSugerencia`) para corregir una sugerencia
+// (un error de tipeo, la categoría) antes de aprobarla.
+export function FormularioCatalogo({
   edicion,
   categorias,
   onClose,
   onGuardado,
+  esSugerencia = false,
 }: {
   edicion: Edicion;
   categorias: string[];
   onClose: () => void;
   onGuardado: () => void;
+  esSugerencia?: boolean;
 }) {
   const styles = useEstilos(crearEstilos);
   const producto = edicion?.producto ?? null;
@@ -242,7 +260,11 @@ function FormularioCatalogo({
       const destino = producto ?? (await agregarAlCatalogo(datos));
       if (fotoNueva) await cambiarFotoCatalogo(destino, fotoNueva);
       else if (quitarFoto && producto) await quitarFotoCatalogo(producto);
-      avisar('Listo', producto ? 'Producto corregido.' : 'Producto agregado al catálogo.', 'exito');
+      avisar(
+        'Listo',
+        esSugerencia ? 'Sugerencia corregida. Todavía falta aprobarla.' : producto ? 'Producto corregido.' : 'Producto agregado al catálogo.',
+        'exito',
+      );
       onGuardado();
     } catch (err) {
       avisar('No se pudo guardar', err instanceof Error ? err.message : 'Probá de nuevo.');
@@ -257,7 +279,9 @@ function FormularioCatalogo({
         <Pressable style={styles.sheet}>
           {/* Deslizable: con la foto, el formulario no entra en pantallas bajas. */}
           <ScrollView contentContainerStyle={styles.sheetContenido} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sheetTitulo}>{producto ? 'Corregir producto' : 'Agregar al catálogo'}</Text>
+          <Text style={styles.sheetTitulo}>
+            {esSugerencia ? 'Corregir sugerencia' : producto ? 'Corregir producto' : 'Agregar al catálogo'}
+          </Text>
 
           <Text style={styles.etiqueta}>Nombre</Text>
           <TextInput
@@ -346,7 +370,7 @@ function FormularioCatalogo({
             </View>
           </View>
 
-          {producto && (
+          {producto && !esSugerencia && (
             <Text style={styles.nota}>
               Corregir el catálogo cambia lo que se ve al cargar productos nuevos; los que ya están en las despensas
               quedan como se cargaron.
