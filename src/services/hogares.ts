@@ -29,6 +29,8 @@ export interface MiembroHogar {
   puedeEditar: boolean;
   nombre: string | null;
   email: string;
+  // Foto de perfil (usuarios.avatar_url), null si no tiene.
+  avatarUrl: string | null;
 }
 
 // Alguien que se sumó a un hogar por código pero todavía espera que el
@@ -39,6 +41,7 @@ export interface SolicitudPendiente {
   usuarioId: string;
   nombre: string | null;
   email: string;
+  avatarUrl: string | null;
 }
 
 // Una solicitud que YO mandé (uniéndome por código) y que todavía no
@@ -186,20 +189,21 @@ export async function listarMisHogares(): Promise<HogarConRol[]> {
 }
 
 // Trae las filas crudas de hogar_miembros de un hogar puntual (con
-// nombre/email del usuario), sin filtrar por estado -- lo usan tanto
+// nombre/email/foto del usuario), sin filtrar por estado -- lo usan tanto
 // listarMiembrosDeHogar (estado 'aprobado') como listarSolicitudesPendientes
 // (estado 'pendiente'), para no duplicar la misma consulta dos veces.
 async function obtenerFilasDeHogar(hogarId: string) {
   const { data, error } = await supabase
     .from('hogar_miembros')
-    .select('usuario_id, rol, puede_editar, estado, origen, usuarios(nombre, email)')
+    .select('usuario_id, rol, puede_editar, estado, origen, usuarios(nombre, email, avatar_url)')
     .eq('hogar_id', hogarId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
 
   return (data ?? []).filter(
-    (fila): fila is typeof fila & { usuarios: { nombre: string | null; email: string } } => fila.usuarios !== null,
+    (fila): fila is typeof fila & { usuarios: { nombre: string | null; email: string; avatar_url: string | null } } =>
+      fila.usuarios !== null,
   );
 }
 
@@ -217,6 +221,7 @@ export async function listarMiembrosDeHogar(hogarId: string): Promise<MiembroHog
       puedeEditar: fila.puede_editar,
       nombre: fila.usuarios.nombre,
       email: fila.usuarios.email,
+      avatarUrl: fila.usuarios.avatar_url ?? null,
     }));
 }
 
@@ -239,6 +244,7 @@ export async function listarSolicitudesPendientes(hogarId: string): Promise<Soli
       usuarioId: fila.usuario_id,
       nombre: fila.usuarios.nombre,
       email: fila.usuarios.email,
+      avatarUrl: fila.usuarios.avatar_url ?? null,
     }));
 }
 

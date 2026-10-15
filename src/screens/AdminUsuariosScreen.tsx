@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Tex
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
+import { Avatar } from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { cambiarHabilitado, cambiarRol, filtrarUsuarios, listarUsuarios } from '../services/usuarios';
 import type { FiltroUsuarios, UsuarioAdmin } from '../services/usuarios';
@@ -150,6 +151,7 @@ export function AdminUsuariosScreen({ navigation }: Props) {
             const cambiando = cambiandoIds.has(u.id);
             return (
               <View key={u.id} style={[styles.fila, !u.habilitado && styles.filaDeshabilitada]}>
+                <Avatar url={u.avatarUrl} nombre={u.nombre} email={u.email} tamano={40} />
                 <View style={styles.filaTextos}>
                   <Text style={styles.filaNombre} numberOfLines={1}>
                     {u.nombre ?? 'Sin nombre'}

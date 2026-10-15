@@ -717,6 +717,40 @@ Rama `feature/logo` (apilada sobre `feature/tutorial`).
 
 ---
 
+## Foto de perfil (Sprint 10)
+
+Rama `feature/foto-perfil` (apilada sobre `feature/panel-admin`). Migración
+`20261019120000_foto_de_perfil.sql` (columna `usuarios.avatar_url` y bucket
+público `avatares`).
+
+1. **Sin foto:** en Cuenta, en el saludo del inicio, en "Miembros del hogar"
+   y en Admin → Usuarios se ve un círculo con la inicial del nombre (o del
+   mail si no tiene nombre).
+2. **Elegir foto (celular):** Cuenta → "Elegir foto" (galería) y "Sacar
+   foto" (cámara; la primera vez pide permiso). La foto aparece enseguida
+   en Cuenta y, al volver, en el saludo del inicio. Tocar la foto en Cuenta
+   la muestra en grande; tocar la del inicio lleva a Cuenta.
+3. **Subir foto (web):** Cuenta → "Subir foto", también con una foto HEIC de
+   iPhone. Cancelar el selector no muestra ningún error.
+4. **Cambiar foto:** elegir otra; en todos lados se ve la nueva (no la
+   vieja por caché).
+5. **Otros la ven:** con otra cuenta del mismo hogar, "Miembros del hogar"
+   muestra la foto; con la admin, Admin → Usuarios también. Una solicitud
+   pendiente muestra la foto de quien pide unirse.
+6. **Quitar foto:** Cuenta → "Quitar foto" → confirmar → vuelve la inicial
+   en todos lados.
+7. **Borrar mi cuenta** con una cuenta de prueba que tenga foto: después,
+   el enlace de la foto vieja ya no abre (la foto se borró).
+8. **Términos versión 2026-10-15:** cualquier cuenta existente, al entrar,
+   tiene que aceptarlos una vez (se sumó la foto de perfil a los datos
+   personales).
+
+**Regresión:** editar el nombre en Cuenta, "Miembros del hogar" (expulsar,
+ceder dueño, aceptar solicitudes), Admin → Usuarios (filtros, habilitar,
+rol), borrar cuenta sin foto.
+
+---
+
 ## Sprint 9 — Roles completos, mejoras UI/UX (RF0 completo, RF9 completo)
 
 **Ruta crítica:**
