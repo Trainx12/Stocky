@@ -698,7 +698,14 @@ export function HomeScreen() {
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
-        <Header nombre={usuario?.nombre} onAyuda={() => navigation.navigate('Ayuda')} refAyuda={tutorial.objetivo('ayuda')} />
+        <Header
+          nombre={usuario?.nombre}
+          email={usuario?.email}
+          avatarUrl={usuario?.avatar_url}
+          onPerfil={() => navigation.navigate('Cuenta')}
+          onAyuda={() => navigation.navigate('Ayuda')}
+          refAyuda={tutorial.objetivo('ayuda')}
+        />
       </View>
 
       {/* Contenido scrolleable entre el header y la nav bar fija. La View de
