@@ -832,3 +832,22 @@ miden en la misma ventana, y además se resta el origen de la capa
 (`relativoACapa`, con test). El botón "atrás" de Android sigue cerrando el
 tutorial (`BackHandler`). Verificado en la web (ancho de celular) con el
 recuadro sobre "Escanear ticket" y la campanita; falta verlo en un Android.
+
+## 28. Web: "Algo salió mal" al cambiar de pestaña en la barra de abajo
+
+**Síntoma (2026-10-18, web):** casi siempre, al pasar entre los íconos de la
+barra de abajo (en cualquier orden) aparecía la red de seguridad "Algo salió
+mal".
+
+**Causa (vista en la consola):** `cannot add postgres_changes callbacks for
+realtime:hogar_miembros_usuario_<id> after subscribe()`, en `HomeScreen`. Las
+suscripciones de Realtime usaban un nombre fijo por usuario. Al volver al
+inicio, el efecto se vuelve a suscribir; `removeChannel` del anterior todavía
+no había terminado (es asincrónico) y `supabase.channel(nombre)` devuelve el
+canal que ya existe con ese nombre, que ya estaba suscripto: `.on(...)` tira
+error y se cae la pantalla.
+
+**Solución:** `nombreDeCanal()` (src/lib/tiempoReal.ts, con test) le agrega un
+sufijo único a cada suscripción. Se usa en los 6 canales de la app (inicio,
+productos, notificaciones y perfil). El nombre no filtra nada (los filtros van
+en `.on`), así que llegan los mismos avisos que antes.

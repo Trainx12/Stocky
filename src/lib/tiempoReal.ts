@@ -7,6 +7,20 @@
  * `agruparLlamadas` espera un momento de calma y recarga una sola vez.
  */
 
+// Nombre único para cada suscripción. `supabase.channel(nombre)` devuelve
+// el canal que ya existe con ese nombre, y `removeChannel` lo saca recién
+// cuando termina de desuscribirse (no al instante): si una pantalla vuelve a
+// suscribirse enseguida (por ejemplo, al cambiar de pestaña abajo), recibía
+// el canal viejo ya suscripto y `.on(...)` fallaba con "cannot add
+// postgres_changes callbacks ... after subscribe()" -> "Algo salió mal"
+// (incidentes-sprint10.md #28). El nombre del canal no filtra nada (los
+// filtros van en `.on`), así que agregarle un sufijo no cambia qué llega.
+let contadorCanales = 0;
+export function nombreDeCanal(base: string): string {
+  contadorCanales += 1;
+  return `${base}-${Date.now().toString(36)}-${contadorCanales}`;
+}
+
 export interface LlamadaAgrupada {
   // Pide ejecutar la función; si llegan varios pedidos seguidos, se ejecuta
   // una sola vez, `esperaMs` después del último.

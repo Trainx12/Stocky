@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { nombreDeCanal } from '../lib/tiempoReal';
 import { avisar } from '../lib/alert';
 import type { TipoAviso } from '../lib/alert';
 import {
@@ -144,7 +145,7 @@ export function NotificacionesProvider({ children }: { children: React.ReactNode
   useEffect(() => {
     if (!userId || !habilitado) return;
     const canal = supabase
-      .channel(`notificaciones-${userId}`)
+      .channel(nombreDeCanal(`notificaciones-${userId}`))
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notificaciones', filter: `usuario_id=eq.${userId}` },
