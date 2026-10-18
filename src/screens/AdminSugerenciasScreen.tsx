@@ -1,9 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
-import { listarSugerenciasPendientes, responderSugerencia } from '../services/catalogo';
+import { FotoAmpliadaModal } from '../components/FotoAmpliadaModal';
+import { FormularioCatalogo } from './AdminCatalogoScreen';
+import type { Edicion } from './AdminCatalogoScreen';
+import {
+  categoriasDelCatalogo,
+  listarCatalogoAprobado,
+  listarSugerenciasPendientes,
+  responderSugerencia,
+} from '../services/catalogo';
 import type { ProductoCatalogo } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
@@ -32,11 +40,20 @@ export function AdminSugerenciasScreen({ navigation }: Props) {
   // ids con una respuesta en vuelo, para deshabilitar sus botones y no
   // disparar dos veces la misma aprobación/rechazo con un doble toque.
   const [respondiendoIds, setRespondiendoIds] = useState<Set<string>>(new Set());
+  // Sugerencia que se está corrigiendo (nombre mal escrito, otra categoría...).
+  const [edicion, setEdicion] = useState<Edicion>(null);
+  // Sugerencia cuya foto se está mirando en grande.
+  const [fotoAmpliada, setFotoAmpliada] = useState<ProductoCatalogo | null>(null);
+  // Categorías del catálogo, para los chips del formulario de corrección.
+  const [catalogo, setCatalogo] = useState<ProductoCatalogo[]>([]);
+  const categorias = useMemo(() => categoriasDelCatalogo(catalogo), [catalogo]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      setSugerencias(await listarSugerenciasPendientes());
+      const [pendientes, aprobados] = await Promise.all([listarSugerenciasPendientes(), listarCatalogoAprobado()]);
+      setSugerencias(pendientes);
+      setCatalogo(aprobados);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudieron cargar las sugerencias.');
     } finally {
@@ -97,22 +114,44 @@ export function AdminSugerenciasScreen({ navigation }: Props) {
               <View key={sugerencia.id} style={styles.fila}>
                 {/* Foto que mandó quien sugirió (si mandó): al aprobar pasa a
                     ser la del producto en el catálogo. */}
-                <View style={styles.foto}>
-                  {sugerencia.imagen_url ? (
+                {sugerencia.imagen_url ? (
+                  <Pressable
+                    onPress={() => setFotoAmpliada(sugerencia)}
+                    style={styles.foto}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={`Ver la foto de ${sugerencia.nombre} en grande`}
+                  >
                     <Image source={{ uri: sugerencia.imagen_url }} style={styles.fotoImagen} resizeMode="contain" />
-                  ) : (
+                  </Pressable>
+                ) : (
+                  <View style={styles.foto}>
                     <Ionicons name="basket-outline" size={24} color={colors.primary} />
-                  )}
-                </View>
-                <View style={styles.filaTextos}>
+                  </View>
+                )}
+                <Pressable
+                  onPress={() => setEdicion({ producto: sugerencia })}
+                  disabled={respondiendo}
+                  style={styles.filaTextos}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Corregir ${sugerencia.nombre}`}
+                >
                   <Text style={styles.filaNombre} numberOfLines={1}>
                     {sugerencia.nombre}
                   </Text>
                   <Text style={styles.filaDetalle}>
                     {sugerencia.categoria} · {sugerencia.unidad}
                   </Text>
-                </View>
+                </Pressable>
                 <View style={styles.filaAcciones}>
+                  <Pressable
+                    onPress={() => setEdicion({ producto: sugerencia })}
+                    style={styles.accionButton}
+                    disabled={respondiendo}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Corregir ${sugerencia.nombre}`}
+                  >
+                    <Ionicons name="pencil-outline" size={22} color={colors.textSecondary} />
+                  </Pressable>
                   <Pressable
                     onPress={() => handleResponder(sugerencia, true)}
                     style={styles.accionButton}
@@ -137,6 +176,22 @@ export function AdminSugerenciasScreen({ navigation }: Props) {
           })}
         </ScrollView>
       )}
+
+      <FormularioCatalogo
+        edicion={edicion}
+        categorias={categorias}
+        esSugerencia
+        onClose={() => setEdicion(null)}
+        onGuardado={() => {
+          setEdicion(null);
+          cargar();
+        }}
+      />
+      <FotoAmpliadaModal
+        imagen={fotoAmpliada?.imagen_url ? { uri: fotoAmpliada.imagen_url } : null}
+        titulo={fotoAmpliada?.nombre}
+        onClose={() => setFotoAmpliada(null)}
+      />
     </ScreenContainer>
   );
 }
@@ -209,7 +264,7 @@ const crearEstilos = () =>
   },
   filaAcciones: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.xs,
   },
   accionButton: {
     padding: spacing.xs,

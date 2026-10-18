@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { nombreDeCanal } from '../lib/tiempoReal';
 import type { Usuario } from '../types/database';
 import { recordarSesion } from '../services/cuentas';
 import { crearUltimoPedido } from '../lib/ultimoPedido';
@@ -95,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!userId) return;
     const canal = supabase
-      .channel(`usuario-${userId}`)
+      .channel(nombreDeCanal(`usuario-${userId}`))
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'usuarios', filter: `id=eq.${userId}` },

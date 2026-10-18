@@ -190,6 +190,50 @@ type AsRecord<T> = { [K in keyof T]: T[K] };
  * poder tipar tanto `.rpc(...)` como los selects anidados del estilo
  * `.select('hogares(*)')` que usa src/services/hogares.ts.
  */
+// Comentario de un usuario ("Contanos qué mejorar", services/comentarios.ts).
+export type TipoComentario = 'idea' | 'problema' | 'otro';
+export interface Comentario {
+  id: string;
+  usuario_id: string | null;
+  tipo: TipoComentario;
+  mensaje: string;
+  plataforma: string | null;
+  version_app: string | null;
+  created_at: string;
+}
+
+// Lo que devuelve admin_listar_comentarios (con quién lo mandó).
+export interface ComentarioConAutor extends Omit<Comentario, 'usuario_id'> {
+  usuario_nombre: string | null;
+  usuario_email: string | null;
+}
+
+// Una acción registrada de un administrador (services/admin.ts).
+export interface AccionAdmin {
+  id: string;
+  admin_id: string | null;
+  admin_email: string | null;
+  accion: string;
+  detalle: string;
+  created_at: string;
+}
+
+// Métricas del panel de administración (RPC admin_metricas, RF10).
+export interface MetricasAdmin {
+  usuarios_total: number;
+  usuarios_deshabilitados: number;
+  usuarios_nuevos_30d: number;
+  usuarios_activos_30d: number;
+  administradores: number;
+  hogares_total: number;
+  hogares_activos_30d: number;
+  productos_en_despensas: number;
+  productos_cargados_30d: number;
+  catalogo_aprobados: number;
+  sugerencias_pendientes: number;
+  comentarios_30d: number;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -250,6 +294,18 @@ export interface Database {
         Row: AsRecord<Notificacion>;
         Insert: never;
         Update: Pick<Notificacion, 'leida'>;
+        Relationships: [];
+      };
+      comentarios: {
+        Row: AsRecord<Comentario>;
+        Insert: Partial<Comentario> & Pick<Comentario, 'mensaje'>;
+        Update: never;
+        Relationships: [];
+      };
+      admin_registro: {
+        Row: AsRecord<AccionAdmin>;
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       productos_catalogo: {
@@ -363,6 +419,23 @@ export interface Database {
       // Constancia de aceptación de los términos (ver services/terminos.ts).
       aceptar_terminos: {
         Args: { p_version: string };
+        Returns: void;
+      };
+      // Panel de administración (migración 20261018120000_panel_admin_...).
+      admin_listar_comentarios: {
+        Args: { p_limite?: number };
+        Returns: AsRecord<ComentarioConAutor>[];
+      };
+      admin_metricas: {
+        Args: Record<string, never>;
+        Returns: MetricasAdmin;
+      };
+      admin_sacar_del_catalogo: {
+        Args: { p_catalogo_id: string };
+        Returns: void;
+      };
+      eliminar_mi_cuenta: {
+        Args: Record<string, never>;
         Returns: void;
       };
     };

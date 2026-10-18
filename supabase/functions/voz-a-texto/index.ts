@@ -16,7 +16,7 @@
 //   - 'fecha': solo una fecha de vencimiento dictada, para el campo de fecha
 //     del formulario de producto.
 import { corsHeaders } from '../_shared/cors.ts';
-import { consultarGemini } from '../_shared/gemini.ts';
+import { consultarGemini, esReintentable } from '../_shared/gemini.ts';
 
 interface ProductoInventario {
   id: string;
@@ -288,6 +288,11 @@ Deno.serve(async (req: Request) => {
     // El detalle técnico queda en los logs de la función; al usuario le
     // llega un mensaje entendible.
     console.error('[voz-a-texto]', error instanceof Error ? error.message : error);
-    return respuestaJson({ error: 'No pudimos entender el audio en este momento. Probá de nuevo o cargalo a mano.' }, 502);
+    // Saturación de Google (503, sin cuota o lento, aun después de la
+    // segunda vuelta): no es culpa del audio, conviene decirlo.
+    const mensaje = esReintentable(error)
+      ? 'El servicio de voz de Google está saturado en este momento. Probá de nuevo en unos minutos o cargalo a mano.'
+      : 'No pudimos entender el audio en este momento. Probá de nuevo o cargalo a mano.';
+    return respuestaJson({ error: mensaje }, esReintentable(error) ? 503 : 502);
   }
 });

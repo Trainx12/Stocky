@@ -16,6 +16,10 @@ import { CuentaDeshabilitadaScreen } from '../screens/CuentaDeshabilitadaScreen'
 import { NotificacionesScreen } from '../screens/NotificacionesScreen';
 import { CuentaScreen } from '../screens/CuentaScreen';
 import { AyudaScreen } from '../screens/AyudaScreen';
+import { AdminScreen } from '../screens/AdminScreen';
+import { AdminCatalogoScreen } from '../screens/AdminCatalogoScreen';
+import { AdminComentariosScreen } from '../screens/AdminComentariosScreen';
+import { AdminRegistroScreen } from '../screens/AdminRegistroScreen';
 import { TerminosPrevioScreen, TerminosVerScreen, TerminosVista } from '../screens/TerminosScreen';
 import { aceptarTerminos, necesitaAceptarTerminos, registrarAceptacionPendiente } from '../services/terminos';
 import { navegacion } from './navegacion';
@@ -61,6 +65,13 @@ function AppNavigator() {
       <AppStack.Screen name="Cuenta" component={CuentaScreen} />
       {/* Ayuda: botón "?" del Home y Cuenta → Ajustes. */}
       <AppStack.Screen name="Ayuda" component={AyudaScreen} />
+      {/* Panel de administración y sus pantallas. Mismo criterio que
+          AdminUsuarios: el escudo solo aparece para admins y la base
+          rechaza a cualquier otro (funciones admin_* y RLS). */}
+      <AppStack.Screen name="Admin" component={AdminScreen} />
+      <AppStack.Screen name="AdminCatalogo" component={AdminCatalogoScreen} />
+      <AppStack.Screen name="AdminComentarios" component={AdminComentariosScreen} />
+      <AppStack.Screen name="AdminRegistro" component={AdminRegistroScreen} />
     </AppStack.Navigator>
   );
 }

@@ -250,6 +250,19 @@ export function ubicarGlobo(
 }
 
 /**
+ * Pasa una medida de measureInWindow a coordenadas de la capa del tutorial.
+ * En Android la capa (Modal con statusBarTranslucent) empieza en el borde de
+ * arriba de la pantalla, pero measureInWindow mide desde ABAJO de la barra
+ * de estado: sin restar el origen de la capa, el recuadro quedaba corrido
+ * hacia arriba el alto de esa barra (incidentes-sprint10.md #27). En la web y
+ * en iOS el origen es (0, 0) y no cambia nada.
+ */
+export function relativoACapa(objetivo: Rect | null, origenCapa: { x: number; y: number }): Rect | null {
+  if (!objetivo) return null;
+  return { ...objetivo, x: objetivo.x - origenCapa.x, y: objetivo.y - origenCapa.y };
+}
+
+/**
  * Cuánto hay que scrollear para que el objetivo quede a la vista (con lugar
  * para el cartel debajo), o null si ya se ve bien. `scrollActual` es el
  * desplazamiento actual del ScrollView; `zonaVisible` el tramo de pantalla

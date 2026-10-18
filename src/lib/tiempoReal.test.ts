@@ -3,8 +3,17 @@
  * recargas que piden los avisos de Realtime, decidir si un borrado afecta a
  * la lista, y que una respuesta vieja no pise a una nueva.
  */
-import { afectaBorrado, agruparLlamadas } from './tiempoReal';
+import { afectaBorrado, agruparLlamadas, nombreDeCanal } from './tiempoReal';
 import { crearUltimoPedido } from './ultimoPedido';
+
+describe('nombreDeCanal', () => {
+  it('cada suscripción tiene su propio nombre, aunque sea del mismo usuario', () => {
+    const a = nombreDeCanal('hogar_miembros_usuario_abc');
+    const b = nombreDeCanal('hogar_miembros_usuario_abc');
+    expect(a).not.toBe(b);
+    expect(a.startsWith('hogar_miembros_usuario_abc-')).toBe(true);
+  });
+});
 
 describe('agruparLlamadas', () => {
   beforeEach(() => jest.useFakeTimers());

@@ -48,7 +48,9 @@ jest.mock('../lib/supabase', () => ({
 import { supabase } from '../lib/supabase';
 import {
   categoriasDelCatalogo,
+  categoriasParaCargar,
   filtrarCatalogo,
+  ordenarParaCargar,
   listarCatalogoAprobado,
   listarSugerenciasPendientes,
   responderSugerencia,
@@ -353,5 +355,61 @@ describe('filtrarCatalogo', () => {
 
   it('devuelve un array vacío si ningún producto coincide', () => {
     expect(filtrarCatalogo(catalogo, 'queso', null)).toEqual([]);
+  });
+});
+
+describe('ordenarParaCargar', () => {
+  const catalogo = [
+    producto({ id: 'b1', nombre: 'Agua Mineral', categoria: 'Bebidas' }),
+    producto({ id: 'b2', nombre: 'Cerveza', categoria: 'Bebidas' }),
+    producto({ id: 'l1', nombre: 'Dulce de Leche', categoria: 'Lácteos' }),
+    producto({ id: 'l2', nombre: 'Leche', categoria: 'Lácteos' }),
+    producto({ id: 'o1', nombre: 'Arroz', categoria: 'Almacén' }),
+    producto({ id: 'o2', nombre: 'Fideos', categoria: 'Pastas' }),
+    producto({ id: 'o3', nombre: 'Canela', categoria: 'Condimentos y especias' }),
+    producto({ id: 'o4', nombre: 'Moñito', categoria: 'Pastas' }),
+    producto({ id: 'o5', nombre: 'Avena', categoria: 'Almacén' }),
+    producto({ id: 's1', nombre: 'Alfajor', categoria: 'Snacks' }),
+    producto({ id: 'n1', nombre: 'Lavandina', categoria: 'Limpieza' }),
+  ];
+
+  it('sin buscar: primero los básicos de cocina en su orden, las bebidas al final', () => {
+    expect(ordenarParaCargar(catalogo).map((p) => p.nombre)).toEqual([
+      'Fideos',
+      'Arroz',
+      'Leche',
+      'Avena', // resto de Almacén
+      'Moñito', // Pastas
+      'Dulce de Leche', // Lácteos
+      'Canela', // Condimentos y especias
+      'Lavandina', // categoría desconocida: antes de Snacks
+      'Alfajor',
+      'Agua Mineral',
+      'Cerveza',
+    ]);
+  });
+
+  it('al buscar, primero lo que empieza con lo escrito (sin importar tildes)', () => {
+    const resultado = ordenarParaCargar(filtrarCatalogo(catalogo, 'le', null), 'le');
+    expect(resultado.map((p) => p.nombre)).toEqual(['Leche', 'Dulce de Leche']);
+  });
+
+  it('no modifica la lista original', () => {
+    const copia = [...catalogo];
+    ordenarParaCargar(catalogo);
+    expect(catalogo).toEqual(copia);
+  });
+});
+
+describe('categoriasParaCargar', () => {
+  it('los chips en el mismo orden que la lista (bebidas al final)', () => {
+    const catalogo = [
+      producto({ categoria: 'Bebidas' }),
+      producto({ categoria: 'Snacks' }),
+      producto({ categoria: 'Lácteos' }),
+      producto({ categoria: 'Pastas' }),
+      producto({ categoria: 'Almacén' }),
+    ];
+    expect(categoriasParaCargar(catalogo)).toEqual(['Almacén', 'Pastas', 'Lácteos', 'Snacks', 'Bebidas']);
   });
 });

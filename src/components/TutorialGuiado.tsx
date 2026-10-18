@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, BackHandler, Easing, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
-import { textoProgreso, ubicarGlobo } from '../tutorial/tutorial';
+import { relativoACapa, textoProgreso, ubicarGlobo } from '../tutorial/tutorial';
 import type { PasoTutorial, Rect } from '../tutorial/tutorial';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -30,18 +30,38 @@ const ALTO_GLOBO_INICIAL = 200;
  * una flecha y un cartel corto con "Siguiente", "Atrás", "Saltar" y, si el
  * paso lo tiene, un botón para probarlo de verdad.
  *
- * Va en un Modal transparente para quedar encima de todo (también de la
- * barra de abajo). Las coordenadas del objetivo vienen de measureInWindow,
- * que mide respecto de la ventana: por eso el Modal es statusBarTranslucent
- * en Android (así su (0,0) coincide con el de la ventana).
+ * Es una capa absoluta dentro de la misma pantalla (último hijo, con
+ * zIndex), para quedar encima de todo, también de la barra de abajo. Las
+ * coordenadas del objetivo vienen de measureInWindow y se pasan a
+ * coordenadas de la capa restando su propio origen (relativoACapa).
  *
  * Mientras está abierto, la pantalla de abajo no recibe toques: para probar
  * algo se usa el botón del cartel, que pausa el tutorial.
  */
 export function TutorialGuiado({ paso, indice, total, objetivo, onSiguiente, onAnterior, onSaltar, onAccion }: TutorialGuiadoProps) {
   const styles = useEstilos(crearEstilos);
-  const pantalla = useWindowDimensions();
+  const ventana = useWindowDimensions();
+  // Dónde empieza y cuánto mide la capa del tutorial en la ventana (ver
+  // relativoACapa). Hasta medirla no se dibuja nada, así el recuadro no
+  // aparece corrido y "salta" al lugar correcto.
+  const capaRef = useRef<View>(null);
+  const [capa, setCapa] = useState<{ x: number; y: number; ancho: number; alto: number } | null>(null);
+  const medirCapa = () => {
+    capaRef.current?.measureInWindow((x, y, ancho, alto) =>
+      setCapa({ x, y, ancho: ancho || ventana.width, alto: alto || ventana.height }),
+    );
+  };
+  const pantalla = { width: capa?.ancho ?? ventana.width, height: capa?.alto ?? ventana.height };
   const [altoGlobo, setAltoGlobo] = useState(ALTO_GLOBO_INICIAL);
+
+  // El botón "atrás" de Android cierra el tutorial (antes lo hacía el Modal).
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onSaltar();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onSaltar]);
 
   // Aro que late alrededor del objetivo: llama la atención como en un juego.
   const latido = useRef(new Animated.Value(0)).current;
@@ -63,12 +83,13 @@ export function TutorialGuiado({ paso, indice, total, objetivo, onSiguiente, onA
     Animated.timing(aparicion, { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [paso.id, aparicion]);
 
-  const hueco = objetivo
+  const enCapa = relativoACapa(objetivo, capa ?? { x: 0, y: 0 });
+  const hueco = enCapa
     ? {
-        x: Math.max(objetivo.x - RELLENO, 0),
-        y: Math.max(objetivo.y - RELLENO, 0),
-        ancho: objetivo.ancho + RELLENO * 2,
-        alto: objetivo.alto + RELLENO * 2,
+        x: Math.max(enCapa.x - RELLENO, 0),
+        y: Math.max(enCapa.y - RELLENO, 0),
+        ancho: enCapa.ancho + RELLENO * 2,
+        alto: enCapa.alto + RELLENO * 2,
       }
     : null;
   const ubicacion = ubicarGlobo(hueco, { ancho: pantalla.width, alto: pantalla.height }, altoGlobo);
@@ -89,8 +110,14 @@ export function TutorialGuiado({ paso, indice, total, objetivo, onSiguiente, onA
   const esUltimo = indice === total - 1;
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={onSaltar}>
-      <View style={StyleSheet.absoluteFill}>
+    // Capa dentro de la MISMA pantalla (no un Modal): así el recuadro y los
+    // botones se miden en la misma ventana y quedan alineados. Con un Modal,
+    // en Android la capa es otra ventana que empieza arriba de la barra de
+    // estado y el recuadro quedaba corrido (incidentes-sprint10.md #27).
+    // Tiene que ir como último hijo de la pantalla para quedar encima de todo.
+    <View ref={capaRef} collapsable={false} style={styles.capa} onLayout={medirCapa}>
+        {capa && (
+        <>
         {/* Fondo oscuro con un "hueco" sobre el objetivo: cuatro rectángulos
             alrededor (arriba, abajo, izquierda, derecha). */}
         {hueco ? (
@@ -172,8 +199,9 @@ export function TutorialGuiado({ paso, indice, total, objetivo, onSiguiente, onA
             </Pressable>
           </View>
         </Animated.View>
-      </View>
-    </Modal>
+        </>
+        )}
+    </View>
   );
 }
 
@@ -182,6 +210,15 @@ const ANCHO_MAXIMO = 420;
 
 const crearEstilos = () =>
   StyleSheet.create({
+    capa: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 1000,
+      elevation: 1000,
+    },
     sombra: {
       position: 'absolute',
       backgroundColor: 'rgba(10, 6, 20, 0.72)',

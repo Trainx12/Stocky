@@ -10,7 +10,7 @@
 // fecha con confianza si no está seguro — por eso se le pide explícitamente
 // `null` + confianza baja en ese caso, en vez de forzar una respuesta.
 import { corsHeaders } from '../_shared/cors.ts';
-import { consultarGemini } from '../_shared/gemini.ts';
+import { consultarGemini, esReintentable } from '../_shared/gemini.ts';
 
 interface ResultadoVencimiento {
   fecha_vencimiento: string | null;
@@ -81,8 +81,12 @@ Deno.serve(async (req: Request) => {
     // llega un mensaje entendible (y la salida es cargar la fecha a mano).
     console.error('[vencimiento-foto]', error instanceof Error ? error.message : error);
     return new Response(
-      JSON.stringify({ error: 'No pudimos leer la fecha en este momento. Ingresala a mano.' }),
-      { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: esReintentable(error)
+          ? 'El servicio de Google que lee la fecha está saturado. Probá en unos minutos o ingresala a mano.'
+          : 'No pudimos leer la fecha en este momento. Ingresala a mano.',
+      }),
+      { status: esReintentable(error) ? 503 : 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 

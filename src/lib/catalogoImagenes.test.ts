@@ -21,6 +21,11 @@ describe('imagenDeCatalogo', () => {
     expect(foto).not.toEqual({ uri: 'https://externo.example/agua.jpg' });
   });
 
+  it('una foto subida a Stocky (la cambió un admin) le gana a la guardada en la app', () => {
+    const subida = 'https://x.supabase.co/storage/v1/object/public/catalogo-sugerencias/catalogo/c1-1.jpg';
+    expect(imagenDeCatalogo({ nombre: 'Agua Mineral', imagen_url: subida })).toEqual({ uri: subida });
+  });
+
   it('usa la URL de la base si no hay foto guardada (producto aprobado después)', () => {
     expect(imagenDeCatalogo({ nombre: 'Producto Inexistente 123', imagen_url: 'https://externo.example/x.jpg' })).toEqual({
       uri: 'https://externo.example/x.jpg',

@@ -155,3 +155,35 @@ export async function cerrarTodasLasSesiones() {
   await olvidarTodas();
   if (error) throw error;
 }
+
+/**
+ * Borra la cuenta del usuario logueado para siempre (RPC eliminar_mi_cuenta:
+ * sale de sus hogares pasando el rol de dueño a otro miembro, borra los
+ * hogares que quedan vacíos y el usuario de Auth). Después cierra la sesión
+ * en este celular, la olvida de "Tus cuentas" y, si había otra cuenta
+ * guardada, pasa a esa (igual que signOut).
+ */
+export async function eliminarMiCuenta() {
+  // Desregistra este celular de los push mientras la sesión sigue viva.
+  await correrTareasPrevias();
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
+
+  const { error } = await supabase.rpc('eliminar_mi_cuenta');
+  if (error) throw error;
+
+  // El usuario ya no existe en Auth: el signOut del servidor puede fallar,
+  // pero el local igual limpia la sesión guardada en el celular.
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+
+  if (!userId) return;
+  await olvidarCuenta(userId);
+  const siguiente = siguienteCuenta(await listarCuentas(), userId);
+  if (siguiente) {
+    try {
+      await cambiarACuenta(siguiente.userId);
+    } catch (err) {
+      console.warn('[Stocky] No se pudo pasar a la siguiente cuenta:', err);
+    }
+  }
+}
