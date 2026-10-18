@@ -28,7 +28,7 @@ import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, confirmar } from '../lib/alert';
 import { supabase } from '../lib/supabase';
-import { afectaBorrado, agruparLlamadas } from '../lib/tiempoReal';
+import { afectaBorrado, agruparLlamadas, nombreDeCanal } from '../lib/tiempoReal';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -109,7 +109,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   useEffect(() => {
     const recarga = agruparLlamadas(() => cargar(true));
     const canal = supabase
-      .channel(`productos-${hogarId}`)
+      .channel(nombreDeCanal(`productos-${hogarId}`))
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'productos', filter: `hogar_id=eq.${hogarId}` },

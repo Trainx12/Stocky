@@ -52,7 +52,7 @@ import {
 import type { AlertaStock } from '../services/productos';
 import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
-import { agruparLlamadas } from '../lib/tiempoReal';
+import { agruparLlamadas, nombreDeCanal } from '../lib/tiempoReal';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -404,7 +404,7 @@ export function HomeScreen() {
       if (idSeleccionado) cargarActividad(idSeleccionado, true);
     });
     const canal = supabase
-      .channel(`actividad-${idsDeMisHogares}`)
+      .channel(nombreDeCanal(`actividad-${idsDeMisHogares}`))
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'actividad_hogar', filter: `hogar_id=in.(${idsDeMisHogares})` },
@@ -436,7 +436,7 @@ export function HomeScreen() {
     if (!usuario?.id) return;
 
     const canal = supabase
-      .channel(`hogar_miembros_usuario_${usuario.id}`)
+      .channel(nombreDeCanal(`hogar_miembros_usuario_${usuario.id}`))
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'hogar_miembros', filter: `usuario_id=eq.${usuario.id}` },
@@ -523,7 +523,7 @@ export function HomeScreen() {
     if (!usuario?.id) return;
 
     const canal = supabase
-      .channel(`hogar_miembros_solicitudes_${usuario.id}`)
+      .channel(nombreDeCanal(`hogar_miembros_solicitudes_${usuario.id}`))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'hogar_miembros' },
