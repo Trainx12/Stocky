@@ -86,6 +86,25 @@ function esFechaValida(fecha: string): boolean {
   return d.getFullYear() === anio && d.getMonth() === mes - 1 && d.getDate() === dia;
 }
 
+// Aviso de salud: no se puede cargar un producto que ya venció (antes se
+// cargaba sin decir nada). Lo usan crearProducto/editarProducto (así vale
+// para la carga a mano, por voz y por ticket) y los formularios, para
+// avisar apenas se escribe la fecha.
+export function avisoProductoVencido(
+  fechaNueva: string | null | undefined,
+  fechaAnterior: string | null | undefined = null,
+  hoy: Date = new Date(),
+): string | null {
+  const fecha = fechaNueva?.trim();
+  if (!fecha || !esFechaValida(fecha)) return null;
+  // Editar un producto que ya estaba vencido (por ejemplo, para bajarle la
+  // cantidad) se permite: solo se frena PONER una fecha pasada.
+  if (fecha === fechaAnterior) return null;
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  if (parsearFechaLocal(fecha) >= hoySinHora) return null;
+  return `Este producto venció el ${formatearFechaCorta(fecha)}. Por tu salud, no lo consumas: los productos vencidos no se pueden cargar. Si la fecha está mal, corregila.`;
+}
+
 // Primera letra en mayúscula (el resto del texto queda tal cual se
 // escribió, no fuerza minúsculas en el resto) -- así "mandarina" y
 // "Mandarina" no quedan como dos productos "distintos" a simple vista en la
@@ -217,6 +236,8 @@ export async function listarProductos(hogarId: string): Promise<Producto[]> {
 // distinto que distinguir (otra marca u otra fecha).
 export async function crearProducto(hogarId: string, datos: DatosProducto): Promise<Producto> {
   const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca, diasAvisoVencimiento } = validar(datos);
+  const vencido = avisoProductoVencido(fechaVencimiento);
+  if (vencido) throw new Error(vencido);
 
   if (cantidad > 0) {
     const duplicado = buscarDuplicado(await listarProductos(hogarId), {
@@ -257,8 +278,16 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
 // `catalogoId` no se toca acá a propósito: la identidad del producto
 // (nombre/categoría/unidad/catálogo) queda fija desde que se crea, editar
 // solo cambia cantidad/stock/vencimiento (ver ProductoFormModal).
-export async function editarProducto(productoId: string, datos: DatosProducto): Promise<Producto> {
+// `fechaAnterior`: la fecha que ya tenía el producto (dejarla como está se
+// permite aunque ya haya pasado, ver avisoProductoVencido).
+export async function editarProducto(
+  productoId: string,
+  datos: DatosProducto,
+  fechaAnterior: string | null = null,
+): Promise<Producto> {
   const { nombre, categoria, cantidad, stockMinimo, fechaVencimiento, marca, diasAvisoVencimiento } = validar(datos);
+  const vencido = avisoProductoVencido(fechaVencimiento, fechaAnterior);
+  if (vencido) throw new Error(vencido);
 
   const { data, error } = await supabase
     .from('productos')
@@ -657,8 +686,9 @@ export function estadoVencimiento(
 }
 
 // Texto legible para el badge de vencimiento ("Vence hoy", "Vence en 3
-// días", "Vencido hace 2 días"). null con el mismo criterio que
-// estadoVencimiento (no hay nada que mostrar). Separado de estadoVencimiento
+// días", "Vencido hace 2 días"; si falta mucho, la fecha: "Vence el
+// 10/03/2027"). Desde el semáforo también hay texto para 'ok' (badge verde).
+// null con el mismo criterio que estadoVencimiento (no hay nada que mostrar). Separado de estadoVencimiento
 // a propósito: qué estado es vs. cómo se lee son cosas distintas, y este
 // texto no depende de ningún color de theme (lo decide quien lo pinta).
 export function etiquetaVencimiento(
@@ -667,7 +697,7 @@ export function etiquetaVencimiento(
   diasPorDefecto: number = DIAS_AVISO_POR_DEFECTO,
 ): string | null {
   const estado = estadoVencimiento(producto, hoy, diasPorDefecto);
-  if (estado !== 'proximo' && estado !== 'vencido') return null;
+  if (!estado) return null;
 
   const dias = diasHastaVencimiento(producto.fecha_vencimiento as string, hoy);
   if (estado === 'vencido') {
@@ -676,6 +706,7 @@ export function etiquetaVencimiento(
   }
   if (dias === 0) return 'Vence hoy';
   if (dias === 1) return 'Vence mañana';
+  if (dias > 60) return `Vence el ${formatearFechaCorta(producto.fecha_vencimiento as string)}`;
   return `Vence en ${dias} días`;
 }
 

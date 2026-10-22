@@ -33,6 +33,7 @@ jest.mock('../lib/supabase', () => ({
 
 import { supabase } from '../lib/supabase';
 import {
+  avisoProductoVencido,
   agruparProductos,
   ajustarCantidadProducto,
   buscarDuplicado,
@@ -1039,5 +1040,50 @@ describe('ajustarDiasAviso', () => {
   it('no baja de 1 ni sube de 60', () => {
     expect(ajustarDiasAviso(1, -1)).toBe(1);
     expect(ajustarDiasAviso(60, 1)).toBe(60);
+  });
+});
+
+describe('avisoProductoVencido', () => {
+  const HOY_AVISO = new Date(2026, 9, 22, 15, 0);
+
+  it('frena una fecha que ya pasó, con un aviso de salud', () => {
+    const aviso = avisoProductoVencido('2026-10-21', null, HOY_AVISO);
+    expect(aviso).toContain('venció el 21/10/2026');
+    expect(aviso).toContain('Por tu salud');
+  });
+
+  it('deja cargar lo que vence hoy o más adelante, y sin fecha', () => {
+    expect(avisoProductoVencido('2026-10-22', null, HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido('2027-01-01', null, HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido('', null, HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido(null, null, HOY_AVISO)).toBeNull();
+  });
+
+  it('editar un producto que ya estaba vencido sin tocar la fecha se permite', () => {
+    expect(avisoProductoVencido('2026-10-01', '2026-10-01', HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido('2026-09-30', '2026-10-01', HOY_AVISO)).not.toBeNull();
+  });
+});
+
+describe('crearProducto con fecha vencida', () => {
+  it('no llega a la base', async () => {
+    from.mockClear();
+    await expect(crearProducto('h1', { ...datosValidos, fechaVencimiento: '2020-01-01' })).rejects.toThrow('Por tu salud');
+    expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe('etiquetaVencimiento (semáforo: también lo que está bien)', () => {
+  const HOY_SEMAFORO = new Date(2026, 9, 22, 10, 0);
+  const conFecha = (fecha: string) =>
+    ({ fecha_vencimiento: fecha, alerta_vencimiento_habilitada: true, dias_aviso_vencimiento: null }) as const;
+
+  it('si falta más que los días de aviso, igual dice cuánto falta (badge verde)', () => {
+    expect(estadoVencimiento(conFecha('2026-11-11'), HOY_SEMAFORO)).toBe('ok');
+    expect(etiquetaVencimiento(conFecha('2026-11-11'), HOY_SEMAFORO)).toBe('Vence en 20 días');
+  });
+
+  it('si falta mucho, muestra la fecha', () => {
+    expect(etiquetaVencimiento(conFecha('2027-03-10'), HOY_SEMAFORO)).toBe('Vence el 10/03/2027');
   });
 });

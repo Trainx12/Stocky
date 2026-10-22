@@ -292,7 +292,7 @@ describe('aplicarAccionDeVoz', () => {
       cantidad: 5,
       stockMinimo: 1,
       alertaVencimientoHabilitada: false,
-    }));
+    }), leche.fecha_vencimiento);
   });
 });
 

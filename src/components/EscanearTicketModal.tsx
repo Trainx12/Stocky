@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
+import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { CatalogoSelectorModal } from './CatalogoSelectorModal';
 import { obtenerFotoBase64 } from '../lib/fotos';
 import type { OrigenFoto } from '../lib/fotos';
@@ -10,7 +11,7 @@ import { armarCandidatos, elegirDelCatalogo, errorDeCandidato, pasarASinCatalogo
 import type { CandidatoTicket } from '../services/escaneo';
 import type { ProductoCatalogo } from '../types/database';
 import { reconocerProductosDeTicket } from '../services/externalApis';
-import { crearProducto, formatearFechaInput, parsearNumero } from '../services/productos';
+import { avisoProductoVencido, crearProducto, formatearFechaInput, parsearNumero } from '../services/productos';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
 
@@ -104,6 +105,9 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
   // Se guarda lo marcado para incluir y con nombre (lo que no está en el
   // catálogo solo si el usuario lo pidió con "Agregar igual").
   const guardables = candidatos.filter((c) => c.incluir && c.nombre.trim() !== '');
+  // Productos vencidos: no se cargan (aviso de salud en su fila).
+  const hayVencidos = guardables.some((c) => !!avisoProductoVencido(c.fechaVencimiento));
+  const rellenoInferior = useRellenoInferior();
   // Mientras algún producto a guardar tenga un error, no se deja confirmar.
   const hayErrores = candidatos.some((c) => c.incluir && errorDeCandidato(c) !== null);
 
@@ -151,8 +155,9 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           <View style={styles.handle} />
           <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={styles.title}>Escanear ticket</Text>
@@ -305,6 +310,12 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                       placeholderTextColor={colors.textSecondary}
                       accessibilityLabel={`Fecha de vencimiento de ${candidato.nombre}`}
                     />
+                    {candidato.incluir && avisoProductoVencido(candidato.fechaVencimiento) && (
+                      <View style={styles.avisoVencido}>
+                        <Ionicons name="warning" size={18} color={colors.danger} />
+                        <Text style={styles.avisoVencidoTexto}>{avisoProductoVencido(candidato.fechaVencimiento)}</Text>
+                      </View>
+                    )}
 
                     {!candidato.catalogo && (
                       <>
@@ -348,13 +359,14 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                   label={guardables.length === 1 ? 'Agregar 1 producto' : `Agregar ${guardables.length} productos`}
                   onPress={handleConfirmar}
                   loading={guardando}
-                  disabled={guardables.length === 0 || hayErrores}
+                  disabled={guardables.length === 0 || hayErrores || hayVencidos}
                 />
               </View>
             )}
           </ScrollView>
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
 
       <CatalogoSelectorModal
         visible={cambiandoId !== null}
@@ -367,6 +379,19 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
 
 const crearEstilos = () =>
   StyleSheet.create({
+  avisoVencido: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerLight,
+  },
+  avisoVencidoTexto: {
+    ...typography.caption,
+    color: colors.danger,
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27, 27, 31, 0.4)',

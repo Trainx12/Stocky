@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { CalendarioPicker } from './CalendarioPicker';
 import { CatalogoSelectorModal } from './CatalogoSelectorModal';
+import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { avisar } from '../lib/alert';
 import { obtenerFotoBase64 } from '../lib/fotos';
 import { useGrabadorDeVoz } from '../lib/grabacion';
@@ -12,6 +13,7 @@ import { reconocerFechaPorVoz, reconocerVencimientoDeFoto } from '../services/ex
 import type { AudioGrabado } from '../services/externalApis';
 import { fechaDeHoy } from '../services/voz';
 import {
+  avisoProductoVencido,
   crearProducto,
   DIAS_AVISO_POR_DEFECTO,
   editarProducto,
@@ -51,6 +53,7 @@ interface ProductoFormModalProps {
 export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, producto }: ProductoFormModalProps) {
   const styles = useEstilos(crearEstilos);
   const editando = producto != null;
+  const rellenoInferior = useRellenoInferior();
 
   // En modo "crear": el producto del catálogo elegido (null = todavía no
   // eligió ninguno, el submit queda deshabilitado). En modo "editar" no se
@@ -231,7 +234,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             marca,
             diasAvisoVencimiento: parsearDiasAviso(diasAviso),
           };
-      const resultado = editando ? await editarProducto(producto!.id, datos) : await crearProducto(hogarId, datos);
+      const resultado = editando ? await editarProducto(producto!.id, datos, producto!.fecha_vencimiento) : await crearProducto(hogarId, datos);
       onSuccess(resultado);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
@@ -240,12 +243,16 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     }
   }
 
-  const puedeSubmitear = editando || catalogoSeleccionado !== null;
+  // Aviso de salud apenas se escribe una fecha que ya pasó (al guardar
+  // igual lo frena crearProducto/editarProducto).
+  const avisoVencido = avisoProductoVencido(fechaVencimiento, producto?.fecha_vencimiento ?? null);
+  const puedeSubmitear = (editando || catalogoSeleccionado !== null) && !avisoVencido;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={handleClose}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           <View style={styles.handle} />
           <ScrollView contentContainerStyle={styles.scrollContenido} keyboardShouldPersistTaps="handled">
             <Text style={styles.title}>{editando ? 'Editar producto' : 'Agregar producto'}</Text>
@@ -346,6 +353,12 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               maxLength={10}
               editable={!loading}
             />
+            {avisoVencido && (
+              <View style={styles.avisoVencido}>
+                <Ionicons name="warning" size={18} color={colors.danger} />
+                <Text style={styles.avisoVencidoTexto}>{avisoVencido}</Text>
+              </View>
+            )}
             <View style={styles.filaFecha}>
               <Pressable
                 onPress={() => setCalendarioVisible((visible) => !visible)}
@@ -448,6 +461,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
           </ScrollView>
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
 
       <CatalogoSelectorModal
         visible={selectorVisible}
@@ -483,6 +497,19 @@ const crearEstilos = () =>
   grabandoTexto: {
     ...typography.caption,
     color: colors.danger,
+  },
+  avisoVencido: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerLight,
+  },
+  avisoVencidoTexto: {
+    ...typography.caption,
+    color: colors.danger,
+    flex: 1,
   },
   backdrop: {
     flex: 1,

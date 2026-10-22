@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BadgeVencimiento } from '../components/BadgeVencimiento';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
 import { EscanearTicketModal } from '../components/EscanearTicketModal';
@@ -285,14 +286,9 @@ export function ProductosScreen({ route, navigation }: Props) {
   // propósito -- ver estadoVencimiento).
   function renderBadgeVencimiento(producto: Producto) {
     const etiqueta = etiquetaVencimiento(producto, undefined, diasAviso);
-    if (!etiqueta) return null;
-    return (
-      <View style={[styles.vencimientoBadge, estadoVencimiento(producto, undefined, diasAviso) === 'vencido' && styles.vencimientoBadgeVencido]}>
-        <Text style={styles.vencimientoBadgeTexto} numberOfLines={1}>
-          {etiqueta}
-        </Text>
-      </View>
-    );
+    const estado = estadoVencimiento(producto, undefined, diasAviso);
+    if (!etiqueta || !estado) return null;
+    return <BadgeVencimiento estado={estado} etiqueta={etiqueta} style={styles.vencimientoBadge} />;
   }
 
   // Alerta de stock mínimo: va en el encabezado del producto (no en cada
@@ -671,25 +667,10 @@ const crearEstilos = () =>
   stepperButton: {
     padding: 2,
   },
-  // RF2/RF3: badge de "próximo a vencer"/"vencido". Usa colors.stockStatus
-  // (ver src/theme/colors.ts) en vez de un color a mano, para no duplicar
-  // los umbrales de color que ya definió el sistema de diseño.
+  // RF2/RF3: badge de vencimiento en colores de semáforo (BadgeVencimiento).
   vencimientoBadge: {
     alignSelf: 'flex-start',
     marginTop: 2,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.stockStatus.critical,
-  },
-  vencimientoBadgeVencido: {
-    backgroundColor: colors.stockStatus.expired,
-  },
-  vencimientoBadgeTexto: {
-    ...typography.caption,
-    color: colors.white,
-    fontSize: 10,
-    lineHeight: 14,
   },
   // Cada producto es una tarjeta con el borde violeta de la app: arriba una
   // franja violeta clara con el producto y su total, abajo sus lotes.

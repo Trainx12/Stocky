@@ -851,3 +851,35 @@ error y se cae la pantalla.
 sufijo único a cada suscripción. Se usa en los 6 canales de la app (inicio,
 productos, notificaciones y perfil). El nombre no filtra nada (los filtros van
 en `.on`), así que llegan los mismos avisos que antes.
+
+## 29. Carga de productos en el celular: teclado, barra de Android y vencidos
+
+**Reportado por QA (2026-10-22, Android):**
+1. En "Cargar por voz" la marca y la fecha estaban en una sola fila, muy
+   apretadas, y la fecha no tenía botón de calendario.
+2. Los botones de abajo de las hojas (por ejemplo "Grabar de nuevo") quedaban
+   debajo de la barra de navegación del celular (◀ ● ■).
+3. Al escribir (cantidad, marca, fecha), el teclado tapaba el campo.
+4. Se podía cargar un producto ya vencido sin ningún aviso.
+5. "Por vencer" y "Vencido" eran del mismo rojo: parecía que todo estaba vencido.
+
+**Causa de 2 y 3:** Android dibuja la app de borde a borde (también debajo de
+la barra de navegación y del teclado) y las hojas no lo tenían en cuenta.
+
+**Solución:**
+- `HojaConTeclado.tsx`: `EvitarTeclado` (sube la hoja lo que mide el teclado)
+  y `useRellenoInferior` (suma el alto de la barra de navegación al relleno
+  de abajo). Se usa en cargar por voz, agregar/editar producto, escanear
+  ticket, catálogo, comentarios y Admin → Catálogo.
+- Cargar por voz: marca y vencimiento en filas propias con título, letra
+  normal y botón "Calendario".
+- `avisoProductoVencido` (services/productos.ts, con tests): una fecha que ya
+  pasó no se puede cargar, con un aviso de salud. Vale para la carga a mano,
+  por voz y por ticket (lo frenan crearProducto/editarProducto, y los
+  formularios lo muestran apenas se escribe la fecha y desactivan el botón).
+  Editar un producto que ya estaba vencido sin cambiarle la fecha (por
+  ejemplo, para bajarle la cantidad) se sigue pudiendo.
+- `BadgeVencimiento`: semáforo verde (falta), amarillo (por vencer) y rojo
+  (vencido), con un ícono distinto en cada caso. En la lista de productos
+  ahora también se ve el verde ("Vence en 20 días", o la fecha si falta más
+  de dos meses).

@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
+import { CalendarioPicker } from './CalendarioPicker';
+import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { SEGUNDOS_MAXIMOS, useGrabadorDeVoz } from '../lib/grabacion';
 import { listarCatalogoAprobado } from '../services/catalogo';
 import { interpretarComandoDeVoz } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
-import { formatearFechaCorta, formatearFechaInput, nombreConMarca } from '../services/productos';
+import { avisoProductoVencido, formatearFechaCorta, formatearFechaInput, nombreConMarca } from '../services/productos';
 import { UNIDADES_DISPONIBLES } from '../services/escaneo';
 import {
   accionAplicable,
@@ -142,6 +144,10 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
   }
 
   const aplicables = acciones.filter(accionAplicable);
+  // Un producto vencido no se carga (aviso de salud en su tarjeta): hasta
+  // corregir la fecha o descartarlo, no se aplica nada.
+  const hayVencidos = aplicables.some((a) => a.tipo !== 'baja' && !!avisoDeVencidoDe(a));
+  const rellenoInferior = useRellenoInferior();
 
   async function handleConfirmar() {
     setAplicando(true);
@@ -179,8 +185,9 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCerrar}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={grabando ? undefined : handleCerrar}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           <View style={styles.handle} />
           <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={styles.title}>Cargar por voz</Text>
@@ -266,7 +273,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
                   label={aplicables.length === 1 ? 'Aplicar 1 cambio' : `Aplicar ${aplicables.length} cambios`}
                   onPress={handleConfirmar}
                   loading={aplicando}
-                  disabled={aplicables.length === 0}
+                  disabled={aplicables.length === 0 || hayVencidos}
                 />
                 <Button label="Grabar de nuevo" variant="outline" onPress={handleGrabarDeNuevo} disabled={aplicando} />
               </View>
@@ -274,8 +281,15 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
           </ScrollView>
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
     </Modal>
   );
+}
+
+// Aviso de salud si la fecha de la acción ya pasó (dejar la que ya tenía el
+// producto se permite, ver avisoProductoVencido).
+function avisoDeVencidoDe(accion: AccionVoz): string | null {
+  return avisoProductoVencido(accion.fecha, accion.producto?.fecha_vencimiento ?? null);
 }
 
 interface TarjetaAccionProps {
@@ -292,6 +306,8 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
   const estilo = estiloTipo()[accion.tipo];
   const titulo = accion.producto ? nombreConMarca(accion.producto) : accion.nombre;
   const sinProducto = accion.tipo !== 'alta' && !accion.producto;
+  const [calendarioVisible, setCalendarioVisible] = useState(false);
+  const avisoVencido = avisoDeVencidoDe(accion);
 
   return (
     <View style={[styles.tarjeta, sinProducto && styles.tarjetaInactiva]}>
@@ -410,29 +426,58 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
               ))}
             </View>
           )}
+          {/* Marca y vencimiento en filas propias, con su título: en un
+              celular angosto, juntos en una fila quedaban apretados. */}
+          <Text style={styles.etiquetaCampo}>Marca (opcional)</Text>
+          <TextInput
+            style={[styles.input, styles.inputGrande]}
+            value={accion.marca}
+            onChangeText={(marca) => onCambiar({ marca })}
+            editable={!deshabilitada}
+            maxLength={40}
+            placeholder="Ej: La Serenísima"
+            placeholderTextColor={colors.textSecondary}
+            accessibilityLabel={`Marca de ${titulo}`}
+          />
+          <Text style={styles.etiquetaCampo}>Vencimiento (opcional)</Text>
           <View style={styles.fila}>
             <TextInput
-              style={[styles.input, styles.flex]}
-              value={accion.marca}
-              onChangeText={(marca) => onCambiar({ marca })}
-              editable={!deshabilitada}
-              maxLength={40}
-              placeholder="Marca (opcional)"
-              placeholderTextColor={colors.textSecondary}
-              accessibilityLabel={`Marca de ${titulo}`}
-            />
-            <TextInput
-              style={[styles.input, styles.inputFecha]}
+              style={[styles.input, styles.inputGrande, styles.flex]}
               value={accion.fecha}
               onChangeText={(texto) => onCambiar({ fecha: formatearFechaInput(texto) })}
               editable={!deshabilitada}
               keyboardType="number-pad"
               maxLength={10}
-              placeholder="Vence AAAA-MM-DD"
+              placeholder="AAAA-MM-DD"
               placeholderTextColor={colors.textSecondary}
               accessibilityLabel={`Fecha de vencimiento de ${titulo}`}
             />
+            <Pressable
+              onPress={() => setCalendarioVisible((v) => !v)}
+              disabled={deshabilitada}
+              style={[styles.botonCalendario, calendarioVisible && styles.botonCalendarioActivo]}
+              accessibilityRole="button"
+              accessibilityLabel={`Elegir la fecha de vencimiento de ${titulo} con el calendario`}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={styles.botonCalendarioTexto}>Calendario</Text>
+            </Pressable>
           </View>
+          {calendarioVisible && (
+            <CalendarioPicker
+              valor={accion.fecha || null}
+              onSeleccionar={(fecha) => {
+                onCambiar({ fecha });
+                setCalendarioVisible(false);
+              }}
+            />
+          )}
+          {avisoVencido && (
+            <View style={styles.avisoVencido}>
+              <Ionicons name="warning" size={18} color={colors.danger} />
+              <Text style={styles.avisoVencidoTexto}>{avisoVencido}</Text>
+            </View>
+          )}
         </>
       )}
     </View>
@@ -526,7 +571,7 @@ const crearEstilos = () =>
     fontStyle: 'italic',
   },
   tarjeta: {
-    gap: spacing.xs,
+    gap: spacing.sm,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -581,8 +626,43 @@ const crearEstilos = () =>
     minWidth: 64,
     textAlign: 'center',
   },
-  inputFecha: {
-    width: 130,
+  // Marca y fecha: letra y alto normales (con la letra chica de la
+  // cantidad quedaban difíciles de tocar).
+  inputGrande: {
+    ...typography.body,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  botonCalendario: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  botonCalendarioActivo: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  botonCalendarioTexto: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  avisoVencido: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerLight,
+  },
+  avisoVencidoTexto: {
+    ...typography.caption,
+    color: colors.danger,
+    flex: 1,
   },
   opciones: {
     gap: spacing.xs,
