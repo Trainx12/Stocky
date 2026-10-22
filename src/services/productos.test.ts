@@ -34,6 +34,7 @@ jest.mock('../lib/supabase', () => ({
 import { supabase } from '../lib/supabase';
 import {
   avisoProductoVencido,
+  productosVencidos,
   agruparProductos,
   ajustarCantidadProducto,
   buscarDuplicado,
@@ -1085,5 +1086,18 @@ describe('etiquetaVencimiento (semáforo: también lo que está bien)', () => {
 
   it('si falta mucho, muestra la fecha', () => {
     expect(etiquetaVencimiento(conFecha('2027-03-10'), HOY_SEMAFORO)).toBe('Vence el 10/03/2027');
+  });
+});
+
+describe('productosVencidos', () => {
+  it('solo lo que venció antes de hoy, tenga o no la alerta prendida', () => {
+    const hoy = new Date(2026, 9, 22, 18, 0);
+    const lista = [
+      { id: 'a', fecha_vencimiento: '2026-10-21', alerta_vencimiento_habilitada: false },
+      { id: 'b', fecha_vencimiento: '2026-10-22', alerta_vencimiento_habilitada: true },
+      { id: 'c', fecha_vencimiento: null, alerta_vencimiento_habilitada: true },
+      { id: 'd', fecha_vencimiento: '2025-01-01', alerta_vencimiento_habilitada: true },
+    ] as unknown as Producto[];
+    expect(productosVencidos(lista, hoy).map((p) => p.id)).toEqual(['a', 'd']);
   });
 });

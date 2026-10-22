@@ -340,6 +340,28 @@ export async function eliminarProductosAgotados(hogarId: string): Promise<number
   return data?.length ?? 0;
 }
 
+// Productos que ya vencieron (la fecha pasó, sin contar hoy), tengan o no la
+// alerta prendida: los que borra "Eliminar vencidos" del filtro "Por vencer".
+export function productosVencidos(productos: Producto[], hoy: Date = new Date()): Producto[] {
+  const hoyISO = formatearFechaISO(hoy);
+  return productos.filter((p) => !!p.fecha_vencimiento && p.fecha_vencimiento < hoyISO);
+}
+
+// Borra del hogar todos los productos vencidos (mismo criterio que
+// productosVencidos: fecha anterior a hoy). Devuelve cuántos borró. Filtra
+// por hogar_id explícito (no solo RLS), igual que eliminarProductosAgotados.
+export async function eliminarProductosVencidos(hogarId: string, hoy: Date = new Date()): Promise<number> {
+  const { data, error } = await supabase
+    .from('productos')
+    .delete()
+    .eq('hogar_id', hogarId)
+    .lt('fecha_vencimiento', formatearFechaISO(hoy))
+    .select('id');
+
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 // Suma o resta `delta` a la cantidad actual (+1/-1 rápido desde la lista,
 // sin abrir el formulario de editar). Va por RPC (ver migración
 // 20260909020000_ajuste_rapido_y_delta_actividad.sql) y no por un

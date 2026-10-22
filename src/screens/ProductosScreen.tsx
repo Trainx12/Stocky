@@ -19,9 +19,11 @@ import {
   filtrarProductos,
   formatearFechaCorta,
   eliminarProductosAgotados,
+  eliminarProductosVencidos,
   listarProductos,
   nombreConMarca,
   productosAgotadosLimpiables,
+  productosVencidos,
   productosConVencimiento,
   stockMinimoDelGrupo,
 } from '../services/productos';
@@ -212,6 +214,32 @@ export function ProductosScreen({ route, navigation }: Props) {
       await cargar();
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudieron limpiar los agotados.');
+    }
+  }
+
+  // Vencidos: con el filtro "Por vencer" se pueden borrar todos de una.
+  const vencidos = useMemo(() => productosVencidos(productos), [productos]);
+  const [borrandoVencidos, setBorrandoVencidos] = useState(false);
+
+  async function handleEliminarVencidos() {
+    const confirmado = await confirmar(
+      'Eliminar vencidos',
+      vencidos.length === 1
+        ? '¿Eliminar del hogar 1 producto vencido? No se puede deshacer.'
+        : `¿Eliminar del hogar los ${vencidos.length} productos vencidos? No se puede deshacer.`,
+      'Eliminar',
+    );
+    if (!confirmado) return;
+
+    setBorrandoVencidos(true);
+    try {
+      const borrados = await eliminarProductosVencidos(hogarId);
+      await cargar();
+      avisar('Listo', borrados === 1 ? 'Se eliminó 1 producto vencido.' : `Se eliminaron ${borrados} productos vencidos.`, 'exito');
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudieron eliminar los vencidos.');
+    } finally {
+      setBorrandoVencidos(false);
     }
   }
 
@@ -448,6 +476,23 @@ export function ProductosScreen({ route, navigation }: Props) {
         </ScrollView>
       )}
 
+      {filtroAlerta === 'porVencer' && vencidos.length > 0 && (
+        <Pressable
+          onPress={handleEliminarVencidos}
+          disabled={borrandoVencidos}
+          style={styles.eliminarVencidosButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Eliminar del hogar los ${vencidos.length} productos vencidos`}
+        >
+          {borrandoVencidos ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Ionicons name="trash-outline" size={16} color={colors.white} />
+          )}
+          <Text style={styles.eliminarVencidosTexto}>Eliminar vencidos ({vencidos.length})</Text>
+        </Pressable>
+      )}
+
       {agotados.length > 0 && (
         <Pressable onPress={handleLimpiarAgotados} style={styles.limpiarButton} accessibilityRole="button">
           <Ionicons name="trash-bin-outline" size={16} color={colors.textSecondary} />
@@ -593,6 +638,21 @@ const crearEstilos = () =>
   limpiarTexto: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  // Rojo, como el semáforo de "vencido".
+  eliminarVencidosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.danger,
+  },
+  eliminarVencidosTexto: {
+    ...typography.caption,
+    color: colors.white,
   },
   escanearButton: {
     padding: spacing.xs,
