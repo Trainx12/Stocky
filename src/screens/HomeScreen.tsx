@@ -8,6 +8,7 @@ import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
+import { BadgeVencimiento } from '../components/BadgeVencimiento';
 import { BottomNavBar } from '../components/BottomNavBar';
 import type { TabKey } from '../components/BottomNavBar';
 import { CatalogoSelectorModal } from '../components/CatalogoSelectorModal';
@@ -698,7 +699,14 @@ export function HomeScreen() {
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
-        <Header nombre={usuario?.nombre} onAyuda={() => navigation.navigate('Ayuda')} refAyuda={tutorial.objetivo('ayuda')} />
+        <Header
+          nombre={usuario?.nombre}
+          email={usuario?.email}
+          avatarUrl={usuario?.avatar_url}
+          onPerfil={() => navigation.navigate('Cuenta')}
+          onAyuda={() => navigation.navigate('Ayuda')}
+          refAyuda={tutorial.objetivo('ayuda')}
+        />
       </View>
 
       {/* Contenido scrolleable entre el header y la nav bar fija. La View de
@@ -914,11 +922,7 @@ export function HomeScreen() {
                             </Text>
                           )}
                         </View>
-                        {etiqueta && (
-                          <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
-                            <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
-                          </View>
-                        )}
+                        {etiqueta && estado && <BadgeVencimiento estado={estado} etiqueta={etiqueta} />}
                       </Pressable>
                     );
                   })}
@@ -1314,15 +1318,6 @@ const crearEstilos = () =>
     ...typography.caption,
     color: colors.textSecondary,
   },
-  // RF2/RF3: mismo criterio de color que el badge de ProductosScreen (ver
-  // colors.stockStatus en src/theme/colors.ts) para que la alerta se lea
-  // igual en las dos pantallas.
-  vencimientoBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.stockStatus.critical,
-  },
   // Alerta de stock mínimo: mismo estilo que el badge de ProductosScreen.
   stockBadge: {
     flexDirection: 'row',
@@ -1350,14 +1345,6 @@ const crearEstilos = () =>
   verTodosTexto: {
     ...typography.caption,
     color: colors.primary,
-  },
-  vencimientoBadgeVencido: {
-    backgroundColor: colors.stockStatus.expired,
-  },
-  vencimientoBadgeTexto: {
-    ...typography.caption,
-    color: colors.white,
-    fontSize: 11,
   },
   solicitudDot: {
     position: 'absolute',

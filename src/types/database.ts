@@ -78,6 +78,9 @@ export interface Usuario {
   // Ver src/legal/terminos.ts y la migración 20261013120000_terminos_aceptados.sql.
   terminos_version: string | null;
   terminos_aceptados_at: string | null;
+  // URL pública de la foto de perfil (bucket "avatares", carpeta <id>/), o
+  // null si no subió ninguna. Ver migración 20261019120000_foto_de_perfil.sql.
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -397,6 +400,7 @@ export interface Database {
           habilitado: boolean;
           created_at: string;
           cantidad_hogares: number;
+          avatar_url: string | null;
         }>[];
       };
       admin_set_usuario_habilitado: {

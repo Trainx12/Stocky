@@ -324,5 +324,5 @@ export async function aplicarAccionDeVoz(hogarId: string, accion: AccionVoz): Pr
     alertaVencimientoHabilitada: producto.alerta_vencimiento_habilitada,
     catalogoId: producto.catalogo_id,
     marca: accion.marca,
-  });
+  }, producto.fecha_vencimiento);
 }

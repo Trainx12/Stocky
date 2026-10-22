@@ -577,6 +577,14 @@ Migración `20261018120000_panel_admin_comentarios_y_borrar_cuenta.sql`.
   `salir_de_hogar`, borra los hogares que quedan vacíos (primero sus
   productos, por el trigger de actividad) y el usuario de Auth. Términos
   versión `2026-10-13`.
+- **Foto de perfil** (`services/avatar.ts`, componente `Avatar`): Cuenta
+  sube la foto (achicada a 400 px con `lib/fotos.ts`) al bucket público
+  `avatares`, en `<uid>/<fecha>.jpg`, guarda la URL en `usuarios.avatar_url`
+  y borra la anterior. Las policies solo dejan subir/borrar en la carpeta
+  propia y un check obliga a que la URL sea de esa carpeta. `Avatar` muestra
+  la foto o la inicial (Header, Cuenta, Miembros del hogar, Admin →
+  Usuarios). Borrar la cuenta borra antes la carpeta (Supabase no deja
+  borrar archivos de Storage desde SQL). Términos versión `2026-10-15`.
 
 **Qué puede un admin en la base vs. en la app.** Algunas policies de las
 primeras migraciones (productos, hogares, miembros) incluyen

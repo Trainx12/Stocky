@@ -33,8 +33,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Stocky necesita acceder a tus fotos para leer tickets y fechas de vencimiento.",
-          "cameraPermission": "Stocky necesita la cámara para fotografiar tickets y fechas de vencimiento."
+          "photosPermission": "Stocky necesita acceder a tus fotos para leer tickets y fechas de vencimiento, y para elegir tu foto de perfil.",
+          "cameraPermission": "Stocky necesita la cámara para fotografiar tickets y fechas de vencimiento, y para sacarte una foto de perfil."
         }
       ],
       [

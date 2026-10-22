@@ -44,6 +44,7 @@ describe('listarUsuarios', () => {
           habilitado: false,
           created_at: '2026-09-01T00:00:00Z',
           cantidad_hogares: 2,
+          avatar_url: 'https://x.supabase.co/storage/v1/object/public/avatares/u1/1.jpg',
         },
       ],
       error: null,
@@ -61,6 +62,7 @@ describe('listarUsuarios', () => {
         habilitado: false,
         createdAt: '2026-09-01T00:00:00Z',
         cantidadHogares: 2,
+        avatarUrl: 'https://x.supabase.co/storage/v1/object/public/avatares/u1/1.jpg',
       },
     ]);
   });
@@ -110,7 +112,7 @@ describe('cambiarRol', () => {
 });
 
 describe('filtrarUsuarios', () => {
-  const base = { createdAt: '2026-09-01', cantidadHogares: 1 };
+  const base = { createdAt: '2026-09-01', cantidadHogares: 1, avatarUrl: null };
   const usuarios: UsuarioAdmin[] = [
     { ...base, id: '1', email: 'ana@mail.com', nombre: 'Ana López', rol: 'administrador', habilitado: true },
     { ...base, id: '2', email: 'jose@mail.com', nombre: 'José Pérez', rol: 'usuario', habilitado: false },

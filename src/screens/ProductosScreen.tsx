@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BadgeVencimiento } from '../components/BadgeVencimiento';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
 import { EscanearTicketModal } from '../components/EscanearTicketModal';
@@ -18,9 +19,11 @@ import {
   filtrarProductos,
   formatearFechaCorta,
   eliminarProductosAgotados,
+  eliminarProductosVencidos,
   listarProductos,
   nombreConMarca,
   productosAgotadosLimpiables,
+  productosVencidos,
   productosConVencimiento,
   stockMinimoDelGrupo,
 } from '../services/productos';
@@ -214,6 +217,32 @@ export function ProductosScreen({ route, navigation }: Props) {
     }
   }
 
+  // Vencidos: con el filtro "Por vencer" se pueden borrar todos de una.
+  const vencidos = useMemo(() => productosVencidos(productos), [productos]);
+  const [borrandoVencidos, setBorrandoVencidos] = useState(false);
+
+  async function handleEliminarVencidos() {
+    const confirmado = await confirmar(
+      'Eliminar vencidos',
+      vencidos.length === 1
+        ? '¿Eliminar del hogar 1 producto vencido? No se puede deshacer.'
+        : `¿Eliminar del hogar los ${vencidos.length} productos vencidos? No se puede deshacer.`,
+      'Eliminar',
+    );
+    if (!confirmado) return;
+
+    setBorrandoVencidos(true);
+    try {
+      const borrados = await eliminarProductosVencidos(hogarId);
+      await cargar();
+      avisar('Listo', borrados === 1 ? 'Se eliminó 1 producto vencido.' : `Se eliminaron ${borrados} productos vencidos.`, 'exito');
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudieron eliminar los vencidos.');
+    } finally {
+      setBorrandoVencidos(false);
+    }
+  }
+
   function handleAgregar() {
     setProductoEditando(null);
     setFormVisible(true);
@@ -285,14 +314,9 @@ export function ProductosScreen({ route, navigation }: Props) {
   // propósito -- ver estadoVencimiento).
   function renderBadgeVencimiento(producto: Producto) {
     const etiqueta = etiquetaVencimiento(producto, undefined, diasAviso);
-    if (!etiqueta) return null;
-    return (
-      <View style={[styles.vencimientoBadge, estadoVencimiento(producto, undefined, diasAviso) === 'vencido' && styles.vencimientoBadgeVencido]}>
-        <Text style={styles.vencimientoBadgeTexto} numberOfLines={1}>
-          {etiqueta}
-        </Text>
-      </View>
-    );
+    const estado = estadoVencimiento(producto, undefined, diasAviso);
+    if (!etiqueta || !estado) return null;
+    return <BadgeVencimiento estado={estado} etiqueta={etiqueta} style={styles.vencimientoBadge} />;
   }
 
   // Alerta de stock mínimo: va en el encabezado del producto (no en cada
@@ -452,6 +476,23 @@ export function ProductosScreen({ route, navigation }: Props) {
         </ScrollView>
       )}
 
+      {filtroAlerta === 'porVencer' && vencidos.length > 0 && (
+        <Pressable
+          onPress={handleEliminarVencidos}
+          disabled={borrandoVencidos}
+          style={styles.eliminarVencidosButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Eliminar del hogar los ${vencidos.length} productos vencidos`}
+        >
+          {borrandoVencidos ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Ionicons name="trash-outline" size={16} color={colors.white} />
+          )}
+          <Text style={styles.eliminarVencidosTexto}>Eliminar vencidos ({vencidos.length})</Text>
+        </Pressable>
+      )}
+
       {agotados.length > 0 && (
         <Pressable onPress={handleLimpiarAgotados} style={styles.limpiarButton} accessibilityRole="button">
           <Ionicons name="trash-bin-outline" size={16} color={colors.textSecondary} />
@@ -598,6 +639,21 @@ const crearEstilos = () =>
     ...typography.caption,
     color: colors.textSecondary,
   },
+  // Rojo, como el semáforo de "vencido".
+  eliminarVencidosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.danger,
+  },
+  eliminarVencidosTexto: {
+    ...typography.caption,
+    color: colors.white,
+  },
   escanearButton: {
     padding: spacing.xs,
   },
@@ -671,25 +727,10 @@ const crearEstilos = () =>
   stepperButton: {
     padding: 2,
   },
-  // RF2/RF3: badge de "próximo a vencer"/"vencido". Usa colors.stockStatus
-  // (ver src/theme/colors.ts) en vez de un color a mano, para no duplicar
-  // los umbrales de color que ya definió el sistema de diseño.
+  // RF2/RF3: badge de vencimiento en colores de semáforo (BadgeVencimiento).
   vencimientoBadge: {
     alignSelf: 'flex-start',
     marginTop: 2,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.stockStatus.critical,
-  },
-  vencimientoBadgeVencido: {
-    backgroundColor: colors.stockStatus.expired,
-  },
-  vencimientoBadgeTexto: {
-    ...typography.caption,
-    color: colors.white,
-    fontSize: 10,
-    lineHeight: 14,
   },
   // Cada producto es una tarjeta con el borde violeta de la app: arriba una
   // franja violeta clara con el producto y su total, abajo sus lotes.

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
+import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { FotoAmpliadaModal } from './FotoAmpliadaModal';
 import {
   categoriasParaCargar,
@@ -66,6 +67,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
   // sacando/eligiendo en este momento.
   const [fotoSugerida, setFotoSugerida] = useState<string | null>(null);
   const [cargandoFoto, setCargandoFoto] = useState(false);
+  const rellenoInferior = useRellenoInferior();
   // Producto cuya foto se está mirando en grande (null = ninguna).
   const [fotoAmpliada, setFotoAmpliada] = useState<ProductoCatalogo | null>(null);
 
@@ -148,8 +150,9 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           <View style={styles.handle} />
           <Text style={styles.title}>{sugerirVisible ? 'Sugerir un producto' : 'Elegí un producto'}</Text>
 
@@ -376,6 +379,7 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
           )}
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
 
       <FotoAmpliadaModal
         imagen={fotoAmpliada ? imagenDeCatalogo(fotoAmpliada) : null}

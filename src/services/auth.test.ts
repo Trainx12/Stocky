@@ -37,11 +37,16 @@ jest.mock('./cuentas', () => ({
   siguienteCuenta: (cuentas: { userId: string }[], actual: string) => cuentas.find((c) => c.userId !== actual) ?? null,
 }));
 
+// La foto de perfil tiene sus propios tests (avatar.test.ts): acá solo
+// importa en qué orden se borra al borrar la cuenta.
+jest.mock('./avatar', () => ({ borrarMisFotosDePerfil: jest.fn() }));
+
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 import { cerrarTodasLasSesiones, eliminarMiCuenta, registrarTareaAntesDeCerrarSesion, signInWithGoogle, signOut } from './auth';
 import { cambiarACuenta, listarCuentas, olvidarCuenta, olvidarTodas } from './cuentas';
+import { borrarMisFotosDePerfil } from './avatar';
 
 const signInWithOAuth = supabase.auth.signInWithOAuth as jest.Mock;
 const setSession = supabase.auth.setSession as jest.Mock;
@@ -235,10 +240,13 @@ describe('signInWithGoogle elige cuenta', () => {
 describe('eliminarMiCuenta', () => {
   const rpc = supabase.rpc as jest.Mock;
 
-  it('desregistra el push, borra la cuenta en la base, cierra sesión y la olvida', async () => {
+  it('desregistra el push, borra la foto y la cuenta en la base, cierra sesión y la olvida', async () => {
     const orden: string[] = [];
     const quitar = registrarTareaAntesDeCerrarSesion(async () => {
       orden.push('tarea');
+    });
+    (borrarMisFotosDePerfil as jest.Mock).mockImplementation(async () => {
+      orden.push('foto');
     });
     rpc.mockImplementation(async () => {
       orden.push('rpc');
@@ -249,7 +257,8 @@ describe('eliminarMiCuenta', () => {
     await eliminarMiCuenta();
     quitar();
 
-    expect(orden).toEqual(['tarea', 'rpc']);
+    expect(orden).toEqual(['tarea', 'foto', 'rpc']);
+    expect(borrarMisFotosDePerfil).toHaveBeenCalledWith('u1');
     expect(rpc).toHaveBeenCalledWith('eliminar_mi_cuenta');
     expect(signOutMock).toHaveBeenCalledWith({ scope: 'local' });
     expect(olvidarCuenta).toHaveBeenCalledWith('u1');
@@ -260,6 +269,13 @@ describe('eliminarMiCuenta', () => {
     await expect(eliminarMiCuenta()).rejects.toThrow('sin red');
     expect(signOutMock).not.toHaveBeenCalled();
     expect(olvidarCuenta).not.toHaveBeenCalled();
+  });
+
+  it('si no se puede borrar la foto, no borra la cuenta', async () => {
+    (borrarMisFotosDePerfil as jest.Mock).mockRejectedValueOnce(new Error('No se pudo borrar tu foto de perfil'));
+    await expect(eliminarMiCuenta()).rejects.toThrow('foto de perfil');
+    expect(rpc).not.toHaveBeenCalled();
+    expect(signOutMock).not.toHaveBeenCalled();
   });
 
   it('si quedan otras cuentas en el celular, pasa a la siguiente', async () => {
