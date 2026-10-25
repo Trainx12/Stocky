@@ -33,7 +33,11 @@ jest.mock('../lib/supabase', () => ({
 
 import { supabase } from '../lib/supabase';
 import {
+  aFechaISO,
+  restaurarProductos,
   avisoProductoVencido,
+  fechaDesdeInput,
+  fechaParaMostrar,
   productosVencidos,
   agruparProductos,
   ajustarCantidadProducto,
@@ -208,15 +212,15 @@ describe('crearProducto', () => {
   });
 
   it('rechaza una fecha de vencimiento con formato inválido sin llamar a Supabase', async () => {
-    await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '31/12/2026' })).rejects.toThrow(
-      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+    await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '31/12/20' })).rejects.toThrow(
+      'La fecha de vencimiento no está completa o no existe (DD/MM/AAAA)',
     );
     expect(from).not.toHaveBeenCalled();
   });
 
   it('rechaza una fecha de vencimiento inexistente (ej: 30 de febrero) sin llamar a Supabase', async () => {
     await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '2026-02-30' })).rejects.toThrow(
-      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+      'La fecha de vencimiento no está completa o no existe (DD/MM/AAAA)',
     );
     expect(from).not.toHaveBeenCalled();
   });
@@ -296,8 +300,8 @@ describe('editarProducto', () => {
   });
 
   it('rechaza una fecha de vencimiento inválida sin llamar a Supabase', async () => {
-    await expect(editarProducto('p1', { ...datosValidos, fechaVencimiento: '31/12/2026' })).rejects.toThrow(
-      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+    await expect(editarProducto('p1', { ...datosValidos, fechaVencimiento: '31/12/20' })).rejects.toThrow(
+      'La fecha de vencimiento no está completa o no existe (DD/MM/AAAA)',
     );
     expect(from).not.toHaveBeenCalled();
   });
@@ -832,7 +836,7 @@ describe('productosAgotadosLimpiables', () => {
 });
 
 describe('eliminarProductosAgotados', () => {
-  it('borra por hogar con cantidad 0 y stock mínimo 0 y devuelve cuántos borró', async () => {
+  it('borra por hogar con cantidad 0 y stock mínimo 0 y devuelve los que borró', async () => {
     const mockSelectIds = jest.fn().mockResolvedValue({ data: [{ id: 'a' }, { id: 'b' }], error: null });
     const eqStock = jest.fn(() => ({ select: mockSelectIds }));
     const eqCantidad = jest.fn(() => ({ eq: eqStock }));
@@ -843,7 +847,8 @@ describe('eliminarProductosAgotados', () => {
     expect(mockDeleteEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
     expect(eqCantidad).toHaveBeenCalledWith('cantidad', 0);
     expect(eqStock).toHaveBeenCalledWith('stock_minimo', 0);
-    expect(borrados).toBe(2);
+    // Devuelve las filas borradas, para poder deshacerlo.
+    expect(borrados.map((p) => p.id)).toEqual(['a', 'b']);
   });
 });
 
@@ -1099,5 +1104,46 @@ describe('productosVencidos', () => {
       { id: 'd', fecha_vencimiento: '2025-01-01', alerta_vencimiento_habilitada: true },
     ] as unknown as Producto[];
     expect(productosVencidos(lista, hoy).map((p) => p.id)).toEqual(['a', 'd']);
+  });
+});
+
+describe('fechas en formato argentino (DD/MM/AAAA)', () => {
+  it('pone las barras solas mientras se tipea y guarda AAAA-MM-DD al completarla', () => {
+    expect(fechaDesdeInput('2')).toBe('2');
+    expect(fechaDesdeInput('2110')).toBe('21/10');
+    expect(fechaDesdeInput('21/10/20')).toBe('21/10/20');
+    expect(fechaDesdeInput('21102026')).toBe('2026-10-21');
+    expect(fechaDesdeInput('21/10/2026')).toBe('2026-10-21');
+  });
+
+  it('una fecha que no existe queda escrita (no se convierte)', () => {
+    expect(fechaDesdeInput('30022026')).toBe('30/02/2026');
+  });
+
+  it('muestra en DD/MM/AAAA lo guardado', () => {
+    expect(fechaParaMostrar('2026-10-21')).toBe('21/10/2026');
+    expect(fechaParaMostrar('21/10')).toBe('21/10');
+    expect(fechaParaMostrar(null)).toBe('');
+  });
+
+  it('acepta las dos formas al guardar', () => {
+    expect(aFechaISO('21/10/2026')).toBe('2026-10-21');
+    expect(aFechaISO('2026-10-21')).toBe('2026-10-21');
+  });
+});
+
+describe('restaurarProductos (Deshacer)', () => {
+  it('vuelve a insertar las filas borradas tal cual (mismo id)', async () => {
+    (mockInsert as jest.Mock).mockReturnValueOnce(Promise.resolve({ error: null }));
+    const borrados = [{ id: 'p1', hogar_id: 'h1', nombre: 'Leche', cantidad: 2 }] as unknown as Producto[];
+    await restaurarProductos(borrados);
+    expect(from).toHaveBeenCalledWith('productos');
+    expect(mockInsert).toHaveBeenCalledWith(borrados);
+  });
+
+  it('sin nada para restaurar no llama a la base', async () => {
+    from.mockClear();
+    await restaurarProductos([]);
+    expect(from).not.toHaveBeenCalled();
   });
 });

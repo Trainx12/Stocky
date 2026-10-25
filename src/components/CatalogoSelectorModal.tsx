@@ -332,25 +332,36 @@ export function CatalogoSelectorModal({ visible, onClose, onSeleccionar, soloSug
                     key={item.id}
                     style={styles.item}
                     onPress={() => onSeleccionar?.(item)}
+                    // Mantener apretado también muestra la foto en grande.
+                    onLongPress={imagenDeCatalogo(item) ? () => setFotoAmpliada(item) : undefined}
                     accessibilityRole="button"
                     accessibilityLabel={`Elegir ${item.nombre}`}
                   >
-                    {/* Tocar la foto la muestra en grande (no elige el
-                        producto); tocar el nombre lo elige. */}
-                    {imagenDeCatalogo(item) ? (
-                      <Pressable
-                        style={styles.itemFoto}
-                        onPress={() => setFotoAmpliada(item)}
-                        accessibilityRole="imagebutton"
-                        accessibilityLabel={`Ver la foto de ${item.nombre} en grande`}
-                      >
-                        <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="contain" />
-                      </Pressable>
-                    ) : (
+                    {/* Todo el cuadrito (foto incluida) elige el producto: la
+                        foto ocupa casi todo el cuadrito y en el celular se
+                        abría la vista grande en vez de elegirlo. Para verla en
+                        grande está la lupita de la esquina (o mantener
+                        apretado). */}
+                    <View style={styles.itemFotoMarco}>
                       <View style={styles.itemFoto}>
-                        <Ionicons name="basket-outline" size={28} color={colors.primary} />
+                        {imagenDeCatalogo(item) ? (
+                          <Image source={imagenDeCatalogo(item)!} style={styles.itemImagen} resizeMode="contain" />
+                        ) : (
+                          <Ionicons name="basket-outline" size={28} color={colors.primary} />
+                        )}
                       </View>
-                    )}
+                      {imagenDeCatalogo(item) && (
+                        <Pressable
+                          onPress={() => setFotoAmpliada(item)}
+                          hitSlop={8}
+                          style={styles.itemLupa}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Ver la foto de ${item.nombre} en grande`}
+                        >
+                          <Ionicons name="expand" size={12} color={colors.white} />
+                        </Pressable>
+                      )}
+                    </View>
                     <Text style={styles.itemNombre} numberOfLines={2}>
                       {item.nombre}
                     </Text>
@@ -486,6 +497,24 @@ const crearEstilos = () =>
   itemImagen: {
     width: '100%',
     height: '100%',
+  },
+  // La lupita va afuera de itemFoto (que recorta con overflow hidden), en la
+  // esquina de arriba a la derecha de la foto.
+  itemFotoMarco: {
+    position: 'relative',
+  },
+  itemLupa: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
   itemNombre: {
     ...typography.caption,

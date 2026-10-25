@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BadgeVencimiento } from '../components/BadgeVencimiento';
+import { EsqueletoLista } from '../components/Esqueleto';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
 import { EscanearTicketModal } from '../components/EscanearTicketModal';
@@ -24,12 +25,14 @@ import {
   nombreConMarca,
   productosAgotadosLimpiables,
   productosVencidos,
+  restaurarProductos,
   productosConVencimiento,
   stockMinimoDelGrupo,
 } from '../services/productos';
 import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
-import { avisar, confirmar } from '../lib/alert';
+import { avisar, avisarConAccion, confirmar } from '../lib/alert';
+import { vibrarToque } from '../lib/vibrar';
 import { supabase } from '../lib/supabase';
 import { afectaBorrado, agruparLlamadas, nombreDeCanal } from '../lib/tiempoReal';
 import { useAuth } from '../context/AuthContext';
@@ -195,6 +198,24 @@ export function ProductosScreen({ route, navigation }: Props) {
     return filtroAlerta === 'stockBajo' ? todos.filter((g) => stockPorProducto.has(g.clave)) : todos;
   }, [productosFiltrados, filtroAlerta, stockPorProducto]);
 
+  // Después de borrar, un cartelito con "Deshacer" (unos segundos) que
+  // vuelve a cargar exactamente lo que se borró.
+  function ofrecerDeshacer(borrados: Producto[], mensaje: string) {
+    if (borrados.length === 0) return;
+    avisarConAccion('Listo', mensaje, {
+      etiqueta: 'Deshacer',
+      alTocar: async () => {
+        try {
+          await restaurarProductos(borrados);
+          await cargar();
+          avisar('Listo', borrados.length === 1 ? 'Se recuperó el producto.' : `Se recuperaron ${borrados.length} productos.`, 'exito');
+        } catch (err) {
+          avisar('Error', err instanceof Error ? err.message : 'No se pudo deshacer.');
+        }
+      },
+    });
+  }
+
   // Agotados sin stock mínimo: se pueden limpiar de una (los que tienen
   // mínimo se dejan, ese 0 es la señal de "hay que reponer").
   const agotados = useMemo(() => productosAgotadosLimpiables(productos), [productos]);
@@ -210,8 +231,9 @@ export function ProductosScreen({ route, navigation }: Props) {
     if (!confirmado) return;
 
     try {
-      await eliminarProductosAgotados(hogarId);
+      const borrados = await eliminarProductosAgotados(hogarId);
       await cargar();
+      ofrecerDeshacer(borrados, borrados.length === 1 ? 'Se eliminó 1 producto agotado.' : `Se eliminaron ${borrados.length} productos agotados.`);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudieron limpiar los agotados.');
     }
@@ -235,7 +257,7 @@ export function ProductosScreen({ route, navigation }: Props) {
     try {
       const borrados = await eliminarProductosVencidos(hogarId);
       await cargar();
-      avisar('Listo', borrados === 1 ? 'Se eliminó 1 producto vencido.' : `Se eliminaron ${borrados} productos vencidos.`, 'exito');
+      ofrecerDeshacer(borrados, borrados.length === 1 ? 'Se eliminó 1 producto vencido.' : `Se eliminaron ${borrados.length} productos vencidos.`);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudieron eliminar los vencidos.');
     } finally {
@@ -265,6 +287,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   // HogarMiembrosModal -- se siente inmediato sin esperar el roundtrip.
   async function handleAjustarCantidad(producto: Producto, delta: number) {
     if (ajustandoIds.has(producto.id)) return;
+    vibrarToque();
     setAjustandoIds((actuales) => new Set(actuales).add(producto.id));
 
     const cantidadAnterior = producto.cantidad;
@@ -298,6 +321,7 @@ export function ProductosScreen({ route, navigation }: Props) {
     try {
       await eliminarProducto(producto.id);
       await cargar();
+      ofrecerDeshacer([producto], `Se eliminó "${nombreConMarca(producto)}".`);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo eliminar el producto.');
     }
@@ -501,7 +525,9 @@ export function ProductosScreen({ route, navigation }: Props) {
       )}
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
+        <View style={styles.loader}>
+          <EsqueletoLista filas={5} conFoto />
+        </View>
       ) : grupos.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="basket-outline" size={32} color={colors.textSecondary} />
@@ -693,7 +719,7 @@ const crearEstilos = () =>
     color: colors.white,
   },
   loader: {
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
   emptyState: {
     alignItems: 'center',

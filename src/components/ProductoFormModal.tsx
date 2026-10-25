@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { CalendarioPicker } from './CalendarioPicker';
 import { CatalogoSelectorModal } from './CatalogoSelectorModal';
+import { imagenDeCatalogo } from '../lib/catalogoImagenes';
 import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { avisar } from '../lib/alert';
 import { obtenerFotoBase64 } from '../lib/fotos';
@@ -17,7 +18,8 @@ import {
   crearProducto,
   DIAS_AVISO_POR_DEFECTO,
   editarProducto,
-  formatearFechaInput,
+  fechaDesdeInput,
+  fechaParaMostrar,
   parsearDiasAviso,
   parsearNumero,
 } from '../services/productos';
@@ -70,7 +72,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   const [marca, setMarca] = useState('');
   const [cantidad, setCantidad] = useState('0');
   const [stockMinimo, setStockMinimo] = useState('0');
-  // RF2/RF3: fecha de vencimiento cargada a mano (texto libre 'AAAA-MM-DD',
+  // RF2/RF3: fecha de vencimiento ('AAAA-MM-DD' completa; mientras se tipea,
+  // el texto a medias en DD/MM/AAAA, ver fechaDesdeInput;
   // vacío = sin fecha) y si avisar cuando esté próximo a vencer. Default
   // `true` para el toggle, igual que el default de la columna en la base.
   const [fechaVencimiento, setFechaVencimiento] = useState('');
@@ -104,7 +107,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     } else {
       setCatalogoSeleccionado(null);
       setMarca('');
-      setCantidad('0');
+      // Arranca en 1: si nadie la cambiaba, el producto se cargaba "agotado".
+      setCantidad('1');
       setStockMinimo('0');
       setFechaVencimiento('');
       setAlertaVencimientoHabilitada(true);
@@ -263,9 +267,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               // crearse, editar acá cambiaría de qué es el producto sin
               // pasar por el catálogo -- justo lo que este cambio evita.
               <View style={styles.productoElegido}>
-                <View style={styles.productoElegidoFoto}>
-                  <Ionicons name="basket-outline" size={22} color={colors.primary} />
-                </View>
+                <FotoProducto nombre={producto!.nombre} />
                 <View style={styles.productoElegidoTextos}>
                   <Text style={styles.productoElegidoNombre}>{producto!.nombre}</Text>
                   <Text style={styles.productoElegidoDetalle}>
@@ -281,9 +283,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 accessibilityRole="button"
                 accessibilityLabel={catalogoSeleccionado ? `Cambiar producto, elegido ${catalogoSeleccionado.nombre}` : 'Elegir un producto'}
               >
-                <View style={styles.productoElegidoFoto}>
-                  <Ionicons name="basket-outline" size={22} color={colors.primary} />
-                </View>
+                <FotoProducto nombre={catalogoSeleccionado?.nombre} imagenUrl={catalogoSeleccionado?.imagen_url} />
                 {catalogoSeleccionado ? (
                   <View style={styles.productoElegidoTextos}>
                     <Text style={styles.productoElegidoNombre}>{catalogoSeleccionado.nombre}</Text>
@@ -343,12 +343,12 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 botones fuera de la pantalla (incidentes-sprint10.md #14). */}
             <TextInput
               style={styles.input}
-              placeholder="AAAA-MM-DD"
+              placeholder="DD/MM/AAAA"
               placeholderTextColor={colors.textSecondary}
-              value={fechaVencimiento}
+              value={fechaParaMostrar(fechaVencimiento)}
               // Formatea a medida que se tipea: el usuario solo escribe
-              // dígitos, los guiones (AAAA-MM-DD) se insertan solos.
-              onChangeText={(texto) => setFechaVencimiento(formatearFechaInput(texto))}
+              // dígitos, las barras (DD/MM/AAAA) se ponen solas.
+              onChangeText={(texto) => setFechaVencimiento(fechaDesdeInput(texto))}
               keyboardType="number-pad"
               maxLength={10}
               editable={!loading}
@@ -475,6 +475,22 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   );
 }
 
+// Foto del producto elegido (la misma del catálogo): confirma de un vistazo
+// que se eligió bien. Sin foto (o sin elegir todavía), la canasta.
+function FotoProducto({ nombre, imagenUrl = null }: { nombre?: string; imagenUrl?: string | null }) {
+  const styles = useEstilos(crearEstilos);
+  const imagen = nombre ? imagenDeCatalogo({ nombre, imagen_url: imagenUrl }) : null;
+  return (
+    <View style={[styles.productoElegidoFoto, !!imagen && styles.productoElegidoFotoConImagen]}>
+      {imagen ? (
+        <Image source={imagen} style={styles.productoElegidoImagen} resizeMode="contain" />
+      ) : (
+        <Ionicons name="basket-outline" size={22} color={colors.primary} />
+      )}
+    </View>
+  );
+}
+
 const crearEstilos = () =>
   StyleSheet.create({
   diasAvisoRow: {
@@ -565,12 +581,20 @@ const crearEstilos = () =>
     marginBottom: spacing.md,
   },
   productoElegidoFoto: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.md,
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  productoElegidoFotoConImagen: {
+    backgroundColor: colors.white,
+  },
+  productoElegidoImagen: {
+    width: '100%',
+    height: '100%',
   },
   productoElegidoTextos: {
     flex: 1,

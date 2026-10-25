@@ -907,3 +907,20 @@ dato (versión anterior), no se muestra nada.
 
 **Para desplegar:** la app nueva funciona igual con la función vieja (sin
 cartel). Desplegar primero `voz-a-texto` y después publicar la app.
+
+## 31. Catálogo en el celular: tocar un producto abría la foto en vez de elegirlo
+
+**Síntoma (QA, 2026-10-25, Android):** al agregar un producto, tocar un
+producto del catálogo mostraba su foto en grande en vez de elegirlo.
+
+**Causa:** con la vista grande de fotos (FotoAmpliadaModal), la foto pasó a
+ser un botón propio dentro del cuadrito del producto. En el celular la foto
+ocupa casi todo el cuadrito, así que casi siempre se tocaba la foto.
+
+**Solución:** todo el cuadrito (foto incluida) elige el producto. La foto en
+grande se abre con una lupita violeta en la esquina de la foto, o
+manteniendo apretado el producto.
+
+**Lección:** en un elemento que se toca para elegir, no poner otro botón que
+ocupe casi toda su superficie; la acción secundaria va en un botón chico y
+aparte.

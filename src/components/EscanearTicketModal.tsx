@@ -11,7 +11,7 @@ import { armarCandidatos, elegirDelCatalogo, errorDeCandidato, pasarASinCatalogo
 import type { CandidatoTicket } from '../services/escaneo';
 import type { ProductoCatalogo } from '../types/database';
 import { reconocerProductosDeTicket } from '../services/externalApis';
-import { avisoProductoVencido, crearProducto, formatearFechaInput, parsearNumero } from '../services/productos';
+import { avisoProductoVencido, crearProducto, fechaDesdeInput, fechaParaMostrar, parsearNumero } from '../services/productos';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
 
@@ -300,13 +300,13 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
 
                     <TextInput
                       style={styles.inputMarca}
-                      value={candidato.fechaVencimiento}
+                      value={fechaParaMostrar(candidato.fechaVencimiento)}
                       // Mismo auto-guionado que el formulario de producto: se tipean solo dígitos.
-                      onChangeText={(texto) => handleCambiar(candidato.id, { fechaVencimiento: formatearFechaInput(texto) })}
+                      onChangeText={(texto) => handleCambiar(candidato.id, { fechaVencimiento: fechaDesdeInput(texto) })}
                       editable={!guardando}
                       keyboardType="number-pad"
                       maxLength={10}
-                      placeholder="Vencimiento AAAA-MM-DD (opcional)"
+                      placeholder="Vencimiento DD/MM/AAAA (opcional)"
                       placeholderTextColor={colors.textSecondary}
                       accessibilityLabel={`Fecha de vencimiento de ${candidato.nombre}`}
                     />

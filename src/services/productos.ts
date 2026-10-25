@@ -95,7 +95,7 @@ export function avisoProductoVencido(
   fechaAnterior: string | null | undefined = null,
   hoy: Date = new Date(),
 ): string | null {
-  const fecha = fechaNueva?.trim();
+  const fecha = fechaNueva?.trim() ? aFechaISO(fechaNueva) : null;
   if (!fecha || !esFechaValida(fecha)) return null;
   // Editar un producto que ya estaba vencido (por ejemplo, para bajarle la
   // cantidad) se permite: solo se frena PONER una fecha pasada.
@@ -136,9 +136,9 @@ function validar(datos: DatosProducto): {
   if (datos.cantidad < 0) throw new Error('La cantidad no puede ser negativa');
   if (datos.stockMinimo < 0) throw new Error('El stock mínimo no puede ser negativo');
 
-  const fechaVencimiento = datos.fechaVencimiento?.trim() || null;
+  const fechaVencimiento = datos.fechaVencimiento?.trim() ? aFechaISO(datos.fechaVencimiento) : null;
   if (fechaVencimiento && !esFechaValida(fechaVencimiento)) {
-    throw new Error('La fecha de vencimiento no es válida (formato AAAA-MM-DD)');
+    throw new Error('La fecha de vencimiento no está completa o no existe (DD/MM/AAAA)');
   }
 
   const marca = datos.marca?.trim() || null;
@@ -325,19 +325,28 @@ export function productosAgotadosLimpiables(productos: Producto[]): Producto[] {
 }
 
 // Borra del hogar los productos agotados limpiables (ver arriba). Devuelve
-// cuántos borró. Filtra por hogar_id explícito (no solo RLS), igual que
-// listarProductos.
-export async function eliminarProductosAgotados(hogarId: string): Promise<number> {
+// los que borró (para poder deshacerlo, ver restaurarProductos). Filtra por
+// hogar_id explícito (no solo RLS), igual que listarProductos.
+export async function eliminarProductosAgotados(hogarId: string): Promise<Producto[]> {
   const { data, error } = await supabase
     .from('productos')
     .delete()
     .eq('hogar_id', hogarId)
     .eq('cantidad', 0)
     .eq('stock_minimo', 0)
-    .select('id');
+    .select('*');
 
   if (error) throw error;
-  return data?.length ?? 0;
+  return data ?? [];
+}
+
+// "Deshacer" después de borrar: vuelve a crear las filas tal cual estaban
+// (mismo id, cantidad, fecha...). No pasa por crearProducto a propósito: no
+// tiene que juntarlas con otras ni frenar las vencidas (estaban cargadas).
+export async function restaurarProductos(productos: Producto[]): Promise<void> {
+  if (productos.length === 0) return;
+  const { error } = await supabase.from('productos').insert(productos);
+  if (error) throw error;
 }
 
 // Productos que ya vencieron (la fecha pasó, sin contar hoy), tengan o no la
@@ -348,18 +357,19 @@ export function productosVencidos(productos: Producto[], hoy: Date = new Date())
 }
 
 // Borra del hogar todos los productos vencidos (mismo criterio que
-// productosVencidos: fecha anterior a hoy). Devuelve cuántos borró. Filtra
-// por hogar_id explícito (no solo RLS), igual que eliminarProductosAgotados.
-export async function eliminarProductosVencidos(hogarId: string, hoy: Date = new Date()): Promise<number> {
+// productosVencidos: fecha anterior a hoy). Devuelve los que borró (para
+// "Deshacer"). Filtra por hogar_id explícito (no solo RLS), igual que
+// eliminarProductosAgotados.
+export async function eliminarProductosVencidos(hogarId: string, hoy: Date = new Date()): Promise<Producto[]> {
   const { data, error } = await supabase
     .from('productos')
     .delete()
     .eq('hogar_id', hogarId)
     .lt('fecha_vencimiento', formatearFechaISO(hoy))
-    .select('id');
+    .select('*');
 
   if (error) throw error;
-  return data?.length ?? 0;
+  return data ?? [];
 }
 
 // Suma o resta `delta` a la cantidad actual (+1/-1 rápido desde la lista,
@@ -589,6 +599,38 @@ export function textoVerTodos(total: number, hogarNombre: string | null, maximo:
 export function formatearFechaCorta(fecha: string): string {
   const [anio, mes, dia] = fecha.split('-');
   return `${dia}/${mes}/${anio}`;
+}
+
+// Campos de fecha en formato argentino (DD/MM/AAAA), como está impresa en el
+// envase. En la base y en el estado de las pantallas la fecha completa sigue
+// siendo 'AAAA-MM-DD'; mientras se tipea queda el texto a medias
+// ('21/10/20'), que al guardar no pasa la validación.
+
+// Lo que muestra el campo: una fecha completa en DD/MM/AAAA; cualquier otra
+// cosa (vacío, a medio escribir) tal cual.
+export function fechaParaMostrar(valor: string | null | undefined): string {
+  if (!valor) return '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(valor) ? formatearFechaCorta(valor) : valor;
+}
+
+// Lo que se tipea -> lo que se guarda en el estado. Solo se escriben números;
+// las barras se ponen solas ('2110' -> '21/10'). Con los 8 dígitos de una
+// fecha real devuelve 'AAAA-MM-DD'.
+export function fechaDesdeInput(texto: string): string {
+  const digitos = texto.replace(/\D/g, '').slice(0, 8);
+  const escrito = [digitos.slice(0, 2), digitos.slice(2, 4), digitos.slice(4, 8)].filter(Boolean).join('/');
+  if (digitos.length < 8) return escrito;
+  const iso = `${digitos.slice(4, 8)}-${digitos.slice(2, 4)}-${digitos.slice(0, 2)}`;
+  return esFechaValida(iso) ? iso : escrito;
+}
+
+// Cualquier forma en que pueda venir una fecha (AAAA-MM-DD o DD/MM/AAAA) ->
+// 'AAAA-MM-DD'. Si no es ninguna de las dos, devuelve el texto tal cual (y
+// la validación lo rechaza).
+export function aFechaISO(valor: string): string {
+  const limpio = valor.trim();
+  const argentina = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(limpio);
+  return argentina ? `${argentina[3]}-${argentina[2]}-${argentina[1]}` : limpio;
 }
 
 /**

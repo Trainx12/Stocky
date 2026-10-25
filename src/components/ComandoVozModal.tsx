@@ -8,7 +8,7 @@ import { SEGUNDOS_MAXIMOS, useGrabadorDeVoz } from '../lib/grabacion';
 import { listarCatalogoAprobado } from '../services/catalogo';
 import { interpretarComandoDeVoz } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
-import { avisoProductoVencido, formatearFechaCorta, formatearFechaInput, nombreConMarca } from '../services/productos';
+import { avisoProductoVencido, fechaDesdeInput, fechaParaMostrar, formatearFechaCorta, nombreConMarca } from '../services/productos';
 import { UNIDADES_DISPONIBLES } from '../services/escaneo';
 import {
   accionAplicable,
@@ -468,12 +468,12 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
           <View style={styles.fila}>
             <TextInput
               style={[styles.input, styles.inputGrande, styles.flex]}
-              value={accion.fecha}
-              onChangeText={(texto) => onCambiar({ fecha: formatearFechaInput(texto) })}
+              value={fechaParaMostrar(accion.fecha)}
+              onChangeText={(texto) => onCambiar({ fecha: fechaDesdeInput(texto) })}
               editable={!deshabilitada}
               keyboardType="number-pad"
               maxLength={10}
-              placeholder="AAAA-MM-DD"
+              placeholder="DD/MM/AAAA"
               placeholderTextColor={colors.textSecondary}
               accessibilityLabel={`Fecha de vencimiento de ${titulo}`}
             />

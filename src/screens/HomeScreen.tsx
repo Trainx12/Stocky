@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { BadgeVencimiento } from '../components/BadgeVencimiento';
+import { EsqueletoLista } from '../components/Esqueleto';
 import { BottomNavBar } from '../components/BottomNavBar';
 import type { TabKey } from '../components/BottomNavBar';
 import { CatalogoSelectorModal } from '../components/CatalogoSelectorModal';
@@ -722,12 +723,14 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {usuarioLoading && !usuario ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+          <View style={styles.loader}>
+            <EsqueletoLista filas={4} />
+          </View>
         ) : usuario ? (
           <>
             <SectionCard title="Tus hogares activos">
               {hogaresLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={1} />
               ) : misHogares.length === 0 ? (
                 <EmptyState icon="home-outline" text="Todavía no formás parte de ningún hogar." />
               ) : (
@@ -894,7 +897,7 @@ export function HomeScreen() {
             <View ref={tutorial.objetivo('porVencer')} collapsable={false}>
             <SectionCard title="Productos próximos a vencer">
               {productosPorVencerLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={2} />
               ) : productosPorVencer.length === 0 ? (
                 <EmptyState
                   icon="checkmark-circle-outline"
@@ -941,7 +944,7 @@ export function HomeScreen() {
             <View ref={tutorial.objetivo('stockBajo')} collapsable={false}>
             <SectionCard title="Stock bajo">
               {alertasStockLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={2} />
               ) : alertasStock.length === 0 ? (
                 <EmptyState
                   icon="checkmark-circle-outline"
@@ -982,7 +985,7 @@ export function HomeScreen() {
 
             <SectionCard title="Actividad reciente">
               {actividadLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={3} />
               ) : actividad.length === 0 ? (
                 <EmptyState
                   icon="time-outline"
