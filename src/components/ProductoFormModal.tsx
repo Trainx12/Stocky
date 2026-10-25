@@ -86,6 +86,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // Si el CalendarioPicker está desplegado debajo del campo de fecha (ver
   // botón de calendario).
   const [calendarioVisible, setCalendarioVisible] = useState(false);
+  // "Más opciones" desplegado (stock mínimo y avisos de vencimiento).
+  const [masOpciones, setMasOpciones] = useState(false);
   // Leyendo la fecha de una foto del envase (Gemini, ver vencimiento-foto).
   const [leyendoFecha, setLeyendoFecha] = useState(false);
   // Entendiendo una fecha dictada por voz (Gemini, ver voz-a-texto).
@@ -115,6 +117,12 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
       setDiasAviso('');
     }
     setCalendarioVisible(false);
+    // Al editar, se abre si el producto tiene algo de esto distinto de lo
+    // común, para que se vea.
+    setMasOpciones(
+      !!producto &&
+        (producto.stock_minimo > 0 || !producto.alerta_vencimiento_habilitada || producto.dias_aviso_vencimiento != null),
+    );
     setSelectorVisible(false);
     setError(null);
   }, [visible, producto]);
@@ -319,20 +327,6 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                   editable={!loading}
                 />
               </View>
-              <View style={styles.mitad}>
-                <Text style={styles.label}>Stock mínimo</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="decimal-pad"
-                  // Al tocarlo se selecciona el número: lo que se escribe lo reemplaza
-                  // (antes, con un "1", tocar 5 dejaba "15").
-                  selectTextOnFocus
-                  value={stockMinimo}
-                  onChangeText={setStockMinimo}
-                  onBlur={() => handleBlurNumerico(stockMinimo, setStockMinimo)}
-                  editable={!loading}
-                />
-              </View>
             </View>
 
             <Text style={styles.label}>Fecha de vencimiento (opcional)</Text>
@@ -412,6 +406,39 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               <CalendarioPicker valor={fechaVencimiento || null} onSeleccionar={handleSeleccionarFecha} />
             )}
 
+            {/* Más opciones: lo que casi nunca se toca (stock mínimo y avisos
+                de vencimiento), plegado para que agregar un producto sea
+                elegirlo, poner cantidad y fecha, y listo. */}
+            <Pressable
+              onPress={() => setMasOpciones((v) => !v)}
+              style={styles.masOpciones}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: masOpciones }}
+            >
+              <Text style={styles.masOpcionesTexto}>Más opciones</Text>
+              <Ionicons name={masOpciones ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
+            </Pressable>
+            {!masOpciones && (
+              <Text style={styles.diasAvisoAyuda}>
+                {`Stock mínimo: ${stockMinimo || '0'} · Aviso de vencimiento: ${alertaVencimientoHabilitada ? 'sí' : 'no'}`}
+              </Text>
+            )}
+            {masOpciones && (
+              <>
+              <View>
+                <Text style={styles.label}>Stock mínimo</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="decimal-pad"
+                  // Al tocarlo se selecciona el número: lo que se escribe lo reemplaza
+                  // (antes, con un "1", tocar 5 dejaba "15").
+                  selectTextOnFocus
+                  value={stockMinimo}
+                  onChangeText={setStockMinimo}
+                  onBlur={() => handleBlurNumerico(stockMinimo, setStockMinimo)}
+                  editable={!loading}
+                />
+              </View>
             <View style={styles.switchRow}>
               <Text style={styles.label}>Avisarme cuando esté por vencer</Text>
               <Switch
@@ -447,6 +474,9 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                   ? `Te avisamos ${diasAviso === '1' ? '1 día' : `${diasAviso} días`} antes de que venza este producto.`
                   : `Vacío: usa tu preferencia general (${diasAvisoGeneral === 1 ? '1 día' : `${diasAvisoGeneral} días`} antes), que se cambia desde la campanita.`}
               </Text>
+            )}
+
+              </>
             )}
 
             {error && <Text style={styles.error}>{error}</Text>}
@@ -505,6 +535,17 @@ const crearEstilos = () =>
   diasAvisoInput: {
     width: 64,
     textAlign: 'center',
+  },
+  masOpciones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+  },
+  masOpcionesTexto: {
+    ...typography.bodyMedium,
+    color: colors.primary,
   },
   diasAvisoAyuda: {
     ...typography.caption,

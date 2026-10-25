@@ -106,7 +106,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
     setPaso('grabar');
   }, []);
 
-  const { grabando, segundos, iniciar, detener, cancelar } = useGrabadorDeVoz(procesarAudio, alFallar);
+  const { grabando, segundos, nivel, vozBaja, iniciar, detener, cancelar } = useGrabadorDeVoz(procesarAudio, alFallar);
 
   useEffect(() => {
     if (!visible) return;
@@ -215,6 +215,12 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
                   >
                     <Ionicons name={grabando ? 'stop' : 'mic'} size={40} color={colors.white} />
                   </Pressable>
+                  {/* Medidor: se mueve con la voz, así se sabe que el
+                      micrófono escucha (y si se habla muy bajo). */}
+                  {grabando && nivel !== null && <MedidorDeVolumen nivel={nivel} />}
+                  {vozBaja && (
+                    <Text style={styles.vozBaja}>Te escuchamos bajito: hablá un poco más fuerte o más cerca del micrófono.</Text>
+                  )}
                   <Text style={[styles.contador, grabando && styles.contadorGrabando]}>
                     {grabando
                       ? `Grabando ${formatearSegundos(segundos)} / ${formatearSegundos(SEGUNDOS_MAXIMOS)}`
@@ -291,6 +297,28 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
       </Pressable>
       </EvitarTeclado>
     </Modal>
+  );
+}
+
+// Barritas que suben con el volumen de la voz (como un ecualizador). Cada
+// barra tiene un "umbral": se prende si el nivel lo pasa.
+const UMBRALES_MEDIDOR = [0.08, 0.2, 0.32, 0.44, 0.56, 0.68, 0.8];
+
+function MedidorDeVolumen({ nivel }: { nivel: number }) {
+  const styles = useEstilos(crearEstilos);
+  return (
+    <View style={styles.medidor} accessibilityLabel="Nivel de volumen del micrófono" accessibilityRole="progressbar">
+      {UMBRALES_MEDIDOR.map((umbral, i) => (
+        <View
+          key={umbral}
+          style={[
+            styles.medidorBarra,
+            { height: 8 + i * 4 },
+            nivel >= umbral && styles.medidorBarraPrendida,
+          ]}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -678,6 +706,25 @@ const crearEstilos = () =>
   botonCalendarioTexto: {
     ...typography.caption,
     color: colors.primary,
+  },
+  medidor: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    height: 34,
+  },
+  medidorBarra: {
+    width: 8,
+    borderRadius: 4,
+    backgroundColor: colors.border,
+  },
+  medidorBarraPrendida: {
+    backgroundColor: colors.primary,
+  },
+  vozBaja: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   cartelAudio: {
     flexDirection: 'row',

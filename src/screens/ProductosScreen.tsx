@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BadgeVencimiento } from '../components/BadgeVencimiento';
+import { Button } from '../components/Button';
 import { EsqueletoLista } from '../components/Esqueleto';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
@@ -24,6 +25,7 @@ import {
   listarProductos,
   nombreConMarca,
   productosAgotadosLimpiables,
+  productosProximosAVencer,
   productosVencidos,
   restaurarProductos,
   productosConVencimiento,
@@ -185,7 +187,14 @@ export function ProductosScreen({ route, navigation }: Props) {
   }, [productos]);
 
   // Cuántos hay de cada alerta, para el texto de los chips.
-  const cantidadPorVencer = useMemo(() => productosConVencimiento(productos).length, [productos]);
+  // El número del filtro "Por vencer" cuenta solo lo urgente (amarillo y
+  // rojo del semáforo). Antes contaba todo lo que tenía fecha, aunque
+  // venciera en un año, y parecía que había muchas cosas por vencer. La lista
+  // del filtro sigue mostrando todo lo que tiene fecha, lo urgente primero.
+  const cantidadPorVencer = useMemo(
+    () => productosProximosAVencer(productos, undefined, diasAviso).length,
+    [productos, diasAviso],
+  );
 
   // Lo que se ve en la lista: las filas del mismo producto (distinta marca o
   // vencimiento) juntas bajo un solo nombre. Con "Por vencer", se agrupan
@@ -344,15 +353,15 @@ export function ProductosScreen({ route, navigation }: Props) {
   }
 
   // Alerta de stock mínimo: va en el encabezado del producto (no en cada
-  // lote) porque se calcula sobre el total. Ámbar (stockStatus.low), distinto
-  // del coral del vencimiento, para que no se confundan.
+  // lote) porque se calcula sobre el total. Violeta con un changuito,
+  // distinto del semáforo de vencimiento, para que no se confundan.
   function renderBadgeStock(clave: string) {
     const stock = stockPorProducto.get(clave);
     const etiqueta = stock ? etiquetaStock(stock.estado, stock.minimo) : null;
     if (!etiqueta) return null;
     return (
       <View style={styles.stockBadge}>
-        <Ionicons name="alert-circle" size={12} color={colors.textPrimary} />
+        <Ionicons name="cart-outline" size={12} color={colors.primaryDark} />
         <Text style={styles.stockBadgeTexto} numberOfLines={1}>
           {etiqueta}
         </Text>
@@ -540,6 +549,22 @@ export function ProductosScreen({ route, navigation }: Props) {
                   ? 'Ningún producto está por debajo de su stock mínimo.'
                   : 'Ningún producto coincide con la búsqueda.'}
           </Text>
+          {/* Hogar vacío: las tres formas de empezar, ahí mismo. */}
+          {productos.length === 0 && (
+            <View style={styles.vacioAcciones}>
+              <Button label="Agregar producto" onPress={handleAgregar} />
+              <View style={styles.vacioFila}>
+                <Pressable onPress={() => setTicketVisible(true)} style={styles.vacioBoton} accessibilityRole="button">
+                  <Ionicons name="receipt-outline" size={20} color={colors.primary} />
+                  <Text style={styles.vacioBotonTexto}>Escanear ticket</Text>
+                </Pressable>
+                <Pressable onPress={() => setVozVisible(true)} style={styles.vacioBoton} accessibilityRole="button">
+                  <Ionicons name="mic-outline" size={20} color={colors.primary} />
+                  <Text style={styles.vacioBotonTexto}>Cargar por voz</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
       ) : (
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
@@ -731,6 +756,30 @@ const crearEstilos = () =>
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  vacioAcciones: {
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  vacioFila: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  vacioBoton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  vacioBotonTexto: {
+    ...typography.caption,
+    color: colors.primary,
+  },
   lista: {
     flex: 1,
   },
@@ -790,8 +839,8 @@ const crearEstilos = () =>
     alignItems: 'flex-end',
     gap: 2,
   },
-  // Alerta de stock bajo: fondo ámbar claro con borde ámbar y texto oscuro
-  // (blanco sobre ámbar no se lee bien).
+  // Alerta de stock bajo: violeta claro con borde violeta y un changuito,
+  // para no confundirla con el amarillo de "por vencer" del semáforo.
   stockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -800,12 +849,12 @@ const crearEstilos = () =>
     paddingVertical: 1,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.stockStatus.low,
-    backgroundColor: colors.warningLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   stockBadgeTexto: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.primaryDark,
     fontSize: 10,
     lineHeight: 14,
   },
@@ -817,12 +866,14 @@ const crearEstilos = () =>
     backgroundColor: colors.stockStatus.critical,
     borderColor: colors.stockStatus.critical,
   },
+  // Stock bajo en violeta (con un changuito), separado del semáforo de
+  // vencimientos: antes era ámbar y se confundía con "por vencer".
   chipStockBajo: {
-    backgroundColor: colors.stockStatus.low,
-    borderColor: colors.stockStatus.low,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipTextoStockBajo: {
-    color: colors.textPrimary,
+    color: colors.white,
   },
   grupoTotal: {
     ...typography.bodyMedium,

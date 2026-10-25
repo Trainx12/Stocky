@@ -22,6 +22,8 @@ export const SEGUNDOS_MAXIMOS = 30;
 // soporte el navegador) en web.
 const OPCIONES: RecordingOptions = {
   extension: '.aac',
+  // Nivel de volumen mientras se graba, para el medidor de "Cargar por voz".
+  isMeteringEnabled: true,
   sampleRate: 16000,
   numberOfChannels: 1,
   bitRate: 32000,
@@ -45,6 +47,24 @@ const OPCIONES: RecordingOptions = {
 };
 
 const MIME_NATIVO = Platform.OS === 'ios' ? 'audio/wav' : 'audio/aac';
+
+// Volumen del micrófono (dBFS: 0 = lo más fuerte, -160 = silencio) -> 0..1
+// para dibujar la barrita. Por debajo de -60 dB es prácticamente silencio.
+export function nivelDeVolumen(metering: number | undefined | null): number | null {
+  if (metering == null || !Number.isFinite(metering)) return null;
+  return Math.min(Math.max((metering + 60) / 60, 0), 1);
+}
+
+// Después de unos segundos grabando, si la voz nunca pasó de este nivel, se
+// sugiere acercarse al micrófono. Solo mira lo FUERTE que llegó la voz (el
+// pico), no el ruido: alguien que habla bien en un lugar ruidoso no recibe
+// este aviso.
+export const NIVEL_VOZ_BAJA = 0.3;
+export const SEGUNDOS_ANTES_DE_AVISAR_VOZ_BAJA = 3;
+
+export function vozMuyBaja(nivelMaximo: number | null, segundos: number): boolean {
+  return nivelMaximo !== null && segundos >= SEGUNDOS_ANTES_DE_AVISAR_VOZ_BAJA && nivelMaximo < NIVEL_VOZ_BAJA;
+}
 
 // En web la grabación queda en un blob: URL; se lee y se pasa a base64.
 async function leerAudioWeb(uri: string): Promise<AudioGrabado> {
@@ -79,8 +99,10 @@ async function leerAudio(uri: string): Promise<AudioGrabado> {
  */
 export function useGrabadorDeVoz(alTerminar: (audio: AudioGrabado) => void, alFallar: (mensaje: string) => void) {
   const grabador = useAudioRecorder(OPCIONES);
-  const estado = useAudioRecorderState(grabador, 250);
+  const estado = useAudioRecorderState(grabador, 150);
   const [grabando, setGrabando] = useState(false);
+  // Pico de volumen de esta grabación (para el aviso de voz baja).
+  const [nivelMaximo, setNivelMaximo] = useState<number | null>(null);
   // Evita que el corte automático y un toque en "Detener" procesen el mismo
   // audio dos veces.
   const deteniendo = useRef(false);
@@ -98,6 +120,7 @@ export function useGrabadorDeVoz(alTerminar: (audio: AudioGrabado) => void, alFa
       grabador.record();
       deteniendo.current = false;
       descartar.current = false;
+      setNivelMaximo(null);
       setGrabando(true);
     } catch (err) {
       alFallar(err instanceof Error && err.message ? `No se pudo empezar a grabar: ${err.message}` : 'No se pudo empezar a grabar.');
@@ -130,10 +153,24 @@ export function useGrabadorDeVoz(alTerminar: (audio: AudioGrabado) => void, alFa
   }, [grabando, detener]);
 
   const segundos = Math.floor((estado.durationMillis ?? 0) / 1000);
+  const nivel = grabando ? nivelDeVolumen(estado.metering) : null;
+
+  useEffect(() => {
+    if (nivel !== null) setNivelMaximo((maximo) => (maximo === null || nivel > maximo ? nivel : maximo));
+  }, [nivel]);
 
   useEffect(() => {
     if (grabando && segundos >= SEGUNDOS_MAXIMOS) detener();
   }, [grabando, segundos, detener]);
 
-  return { grabando, segundos: grabando ? segundos : 0, iniciar, detener, cancelar };
+  return {
+    grabando,
+    segundos: grabando ? segundos : 0,
+    // 0..1 mientras se graba; null si el dispositivo no informa el volumen.
+    nivel,
+    vozBaja: grabando && vozMuyBaja(nivelMaximo, segundos),
+    iniciar,
+    detener,
+    cancelar,
+  };
 }

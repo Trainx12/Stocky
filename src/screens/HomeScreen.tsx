@@ -98,6 +98,7 @@ export function HomeScreen() {
   const abrirMiembrosDe = route.params?.abrirMiembrosDe;
   // "Ver tutorial" desde Cuenta o la Ayuda.
   const verTutorial = route.params?.verTutorial;
+  const abrirBuscador = route.params?.abrirBuscador;
   const enFoco = useIsFocused();
   // Preferencia general "avisarme X días antes" (cada producto puede tener
   // la suya, ver estadoVencimiento): define qué entra en "Productos próximos
@@ -603,6 +604,17 @@ export function HomeScreen() {
     });
   }
 
+  // La lupa tocada en Cuenta o Admin: hace lo mismo que la lupa del inicio
+  // (abre el buscador del hogar elegido), apenas se sabe cuál es.
+  useEffect(() => {
+    // Se espera a que estén los hogares y el elegido (se resuelve un render
+    // después de cargarlos).
+    if (!abrirBuscador || hogaresLoading || (misHogares.length > 0 && !hogarSeleccionado)) return;
+    navigation.setParams({ abrirBuscador: undefined });
+    handleIrAProductos({ enfocarBusqueda: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleIrAProductos cambia en cada render
+  }, [abrirBuscador, hogaresLoading, misHogares.length, hogarSeleccionado, navigation]);
+
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
   // pantalla como `usuario` del AuthContext (por si `hogar_id` pasó de null
   // a un valor, que es lo que usa el resto de la app como "hogar activo").
@@ -939,7 +951,7 @@ export function HomeScreen() {
             </SectionCard>
             </View>
 
-            {/* Alerta de stock mínimo: ámbar (stockStatus.low), distinta del
+            {/* Alerta de stock mínimo: violeta con un changuito, distinta del
                 coral de vencimientos, para que no se confundan. */}
             <View ref={tutorial.objetivo('stockBajo')} collapsable={false}>
             <SectionCard title="Stock bajo">
@@ -968,7 +980,7 @@ export function HomeScreen() {
                         </Text>
                       </View>
                       <View style={styles.stockBadge}>
-                        <Ionicons name="alert-circle" size={12} color={colors.textPrimary} />
+                        <Ionicons name="cart-outline" size={12} color={colors.primaryDark} />
                         <Text style={styles.stockBadgeTexto}>{etiquetaStock(alerta.estado, alerta.stockMinimo)}</Text>
                       </View>
                     </Pressable>
@@ -1330,12 +1342,12 @@ const crearEstilos = () =>
     paddingVertical: 2,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.stockStatus.low,
-    backgroundColor: colors.warningLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   stockBadgeTexto: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.primaryDark,
     fontSize: 11,
   },
   verTodosButton: {

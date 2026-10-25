@@ -55,7 +55,7 @@ export function AdminScreen({ navigation }: Props) {
 
   function handleTabPress(tab: TabKey) {
     if (tab === 'home') navigation.navigate('Home');
-    else if (tab === 'search') navigation.navigate('Home');
+    else if (tab === 'search') navigation.navigate('Home', { abrirBuscador: true });
     else if (tab === 'notifications') navigation.navigate('Notificaciones');
     else if (tab === 'profile') navigation.navigate('Cuenta');
   }

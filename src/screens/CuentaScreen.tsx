@@ -222,7 +222,7 @@ export function CuentaScreen({ navigation }: Props) {
     if (tab === 'home') navigation.navigate('Home');
     else if (tab === 'notifications') navigation.navigate('Notificaciones');
     else if (tab === 'admin') navigation.navigate('Admin');
-    else if (tab === 'search') navigation.navigate('Home');
+    else if (tab === 'search') navigation.navigate('Home', { abrirBuscador: true });
   }
 
   const otrasCuentas = cuentas.filter((c) => c.userId !== userIdActual);
