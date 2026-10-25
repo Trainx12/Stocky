@@ -112,9 +112,18 @@ export interface AccionDeVozInterpretada {
 }
 
 // Qué dijo el usuario y qué acciones de ABM se entendieron.
+// Cómo se escuchó el audio según Gemini. Ruido de fondo y habla poco clara
+// van separados: hablar bajo o con acento no es "ruido".
+export interface CalidadDeAudio {
+  ruido_de_fondo: 'ninguno' | 'poco' | 'mucho';
+  habla_poco_clara: boolean;
+}
+
 export interface ComandoDeVozInterpretado {
   transcripcion: string;
   acciones: AccionDeVozInterpretada[];
+  /** null si la función no la mandó (versión anterior) o vino rara. */
+  calidad?: CalidadDeAudio | null;
 }
 
 /**
@@ -137,7 +146,14 @@ export async function interpretarComandoDeVoz(
   return {
     transcripcion: data?.transcripcion ?? '',
     acciones: Array.isArray(data?.acciones) ? data.acciones : [],
+    calidad: leerCalidadDeAudio(data?.calidad_audio),
   };
+}
+
+function leerCalidadDeAudio(valor: unknown): CalidadDeAudio | null {
+  const c = valor as Partial<CalidadDeAudio> | null | undefined;
+  if (!c || !['ninguno', 'poco', 'mucho'].includes(c.ruido_de_fondo as string)) return null;
+  return { ruido_de_fondo: c.ruido_de_fondo as CalidadDeAudio['ruido_de_fondo'], habla_poco_clara: c.habla_poco_clara === true };
 }
 
 // Resultado de dictar una fecha de vencimiento.

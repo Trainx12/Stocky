@@ -66,13 +66,25 @@ describe('interpretarComandoDeVoz', () => {
     expect(invoke).toHaveBeenCalledWith('voz-a-texto', {
       body: { audio: 'audio-en-base64', mimeType: 'audio/webm', modo: 'comando', productos, hoy: '2026-10-05' },
     });
-    expect(resultado).toEqual({ transcripcion: 'agregá leche', acciones: [] });
+    expect(resultado).toEqual({ transcripcion: 'agregá leche', acciones: [], calidad: null });
   });
 
   it('devuelve una lista vacía si la función no trae acciones', async () => {
     invoke.mockResolvedValue({ data: null, error: null });
 
-    await expect(interpretarComandoDeVoz(audio, [], '2026-10-05')).resolves.toEqual({ transcripcion: '', acciones: [] });
+    await expect(interpretarComandoDeVoz(audio, [], '2026-10-05')).resolves.toEqual({ transcripcion: '', acciones: [], calidad: null });
+  });
+
+  it('lee cómo se escuchó el audio (ruido de fondo y habla poco clara por separado)', async () => {
+    invoke.mockResolvedValue({
+      data: { transcripcion: 'x', acciones: [], calidad_audio: { ruido_de_fondo: 'mucho', habla_poco_clara: false } },
+      error: null,
+    });
+    const resultado = await interpretarComandoDeVoz(audio, [], '2026-10-05');
+    expect(resultado.calidad).toEqual({ ruido_de_fondo: 'mucho', habla_poco_clara: false });
+
+    invoke.mockResolvedValue({ data: { transcripcion: 'x', acciones: [], calidad_audio: { ruido_de_fondo: 'raro' } }, error: null });
+    expect((await interpretarComandoDeVoz(audio, [], '2026-10-05')).calidad).toBeNull();
   });
 });
 

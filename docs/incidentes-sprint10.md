@@ -883,3 +883,27 @@ la barra de navegación y del teclado) y las hojas no lo tenían en cuenta.
   (vencido), con un ícono distinto en cada caso. En la lista de productos
   ahora también se ve el verde ("Vence en 20 días", o la fecha si falta más
   de dos meses).
+
+## 30. Cargar por voz con mucho ruido de fondo
+
+**Pedido (2026-10-25):** si al cargar por voz hay mucho ruido, avisarle a la
+persona que la interpretación puede fallar y que lea con atención antes de
+confirmar, sin confundir "ruido" con alguien que habla poco claro.
+
+**Cómo se detecta:** lo dice Gemini, que es quien escucha el audio. La función
+`voz-a-texto` (modo comando) devuelve además `calidad_audio`:
+`ruido_de_fondo` ("ninguno" / "poco" / "mucho": sonidos que no son la voz de
+quien habla) y `habla_poco_clara` (la voz cuesta entenderse: baja, rápida,
+lejos del micrófono, mal pronunciada). El prompt las separa a propósito: una
+persona que habla mal en un lugar silencioso es `ruido_de_fondo: "ninguno"`.
+Se descartó medir el volumen con el micrófono: cada celular mide distinto y
+una voz fuerte o cercana se confundiría con ruido.
+
+**En la app:** `avisoCalidadAudio` (services/voz.ts, con tests) arma el cartel
+de la pantalla de revisión: "Había mucho ruido de fondo" (ámbar) solo con
+`ruido_de_fondo: "mucho"`, y "Algunas partes no se entendieron bien" (sin
+mencionar el ruido) si solo la voz fue poco clara. Si la función no manda el
+dato (versión anterior), no se muestra nada.
+
+**Para desplegar:** la app nueva funciona igual con la función vieja (sin
+cartel). Desplegar primero `voz-a-texto` y después publicar la app.

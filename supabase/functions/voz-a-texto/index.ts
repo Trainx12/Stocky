@@ -37,10 +37,24 @@ const UNIDADES = ['unidad', 'kg', 'g', 'l', 'ml', 'paquete'];
 // alimentos) y dos más para lo que no es comida.
 const CATEGORIAS = ['Lácteos', 'Verduras y frutas', 'Panadería', 'Bebidas', 'Infusiones', 'Snacks', 'Otros', 'Limpieza', 'Higiene'];
 
+// Cómo se escuchó el audio, para avisarle a la persona que revise con más
+// atención. Ruido de fondo y habla poco clara van separados a propósito: que
+// alguien hable bajo o con acento no es "ruido" (incidentes-sprint10.md #30).
+const ESQUEMA_CALIDAD = {
+  type: 'OBJECT',
+  properties: {
+    ruido_de_fondo: { type: 'STRING', enum: ['ninguno', 'poco', 'mucho'] },
+    habla_poco_clara: { type: 'BOOLEAN' },
+  },
+  required: ['ruido_de_fondo', 'habla_poco_clara'],
+  propertyOrdering: ['ruido_de_fondo', 'habla_poco_clara'],
+};
+
 const ESQUEMA_COMANDO = {
   type: 'OBJECT',
   properties: {
     transcripcion: { type: 'STRING' },
+    calidad_audio: ESQUEMA_CALIDAD,
     acciones: {
       type: 'ARRAY',
       items: {
@@ -71,8 +85,8 @@ const ESQUEMA_COMANDO = {
       },
     },
   },
-  required: ['transcripcion', 'acciones'],
-  propertyOrdering: ['transcripcion', 'acciones'],
+  required: ['transcripcion', 'calidad_audio', 'acciones'],
+  propertyOrdering: ['transcripcion', 'calidad_audio', 'acciones'],
 };
 
 const ESQUEMA_FECHA = {
@@ -115,6 +129,18 @@ inventario de la despensa de un hogar. Escuchá el audio (español rioplatense)
 y respondé ÚNICAMENTE el JSON pedido.
 
 1. "transcripcion": lo que dijo la persona, tal cual.
+1b. "calidad_audio": cómo se escuchó, separando DOS cosas distintas:
+   - "ruido_de_fondo": sonidos que NO son la voz de quien habla: tele,
+     música, tráfico, viento, otras personas hablando, ventilador,
+     extractor, platos, chicos, perros. "mucho" solo si el ruido es fuerte
+     y tapa o mezcla partes de lo que dijo (puede haber hecho que
+     entendieras mal alguna palabra); "poco" si se oye pero no molesta;
+     "ninguno" si no hay.
+   - "habla_poco_clara": true si a la VOZ de la persona le cuesta
+     entenderse: habla muy bajo, muy rápido, entrecortado, lejos del
+     micrófono, pronuncia mal o con un acento difícil. Esto NO es ruido de
+     fondo: una persona que habla mal en un lugar silencioso tiene
+     ruido_de_fondo "ninguno" y habla_poco_clara true.
 2. "acciones": una por cada producto que la persona pidió cambiar, en orden.
    - "alta": incorporar un producto ("agregá", "compré", "sumá", "cargá",
      "tengo 2 leches"). Usala aunque el producto ya exista en el inventario:
@@ -170,7 +196,7 @@ y respondé ÚNICAMENTE el JSON pedido.
 Ejemplo (si hoy fuera 2026-10-05 y el inventario tuviera huevos con id
 "h1" y yogur con id "y1"): "agregá dos leches La Serenísima que vencen el 15
 de noviembre, usé tres huevos y eliminá el yogur" ->
-{"transcripcion": "...", "acciones": [
+{"transcripcion": "...", "calidad_audio": {"ruido_de_fondo": "ninguno", "habla_poco_clara": false}, "acciones": [
  {"accion": "alta", "producto_id": null, "nombre": "Leche", "marca": "La Serenísima", "cantidad": 2, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": "2026-11-15", "es_alimento": true, "categoria": "Lácteos"},
  {"accion": "modificacion", "producto_id": "h1", "nombre": "Huevo", "marca": null, "cantidad": 3, "unidad": null, "operacion_cantidad": "restar", "fecha_vencimiento": null, "es_alimento": null, "categoria": null},
  {"accion": "baja", "producto_id": "y1", "nombre": "Yogur", "marca": null, "cantidad": null, "unidad": null, "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": null, "categoria": null}
@@ -178,7 +204,7 @@ de noviembre, usé tres huevos y eliminá el yogur" ->
 
 Otro ejemplo: "compré un paquete de sal, dos cajas de chocolatada y un
 shampoo" ->
-{"transcripcion": "...", "acciones": [
+{"transcripcion": "...", "calidad_audio": {"ruido_de_fondo": "ninguno", "habla_poco_clara": false}, "acciones": [
  {"accion": "alta", "producto_id": null, "nombre": "Sal", "marca": null, "cantidad": 1, "unidad": "paquete", "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": true, "categoria": "Otros"},
  {"accion": "alta", "producto_id": null, "nombre": "Chocolatada", "marca": null, "cantidad": 2, "unidad": "paquete", "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": true, "categoria": "Lácteos"},
  {"accion": "alta", "producto_id": null, "nombre": "Shampoo", "marca": null, "cantidad": 1, "unidad": "unidad", "operacion_cantidad": null, "fecha_vencimiento": null, "es_alimento": false, "categoria": "Higiene"}
@@ -274,7 +300,7 @@ Deno.serve(async (req: Request) => {
       .filter((p): p is ProductoInventario => typeof p?.id === 'string' && typeof p?.nombre === 'string')
       .slice(0, MAX_PRODUCTOS);
 
-    const resultado = await consultarGemini<{ transcripcion: string; acciones: unknown[] }>(
+    const resultado = await consultarGemini<{ transcripcion: string; acciones: unknown[]; calidad_audio?: unknown }>(
       [parteAudio, { text: promptComando(fechaHoy, inventario) }],
       ESQUEMA_COMANDO,
       apiKey,
@@ -283,6 +309,7 @@ Deno.serve(async (req: Request) => {
     return respuestaJson({
       transcripcion: resultado.transcripcion ?? '',
       acciones: Array.isArray(resultado.acciones) ? resultado.acciones : [],
+      calidad_audio: resultado.calidad_audio ?? null,
     });
   } catch (error) {
     // El detalle técnico queda en los logs de la función; al usuario le

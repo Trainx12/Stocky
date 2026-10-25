@@ -14,11 +14,12 @@ import {
   accionAplicable,
   aplicarAccionDeVoz,
   armarAccionesDeVoz,
+  avisoCalidadAudio,
   elegirProducto,
   fechaDeHoy,
   inventarioParaVoz,
 } from '../services/voz';
-import type { AccionVoz, TipoAccionVoz } from '../services/voz';
+import type { AccionVoz, AvisoCalidadAudio, TipoAccionVoz } from '../services/voz';
 import type { Producto } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -73,6 +74,8 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
   const styles = useEstilos(crearEstilos);
   const [paso, setPaso] = useState<Paso>('grabar');
   const [transcripcion, setTranscripcion] = useState('');
+  // Cartel si había mucho ruido o la voz costó entenderse (avisoCalidadAudio).
+  const [avisoAudio, setAvisoAudio] = useState<AvisoCalidadAudio | null>(null);
   const [acciones, setAcciones] = useState<AccionVoz[]>([]);
   const [aplicando, setAplicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +90,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
         ]);
         const armadas = armarAccionesDeVoz(comando, productos, catalogo);
         setTranscripcion(comando.transcripcion);
+        setAvisoAudio(avisoCalidadAudio(comando.calidad));
         setAcciones(armadas);
         setPaso(armadas.length === 0 ? 'vacio' : 'revisar');
       } catch (err) {
@@ -108,6 +112,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
     if (!visible) return;
     setPaso('grabar');
     setTranscripcion('');
+    setAvisoAudio(null);
     setAcciones([]);
     setAplicando(false);
     setError(null);
@@ -140,6 +145,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
     setError(null);
     setAcciones([]);
     setTranscripcion('');
+    setAvisoAudio(null);
     setPaso('grabar');
   }
 
@@ -242,6 +248,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
               <View style={styles.bloque}>
                 <Ionicons name="mic-off-outline" size={28} color={colors.textSecondary} style={styles.iconoCentro} />
                 {transcripcion ? <Text style={styles.transcripcion}>Escuchamos: “{transcripcion}”</Text> : null}
+                {avisoAudio?.tipo === 'ruido' && <CartelAudio aviso={avisoAudio} />}
                 <Text style={styles.texto}>
                   No entendimos ningún producto para agregar, sacar o cambiar. Probá de nuevo hablando cerca del micrófono,
                   o cargalo a mano.
@@ -254,6 +261,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
             {paso === 'revisar' && (
               <View style={styles.bloque}>
                 {transcripcion ? <Text style={styles.transcripcion}>Escuchamos: “{transcripcion}”</Text> : null}
+                {avisoAudio && <CartelAudio aviso={avisoAudio} />}
                 <Text style={styles.texto}>Revisá los cambios antes de aplicarlos. Podés corregirlos o descartarlos.</Text>
 
                 {acciones.map((accion) => (
@@ -283,6 +291,23 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
       </Pressable>
       </EvitarTeclado>
     </Modal>
+  );
+}
+
+// Cartel sobre cómo se escuchó el audio (ver avisoCalidadAudio): ámbar con
+// un ícono de volumen si había ruido, y uno más suave si la voz costó
+// entenderse.
+function CartelAudio({ aviso }: { aviso: AvisoCalidadAudio }) {
+  const styles = useEstilos(crearEstilos);
+  const ruido = aviso.tipo === 'ruido';
+  return (
+    <View style={[styles.cartelAudio, ruido && styles.cartelAudioRuido]} accessibilityRole="alert">
+      <Ionicons name={ruido ? 'volume-high' : 'chatbubble-ellipses-outline'} size={20} color={colors.textPrimary} />
+      <View style={styles.flex}>
+        <Text style={styles.cartelAudioTitulo}>{aviso.titulo}</Text>
+        <Text style={styles.cartelAudioTexto}>{aviso.texto}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -650,6 +675,28 @@ const crearEstilos = () =>
   botonCalendarioTexto: {
     ...typography.caption,
     color: colors.primary,
+  },
+  cartelAudio: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  cartelAudioRuido: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warningLight,
+  },
+  cartelAudioTitulo: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  cartelAudioTexto: {
+    ...typography.caption,
+    color: colors.textPrimary,
   },
   avisoVencido: {
     flexDirection: 'row',

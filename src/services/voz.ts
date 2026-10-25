@@ -1,6 +1,6 @@
 import type { Producto, ProductoCatalogo, UnidadProducto } from '../types/database';
 import { buscarEnCatalogo, fechaDetectadaValida, normalizarNombre, UNIDADES_DISPONIBLES } from './escaneo';
-import type { AccionDeVozInterpretada, ComandoDeVozInterpretado, ProductoParaVoz } from './externalApis';
+import type { AccionDeVozInterpretada, CalidadDeAudio, ComandoDeVozInterpretado, ProductoParaVoz } from './externalApis';
 import {
   crearProducto,
   editarProducto,
@@ -325,4 +325,34 @@ export async function aplicarAccionDeVoz(hogarId: string, accion: AccionVoz): Pr
     catalogoId: producto.catalogo_id,
     marca: accion.marca,
   }, producto.fecha_vencimiento);
+}
+
+// Aviso para la pantalla de revisión según cómo se escuchó el audio.
+// 'ruido' solo si Gemini dijo que había MUCHO ruido de fondo; si la voz
+// costó entenderse pero no había ruido, el aviso es otro ('habla') para no
+// echarle la culpa al ruido. Sin datos o audio bueno: null (sin cartel).
+export interface AvisoCalidadAudio {
+  tipo: 'ruido' | 'habla';
+  titulo: string;
+  texto: string;
+}
+
+export function avisoCalidadAudio(calidad: CalidadDeAudio | null | undefined): AvisoCalidadAudio | null {
+  if (!calidad) return null;
+  if (calidad.ruido_de_fondo === 'mucho') {
+    return {
+      tipo: 'ruido',
+      titulo: 'Había mucho ruido de fondo',
+      texto:
+        'El ruido puede hacer que entendamos mal algún producto, cantidad o fecha. Leé con atención cada cambio antes de confirmar, o grabá de nuevo en un lugar más silencioso.',
+    };
+  }
+  if (calidad.habla_poco_clara) {
+    return {
+      tipo: 'habla',
+      titulo: 'Algunas partes no se entendieron bien',
+      texto: 'Revisá con atención cada cambio antes de confirmar. Si algo no coincide, corregilo o grabá de nuevo hablando cerca del micrófono.',
+    };
+  }
+  return null;
 }
