@@ -272,6 +272,9 @@ export function EscanearTicketModal({ visible, onClose, onSuccess, hogarId }: Es
                       <TextInput
                         style={styles.cantidad}
                         keyboardType="decimal-pad"
+                        // Al tocarlo se selecciona el número: lo que se escribe lo reemplaza
+                        // (antes, con un "1", tocar 5 dejaba "15").
+                        selectTextOnFocus
                         value={candidato.cantidad}
                         onChangeText={(texto) => handleCambiar(candidato.id, { cantidad: texto })}
                         editable={!guardando}

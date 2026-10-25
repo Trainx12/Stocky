@@ -425,6 +425,9 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
             <TextInput
               style={[styles.input, styles.inputCantidad]}
               keyboardType="decimal-pad"
+              // Al tocarlo se selecciona el número: lo que se escribe lo reemplaza
+              // (antes, con un "1", tocar 5 dejaba "15").
+              selectTextOnFocus
               value={accion.cantidad}
               onChangeText={(cantidad) => onCambiar({ cantidad })}
               editable={!deshabilitada}
