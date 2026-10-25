@@ -150,6 +150,28 @@ export async function interpretarComandoDeVoz(
   };
 }
 
+// Lo mismo que interpretarComandoDeVoz pero ESCRITO de corrido ("2 leches
+// vencen 15/11, 1 kg de papa"), para quien no puede o no quiere hablar en voz
+// alta. Misma función (voz-a-texto) y mismas reglas; no trae calidad de audio.
+export const LARGO_MAXIMO_COMANDO_ESCRITO = 500;
+
+export async function interpretarComandoEscrito(
+  texto: string,
+  productos: ProductoParaVoz[],
+  hoy: string
+): Promise<ComandoDeVozInterpretado> {
+  const { data, error } = await supabase.functions.invoke('voz-a-texto', {
+    body: { texto: texto.trim(), modo: 'comando', productos, hoy },
+  });
+
+  if (error) return lanzarErrorDeFuncion(error);
+  return {
+    transcripcion: data?.transcripcion ?? texto.trim(),
+    acciones: Array.isArray(data?.acciones) ? data.acciones : [],
+    calidad: null,
+  };
+}
+
 function leerCalidadDeAudio(valor: unknown): CalidadDeAudio | null {
   const c = valor as Partial<CalidadDeAudio> | null | undefined;
   if (!c || !['ninguno', 'poco', 'mucho'].includes(c.ruido_de_fondo as string)) return null;

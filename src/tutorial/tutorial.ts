@@ -28,7 +28,7 @@ export type ObjetivoTutorial =
   | 'cuenta';
 
 // Lo que hace el botón de acción de un paso (además de "Siguiente").
-export type AccionTutorial = 'crearHogar' | 'agregarProducto' | 'escanearTicket' | 'cargarPorVoz';
+export type AccionTutorial = 'crearHogar' | 'agregarProducto' | 'escanearTicket' | 'cargarPorVoz' | 'hogarEjemplo';
 
 export interface PasoTutorial {
   id: string;
@@ -125,7 +125,10 @@ export function pasosTutorial({ tieneHogar }: ContextoTutorial): PasoTutorial[] 
       id: 'final',
       objetivo: null,
       titulo: '¡Listo! 🎉',
-      texto: 'Ya conocés lo principal de Stocky. Empezá cargando lo que tenés en la heladera y la alacena.',
+      texto:
+        'Ya conocés lo principal de Stocky. ¿Querés practicar antes? Probá un hogar de ejemplo (opcional; lo borrás desde el "?").',
+      // Opcional: un hogar con productos de muestra (services/hogarEjemplo.ts).
+      accion: { tipo: 'hogarEjemplo', etiqueta: 'Probar con un hogar de ejemplo' },
     },
   ];
 }

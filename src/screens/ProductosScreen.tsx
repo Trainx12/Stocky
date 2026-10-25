@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BadgeVencimiento } from '../components/BadgeVencimiento';
 import { Button } from '../components/Button';
 import { EsqueletoLista } from '../components/Esqueleto';
+import { FilaDeslizable } from '../components/FilaDeslizable';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
 import { EscanearTicketModal } from '../components/EscanearTicketModal';
@@ -35,6 +36,7 @@ import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
 import { avisar, avisarConAccion, confirmar } from '../lib/alert';
 import { vibrarToque } from '../lib/vibrar';
+import { celebrar } from '../lib/celebrar';
 import { supabase } from '../lib/supabase';
 import { afectaBorrado, agruparLlamadas, nombreDeCanal } from '../lib/tiempoReal';
 import { useAuth } from '../context/AuthContext';
@@ -266,6 +268,7 @@ export function ProductosScreen({ route, navigation }: Props) {
     try {
       const borrados = await eliminarProductosVencidos(hogarId);
       await cargar();
+      if (borrados.length > 0) celebrar('¡Sin vencidos!');
       ofrecerDeshacer(borrados, borrados.length === 1 ? 'Se eliminó 1 producto vencido.' : `Se eliminaron ${borrados.length} productos vencidos.`);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudieron eliminar los vencidos.');
@@ -594,18 +597,26 @@ export function ProductosScreen({ route, navigation }: Props) {
                   {renderBadgeStock(grupo.clave)}
                 </View>
               </View>
+              {/* Cada lote se puede deslizar: a la izquierda "Usé 1", a la
+                  derecha "Eliminar" (con confirmación, ver handleEliminar). */}
               {grupo.lotes.map((lote, indice) => (
-                <View key={lote.id} style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
-                  <View style={styles.productoInfo}>
-                    <Text style={styles.loteMarca} numberOfLines={1}>
-                      {lote.marca ?? 'Sin marca'}
-                    </Text>
-                    <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
-                    {renderBadgeVencimiento(lote)}
+                <FilaDeslizable
+                  key={lote.id}
+                  onUsarUno={lote.cantidad > 0 ? () => handleAjustarCantidad(lote, -1) : undefined}
+                  onEliminar={() => handleEliminar(lote)}
+                >
+                  <View style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
+                    <View style={styles.productoInfo}>
+                      <Text style={styles.loteMarca} numberOfLines={1}>
+                        {lote.marca ?? 'Sin marca'}
+                      </Text>
+                      <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
+                      {renderBadgeVencimiento(lote)}
+                    </View>
+                    {renderStepper(lote)}
+                    {renderAcciones(lote)}
                   </View>
-                  {renderStepper(lote)}
-                  {renderAcciones(lote)}
-                </View>
+                </FilaDeslizable>
               ))}
             </View>
           ))}
@@ -634,7 +645,7 @@ export function ProductosScreen({ route, navigation }: Props) {
         onClose={() => setVozVisible(false)}
         onSuccess={async (cantidad) => {
           setVozVisible(false);
-          avisar('Listo', cantidad === 1 ? 'Se aplicó 1 cambio.' : `Se aplicaron ${cantidad} cambios.`);
+          celebrar(cantidad === 1 ? '¡1 cambio listo!' : `¡${cantidad} cambios listos!`);
           await cargar();
         }}
       />
@@ -645,7 +656,7 @@ export function ProductosScreen({ route, navigation }: Props) {
         onClose={() => setTicketVisible(false)}
         onSuccess={async (cantidad) => {
           setTicketVisible(false);
-          avisar('Productos agregados', cantidad === 1 ? 'Se agregó 1 producto del ticket.' : `Se agregaron ${cantidad} productos del ticket.`);
+          celebrar(cantidad === 1 ? '¡1 producto cargado!' : `¡${cantidad} productos cargados!`);
           await cargar();
         }}
       />

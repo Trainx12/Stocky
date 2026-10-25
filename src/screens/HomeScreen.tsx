@@ -10,6 +10,7 @@ import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { BadgeVencimiento } from '../components/BadgeVencimiento';
 import { EsqueletoLista } from '../components/Esqueleto';
+import { buscarHogarDeEjemplo, crearHogarDeEjemplo } from '../services/hogarEjemplo';
 import { BottomNavBar } from '../components/BottomNavBar';
 import type { TabKey } from '../components/BottomNavBar';
 import { CatalogoSelectorModal } from '../components/CatalogoSelectorModal';
@@ -205,6 +206,10 @@ export function HomeScreen() {
     onAccion: (accion: AccionTutorial) => {
       if (accion === 'crearHogar') {
         setCrearVisible(true);
+        return true;
+      }
+      if (accion === 'hogarEjemplo') {
+        probarHogarDeEjemplo();
         return true;
       }
       if (!hogarSeleccionado) {
@@ -614,6 +619,23 @@ export function HomeScreen() {
     handleIrAProductos({ enfocarBusqueda: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handleIrAProductos cambia en cada render
   }, [abrirBuscador, hogaresLoading, misHogares.length, hogarSeleccionado, navigation]);
+
+  // Hogar de ejemplo (final del tutorial): si ya existe se va a él; si no,
+  // se crea con productos de muestra. Ver services/hogarEjemplo.ts.
+  async function probarHogarDeEjemplo() {
+    try {
+      const existente = buscarHogarDeEjemplo(misHogares);
+      const hogar = existente ?? (await crearHogarDeEjemplo());
+      if (!existente) {
+        await cargarMisHogares();
+        avisar('Hogar de ejemplo listo', 'Probá lo que quieras. Cuando termines, lo borrás desde el "?" con "Borrar el hogar de ejemplo".', 'info');
+      }
+      setHogarSeleccionadoId(hogar.id);
+      navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo crear el hogar de ejemplo.');
+    }
+  }
 
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
   // pantalla como `usuario` del AuthContext (por si `hogar_id` pasó de null

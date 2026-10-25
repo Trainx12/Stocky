@@ -16,6 +16,7 @@ jest.mock('../lib/supabase', () => ({
 import { supabase } from '../lib/supabase';
 import {
   interpretarComandoDeVoz,
+  interpretarComandoEscrito,
   reconocerFechaPorVoz,
   reconocerProductosDeTicket,
   reconocerVencimientoDeFoto,
@@ -85,6 +86,16 @@ describe('interpretarComandoDeVoz', () => {
 
     invoke.mockResolvedValue({ data: { transcripcion: 'x', acciones: [], calidad_audio: { ruido_de_fondo: 'raro' } }, error: null });
     expect((await interpretarComandoDeVoz(audio, [], '2026-10-05')).calidad).toBeNull();
+  });
+});
+
+describe('interpretarComandoEscrito', () => {
+  it('manda el texto (sin audio) a voz-a-texto en modo comando y no trae calidad de audio', async () => {
+    invoke.mockResolvedValue({ data: { transcripcion: '2 leches', acciones: [{ accion: 'alta' }], calidad_audio: null }, error: null });
+    const resultado = await interpretarComandoEscrito('  2 leches ', [], '2026-10-25');
+    expect(invoke).toHaveBeenCalledWith('voz-a-texto', { body: { texto: '2 leches', modo: 'comando', productos: [], hoy: '2026-10-25' } });
+    expect(resultado.calidad).toBeNull();
+    expect(resultado.acciones).toHaveLength(1);
   });
 });
 

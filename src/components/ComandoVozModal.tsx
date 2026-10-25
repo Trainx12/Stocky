@@ -6,7 +6,8 @@ import { CalendarioPicker } from './CalendarioPicker';
 import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { SEGUNDOS_MAXIMOS, useGrabadorDeVoz } from '../lib/grabacion';
 import { listarCatalogoAprobado } from '../services/catalogo';
-import { interpretarComandoDeVoz } from '../services/externalApis';
+import { interpretarComandoDeVoz, interpretarComandoEscrito, LARGO_MAXIMO_COMANDO_ESCRITO } from '../services/externalApis';
+import type { ComandoDeVozInterpretado } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
 import { avisoProductoVencido, fechaDesdeInput, fechaParaMostrar, formatearFechaCorta, nombreConMarca } from '../services/productos';
 import { UNIDADES_DISPONIBLES } from '../services/escaneo';
@@ -80,26 +81,42 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
   const [aplicando, setAplicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const procesarAudio = useCallback(
-    async (audio: AudioGrabado) => {
+  // "Escribir de corrido" en vez de hablar (como el agregado rápido de
+  // Todoist): misma interpretación, mismo paso de revisión.
+  const [escribiendo, setEscribiendo] = useState(false);
+  const [textoEscrito, setTextoEscrito] = useState('');
+
+  // Audio o texto -> acciones para revisar. `interpretar` es la llamada a
+  // la IA que corresponde a cada caso.
+  const procesar = useCallback(
+    async (interpretar: () => Promise<ComandoDeVozInterpretado>) => {
       setPaso('procesando');
       try {
-        const [comando, catalogo] = await Promise.all([
-          interpretarComandoDeVoz(audio, inventarioParaVoz(productos), fechaDeHoy()),
-          listarCatalogoAprobado(),
-        ]);
+        const [comando, catalogo] = await Promise.all([interpretar(), listarCatalogoAprobado()]);
         const armadas = armarAccionesDeVoz(comando, productos, catalogo);
         setTranscripcion(comando.transcripcion);
         setAvisoAudio(avisoCalidadAudio(comando.calidad));
         setAcciones(armadas);
         setPaso(armadas.length === 0 ? 'vacio' : 'revisar');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'No pudimos entender el audio.');
+        setError(err instanceof Error ? err.message : 'No pudimos entenderlo.');
         setPaso('grabar');
       }
     },
     [productos],
   );
+
+  const procesarAudio = useCallback(
+    (audio: AudioGrabado) => procesar(() => interpretarComandoDeVoz(audio, inventarioParaVoz(productos), fechaDeHoy())),
+    [procesar, productos],
+  );
+
+  function handleEntenderTexto() {
+    const texto = textoEscrito.trim();
+    if (!texto) return;
+    setError(null);
+    procesar(() => interpretarComandoEscrito(texto, inventarioParaVoz(productos), fechaDeHoy()));
+  }
 
   const alFallar = useCallback((mensaje: string) => {
     setError(mensaje);
@@ -115,6 +132,8 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
     setAvisoAudio(null);
     setAcciones([]);
     setAplicando(false);
+    setEscribiendo(false);
+    setTextoEscrito('');
     setError(null);
   }, [visible]);
 
@@ -230,6 +249,35 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
 
                 {error && <Text style={styles.error}>{error}</Text>}
 
+                {!grabando && !escribiendo && (
+                  <Pressable
+                    onPress={() => setEscribiendo(true)}
+                    style={styles.escribirEnlace}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="create-outline" size={18} color={colors.primary} />
+                    <Text style={styles.escribirEnlaceTexto}>¿Preferís escribirlo?</Text>
+                  </Pressable>
+                )}
+
+                {!grabando && escribiendo && (
+                  <View style={styles.bloque}>
+                    <TextInput
+                      style={[styles.input, styles.inputGrande, styles.inputEscrito]}
+                      value={textoEscrito}
+                      onChangeText={setTextoEscrito}
+                      placeholder="Ej: 2 leches que vencen el 15/11 y 1 kg de papa"
+                      placeholderTextColor={colors.textSecondary}
+                      multiline
+                      maxLength={LARGO_MAXIMO_COMANDO_ESCRITO}
+                      autoFocus
+                      accessibilityLabel="Escribí qué querés agregar, sacar o cambiar"
+                    />
+                    <Button label="Entender" onPress={handleEntenderTexto} disabled={!textoEscrito.trim()} />
+                    <Button label="Mejor lo digo en voz alta" variant="outline" onPress={() => setEscribiendo(false)} />
+                  </View>
+                )}
+
                 {!grabando && (
                   <View style={styles.ejemplos}>
                     <Text style={styles.ejemplosTitulo}>Por ejemplo:</Text>
@@ -253,7 +301,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
             {paso === 'vacio' && (
               <View style={styles.bloque}>
                 <Ionicons name="mic-off-outline" size={28} color={colors.textSecondary} style={styles.iconoCentro} />
-                {transcripcion ? <Text style={styles.transcripcion}>Escuchamos: “{transcripcion}”</Text> : null}
+                {transcripcion ? <Text style={styles.transcripcion}>{escribiendo ? 'Escribiste' : 'Escuchamos'}: “{transcripcion}”</Text> : null}
                 {avisoAudio?.tipo === 'ruido' && <CartelAudio aviso={avisoAudio} />}
                 <Text style={styles.texto}>
                   No entendimos ningún producto para agregar, sacar o cambiar. Probá de nuevo hablando cerca del micrófono,
@@ -266,7 +314,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
 
             {paso === 'revisar' && (
               <View style={styles.bloque}>
-                {transcripcion ? <Text style={styles.transcripcion}>Escuchamos: “{transcripcion}”</Text> : null}
+                {transcripcion ? <Text style={styles.transcripcion}>{escribiendo ? 'Escribiste' : 'Escuchamos'}: “{transcripcion}”</Text> : null}
                 {avisoAudio && <CartelAudio aviso={avisoAudio} />}
                 <Text style={styles.texto}>Revisá los cambios antes de aplicarlos. Podés corregirlos o descartarlos.</Text>
 
@@ -728,6 +776,21 @@ const crearEstilos = () =>
     ...typography.caption,
     color: colors.textPrimary,
     textAlign: 'center',
+  },
+  escribirEnlace: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  escribirEnlaceTexto: {
+    ...typography.bodyMedium,
+    color: colors.primary,
+  },
+  inputEscrito: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   cartelAudio: {
     flexDirection: 'row',

@@ -15,6 +15,10 @@
 //     modificación (producto_id).
 //   - 'fecha': solo una fecha de vencimiento dictada, para el campo de fecha
 //     del formulario de producto.
+//
+// En modo 'comando' también se puede mandar `texto` en vez de `audio`: lo que
+// la persona ESCRIBIÓ de corrido ("2 leches vencen 15/11, 1 kg de papa"). Se
+// interpreta con las mismas reglas; calidad_audio no aplica y vuelve null.
 import { corsHeaders } from '../_shared/cors.ts';
 import { consultarGemini, esReintentable } from '../_shared/gemini.ts';
 
@@ -30,6 +34,7 @@ interface ProductoInventario {
 // Audio de ~30 s en los formatos que graba la app pesa bastante menos que
 // esto; el límite evita mandarle a Gemini cualquier cosa enorme.
 const MAX_AUDIO_BASE64 = 8 * 1024 * 1024;
+const MAX_TEXTO = 500;
 const MAX_PRODUCTOS = 300;
 
 const UNIDADES = ['unidad', 'kg', 'g', 'l', 'ml', 'paquete'];
@@ -257,18 +262,26 @@ Deno.serve(async (req: Request) => {
 
   const { audio, modo = 'comando', hoy, productos } = body;
   const mimeType = mimeDeAudio(body.mimeType);
+  const texto = typeof body.texto === 'string' ? body.texto.trim() : '';
+  const esTexto = modo === 'comando' && texto.length > 0;
 
-  if (typeof audio !== 'string' || audio.length === 0) {
-    return respuestaJson({ error: 'Falta el audio (base64).' }, 400);
-  }
-  if (audio.length > MAX_AUDIO_BASE64) {
-    return respuestaJson({ error: 'El audio es demasiado largo. Probá con un mensaje más corto.' }, 413);
-  }
-  if (!mimeType) {
-    return respuestaJson({ error: 'Falta el formato del audio (mimeType).' }, 400);
-  }
   if (modo !== 'comando' && modo !== 'fecha') {
     return respuestaJson({ error: 'Modo inválido.' }, 400);
+  }
+  if (esTexto) {
+    if (texto.length > MAX_TEXTO) {
+      return respuestaJson({ error: `El texto es demasiado largo (hasta ${MAX_TEXTO} letras).` }, 413);
+    }
+  } else {
+    if (typeof audio !== 'string' || audio.length === 0) {
+      return respuestaJson({ error: 'Falta el audio (base64).' }, 400);
+    }
+    if (audio.length > MAX_AUDIO_BASE64) {
+      return respuestaJson({ error: 'El audio es demasiado largo. Probá con un mensaje más corto.' }, 413);
+    }
+    if (!mimeType) {
+      return respuestaJson({ error: 'Falta el formato del audio (mimeType).' }, 400);
+    }
   }
   // "Hoy" lo manda la app (fecha local del celular): el servidor corre en UTC
   // y a la noche en Argentina ya sería "mañana".
@@ -279,7 +292,16 @@ Deno.serve(async (req: Request) => {
     return respuestaJson({ error: 'GEMINI_API_KEY no configurada en los secrets de la función.' }, 500);
   }
 
-  const parteAudio = { inline_data: { mime_type: mimeType, data: audio } };
+  // Con texto escrito, va como una parte aparte del prompt (que habla de "el
+  // audio"), aclarando que esta vez no hay audio.
+  const parteAudio = esTexto
+    ? {
+        text:
+          'La persona NO grabó un audio: ESCRIBIÓ el texto de abajo. Tomalo como si lo hubiera dicho; ' +
+          '"transcripcion" es ese mismo texto y en "calidad_audio" poné ruido_de_fondo "ninguno" y ' +
+          'habla_poco_clara false.\n«' + texto + '»',
+      }
+    : { inline_data: { mime_type: mimeType as string, data: audio as string } };
 
   try {
     if (modo === 'fecha') {
@@ -309,7 +331,7 @@ Deno.serve(async (req: Request) => {
     return respuestaJson({
       transcripcion: resultado.transcripcion ?? '',
       acciones: Array.isArray(resultado.acciones) ? resultado.acciones : [],
-      calidad_audio: resultado.calidad_audio ?? null,
+      calidad_audio: esTexto ? null : (resultado.calidad_audio ?? null),
     });
   } catch (error) {
     // El detalle técnico queda en los logs de la función; al usuario le

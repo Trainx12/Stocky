@@ -1,9 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { buscarEnAyuda, TEMAS_AYUDA } from '../ayuda/contenido';
+import { borrarHogarDeEjemplo, buscarHogarDeEjemplo, crearHogarDeEjemplo } from '../services/hogarEjemplo';
+import { listarMisHogares } from '../services/hogares';
+import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
 import type { AppStackParamList } from '../types/navigation';
@@ -24,6 +28,52 @@ export function AyudaScreen({ navigation }: Props) {
   const temas = useMemo(() => buscarEnAyuda(TEMAS_AYUDA, busqueda), [busqueda]);
   // Con una búsqueda escrita se muestran los resultados ya abiertos.
   const buscando = busqueda.trim() !== '';
+
+  // Hogar de ejemplo (services/hogarEjemplo.ts): se fija si ya hay uno cada
+  // vez que se entra, para ofrecer "Probar" o "Ir / Borrar".
+  const [ejemplo, setEjemplo] = useState<{ id: string; nombre: string } | null>(null);
+  const [trabajandoEjemplo, setTrabajandoEjemplo] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      listarMisHogares()
+        .then((hogares) => setEjemplo(buscarHogarDeEjemplo(hogares)))
+        .catch(() => setEjemplo(null));
+    }, []),
+  );
+
+  async function handleProbarEjemplo() {
+    if (ejemplo) {
+      navigation.navigate('Productos', { hogarId: ejemplo.id, hogarNombre: ejemplo.nombre });
+      return;
+    }
+    setTrabajandoEjemplo(true);
+    try {
+      const hogar = await crearHogarDeEjemplo();
+      setEjemplo(hogar);
+      avisar('Hogar de ejemplo listo', 'Probá lo que quieras. Cuando termines, lo borrás desde acá.', 'info');
+      navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo crear el hogar de ejemplo.');
+    } finally {
+      setTrabajandoEjemplo(false);
+    }
+  }
+
+  async function handleBorrarEjemplo() {
+    if (!ejemplo) return;
+    const ok = await confirmar('Borrar el hogar de ejemplo', 'Se borran sus productos de muestra. Tus hogares no se tocan.', 'Borrar');
+    if (!ok) return;
+    setTrabajandoEjemplo(true);
+    try {
+      await borrarHogarDeEjemplo(ejemplo.id);
+      setEjemplo(null);
+      avisar('Listo', 'Se borró el hogar de ejemplo.', 'exito');
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo borrar el hogar de ejemplo.');
+    } finally {
+      setTrabajandoEjemplo(false);
+    }
+  }
 
   function alternar(id: string) {
     setAbiertos((actuales) => {
@@ -56,6 +106,30 @@ export function AyudaScreen({ navigation }: Props) {
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.white} />
       </Pressable>
+
+      {/* Hogar de ejemplo: para practicar sin miedo (opcional). */}
+      <View style={styles.ejemplo}>
+        <Pressable onPress={handleProbarEjemplo} disabled={trabajandoEjemplo} style={styles.ejemploFila} accessibilityRole="button">
+          <Ionicons name="flask-outline" size={22} color={colors.primaryDark} />
+          <View style={styles.tutorialTextos}>
+            <Text style={styles.ejemploTitulo}>{ejemplo ? 'Ir al hogar de ejemplo' : 'Probar con un hogar de ejemplo'}</Text>
+            <Text style={styles.ejemploDetalle}>
+              {ejemplo ? 'Tu hogar de práctica con productos de muestra' : 'Un hogar con productos de muestra para practicar sin miedo'}
+            </Text>
+          </View>
+          {trabajandoEjemplo ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
+          )}
+        </Pressable>
+        {ejemplo && (
+          <Pressable onPress={handleBorrarEjemplo} disabled={trabajandoEjemplo} style={styles.ejemploBorrar} accessibilityRole="button">
+            <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            <Text style={styles.ejemploBorrarTexto}>Borrar el hogar de ejemplo</Text>
+          </Pressable>
+        )}
+      </View>
 
       <TextInput
         style={styles.buscador}
@@ -138,6 +212,40 @@ const crearEstilos = () =>
       backgroundColor: colors.primary,
       borderRadius: radius.md,
       padding: spacing.md,
+    },
+    ejemplo: {
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: radius.md,
+      overflow: 'hidden',
+    },
+    ejemploFila: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      padding: spacing.md,
+      backgroundColor: colors.primaryLight,
+    },
+    ejemploTitulo: {
+      ...typography.bodyMedium,
+      color: colors.primaryDark,
+    },
+    ejemploDetalle: {
+      ...typography.caption,
+      color: colors.primaryDark,
+    },
+    ejemploBorrar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    ejemploBorrarTexto: {
+      ...typography.caption,
+      color: colors.danger,
     },
     tutorialTextos: {
       flex: 1,
