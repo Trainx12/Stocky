@@ -496,29 +496,31 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
             accessibilityLabel={`Marca de ${titulo}`}
           />
           <Text style={styles.etiquetaCampo}>Vencimiento (opcional)</Text>
-          <View style={styles.fila}>
-            <TextInput
-              style={[styles.input, styles.inputGrande, styles.flex]}
-              value={fechaParaMostrar(accion.fecha)}
-              onChangeText={(texto) => onCambiar({ fecha: fechaDesdeInput(texto) })}
-              editable={!deshabilitada}
-              keyboardType="number-pad"
-              maxLength={10}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={colors.textSecondary}
-              accessibilityLabel={`Fecha de vencimiento de ${titulo}`}
-            />
-            <Pressable
-              onPress={() => setCalendarioVisible((v) => !v)}
-              disabled={deshabilitada}
-              style={[styles.botonCalendario, calendarioVisible && styles.botonCalendarioActivo]}
-              accessibilityRole="button"
-              accessibilityLabel={`Elegir la fecha de vencimiento de ${titulo} con el calendario`}
-            >
-              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-              <Text style={styles.botonCalendarioTexto}>Calendario</Text>
-            </Pressable>
-          </View>
+          {/* Campo a todo el ancho y el calendario abajo: en un celular
+              angosto el campo de texto tiene un ancho mínimo propio y, en la
+              misma fila, empujaba el botón fuera de la pantalla (igual que
+              en el formulario de producto, incidentes-sprint10.md #14 y #32). */}
+          <TextInput
+            style={[styles.input, styles.inputGrande]}
+            value={fechaParaMostrar(accion.fecha)}
+            onChangeText={(texto) => onCambiar({ fecha: fechaDesdeInput(texto) })}
+            editable={!deshabilitada}
+            keyboardType="number-pad"
+            maxLength={10}
+            placeholder="DD/MM/AAAA"
+            placeholderTextColor={colors.textSecondary}
+            accessibilityLabel={`Fecha de vencimiento de ${titulo}`}
+          />
+          <Pressable
+            onPress={() => setCalendarioVisible((v) => !v)}
+            disabled={deshabilitada}
+            style={[styles.botonCalendario, calendarioVisible && styles.botonCalendarioActivo]}
+            accessibilityRole="button"
+            accessibilityLabel={`Elegir la fecha de vencimiento de ${titulo} con el calendario`}
+          >
+            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+            <Text style={styles.botonCalendarioTexto}>{calendarioVisible ? 'Cerrar calendario' : 'Elegir en el calendario'}</Text>
+          </Pressable>
           {calendarioVisible && (
             <CalendarioPicker
               valor={accion.fecha || null}
@@ -692,6 +694,7 @@ const crearEstilos = () =>
   botonCalendario: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

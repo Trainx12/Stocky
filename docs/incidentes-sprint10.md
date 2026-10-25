@@ -924,3 +924,20 @@ manteniendo apretado el producto.
 **Lección:** en un elemento que se toca para elegir, no poner otro botón que
 ocupe casi toda su superficie; la acción secundaria va en un botón chico y
 aparte.
+
+## 32. Cargar por voz: el botón del calendario quedaba fuera de la pantalla
+
+**Síntoma (QA, 2026-10-25, Android):** en la revisión de "Cargar por voz" el
+campo de vencimiento ocupaba todo el ancho y el botón "Calendario" quedaba
+cortado a la derecha, fuera de la pantalla.
+
+**Causa:** la misma que en el #14. El campo de texto y el botón estaban en
+la misma fila, y en un celular angosto el campo tiene un ancho mínimo propio
+que empuja al botón hacia afuera. Se repitió al agregar el calendario a esta
+pantalla (#29) sin acordarse del #14.
+
+**Solución:** el campo va a todo el ancho y el botón "Elegir en el
+calendario" abajo, también a todo el ancho.
+
+**Lección:** en un celular, nunca poner un campo de texto que se estira y un
+botón en la misma fila; el botón va abajo.
