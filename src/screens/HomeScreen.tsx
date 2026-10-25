@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -8,6 +8,9 @@ import type { AppStackParamList, FiltroAlerta } from '../types/navigation';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
+import { BadgeVencimiento } from '../components/BadgeVencimiento';
+import { EsqueletoLista } from '../components/Esqueleto';
+import { buscarHogarDeEjemplo, crearHogarDeEjemplo } from '../services/hogarEjemplo';
 import { BottomNavBar } from '../components/BottomNavBar';
 import type { TabKey } from '../components/BottomNavBar';
 import { CatalogoSelectorModal } from '../components/CatalogoSelectorModal';
@@ -96,6 +99,7 @@ export function HomeScreen() {
   const abrirMiembrosDe = route.params?.abrirMiembrosDe;
   // "Ver tutorial" desde Cuenta o la Ayuda.
   const verTutorial = route.params?.verTutorial;
+  const abrirBuscador = route.params?.abrirBuscador;
   const enFoco = useIsFocused();
   // Preferencia general "avisarme X días antes" (cada producto puede tener
   // la suya, ver estadoVencimiento): define qué entra en "Productos próximos
@@ -202,6 +206,10 @@ export function HomeScreen() {
     onAccion: (accion: AccionTutorial) => {
       if (accion === 'crearHogar') {
         setCrearVisible(true);
+        return true;
+      }
+      if (accion === 'hogarEjemplo') {
+        probarHogarDeEjemplo();
         return true;
       }
       if (!hogarSeleccionado) {
@@ -601,6 +609,34 @@ export function HomeScreen() {
     });
   }
 
+  // La lupa tocada en Cuenta o Admin: hace lo mismo que la lupa del inicio
+  // (abre el buscador del hogar elegido), apenas se sabe cuál es.
+  useEffect(() => {
+    // Se espera a que estén los hogares y el elegido (se resuelve un render
+    // después de cargarlos).
+    if (!abrirBuscador || hogaresLoading || (misHogares.length > 0 && !hogarSeleccionado)) return;
+    navigation.setParams({ abrirBuscador: undefined });
+    handleIrAProductos({ enfocarBusqueda: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleIrAProductos cambia en cada render
+  }, [abrirBuscador, hogaresLoading, misHogares.length, hogarSeleccionado, navigation]);
+
+  // Hogar de ejemplo (final del tutorial): si ya existe se va a él; si no,
+  // se crea con productos de muestra. Ver services/hogarEjemplo.ts.
+  async function probarHogarDeEjemplo() {
+    try {
+      const existente = buscarHogarDeEjemplo(misHogares);
+      const hogar = existente ?? (await crearHogarDeEjemplo());
+      if (!existente) {
+        await cargarMisHogares();
+        avisar('Hogar de ejemplo listo', 'Probá lo que quieras. Cuando termines, lo borrás desde el "?" con "Borrar el hogar de ejemplo".', 'info');
+      }
+      setHogarSeleccionadoId(hogar.id);
+      navigation.navigate('Productos', { hogarId: hogar.id, hogarNombre: hogar.nombre });
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo crear el hogar de ejemplo.');
+    }
+  }
+
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
   // pantalla como `usuario` del AuthContext (por si `hogar_id` pasó de null
   // a un valor, que es lo que usa el resto de la app como "hogar activo").
@@ -698,7 +734,14 @@ export function HomeScreen() {
   return (
     <ScreenContainer style={styles.container} noPadding>
       <View style={styles.padded}>
-        <Header nombre={usuario?.nombre} onAyuda={() => navigation.navigate('Ayuda')} refAyuda={tutorial.objetivo('ayuda')} />
+        <Header
+          nombre={usuario?.nombre}
+          email={usuario?.email}
+          avatarUrl={usuario?.avatar_url}
+          onPerfil={() => navigation.navigate('Cuenta')}
+          onAyuda={() => navigation.navigate('Ayuda')}
+          refAyuda={tutorial.objetivo('ayuda')}
+        />
       </View>
 
       {/* Contenido scrolleable entre el header y la nav bar fija. La View de
@@ -714,12 +757,14 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {usuarioLoading && !usuario ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+          <View style={styles.loader}>
+            <EsqueletoLista filas={4} />
+          </View>
         ) : usuario ? (
           <>
             <SectionCard title="Tus hogares activos">
               {hogaresLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={1} />
               ) : misHogares.length === 0 ? (
                 <EmptyState icon="home-outline" text="Todavía no formás parte de ningún hogar." />
               ) : (
@@ -886,7 +931,7 @@ export function HomeScreen() {
             <View ref={tutorial.objetivo('porVencer')} collapsable={false}>
             <SectionCard title="Productos próximos a vencer">
               {productosPorVencerLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={2} />
               ) : productosPorVencer.length === 0 ? (
                 <EmptyState
                   icon="checkmark-circle-outline"
@@ -914,11 +959,7 @@ export function HomeScreen() {
                             </Text>
                           )}
                         </View>
-                        {etiqueta && (
-                          <View style={[styles.vencimientoBadge, estado === 'vencido' && styles.vencimientoBadgeVencido]}>
-                            <Text style={styles.vencimientoBadgeTexto}>{etiqueta}</Text>
-                          </View>
-                        )}
+                        {etiqueta && estado && <BadgeVencimiento estado={estado} etiqueta={etiqueta} />}
                       </Pressable>
                     );
                   })}
@@ -932,12 +973,12 @@ export function HomeScreen() {
             </SectionCard>
             </View>
 
-            {/* Alerta de stock mínimo: ámbar (stockStatus.low), distinta del
+            {/* Alerta de stock mínimo: violeta con un changuito, distinta del
                 coral de vencimientos, para que no se confundan. */}
             <View ref={tutorial.objetivo('stockBajo')} collapsable={false}>
             <SectionCard title="Stock bajo">
               {alertasStockLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={2} />
               ) : alertasStock.length === 0 ? (
                 <EmptyState
                   icon="checkmark-circle-outline"
@@ -961,7 +1002,7 @@ export function HomeScreen() {
                         </Text>
                       </View>
                       <View style={styles.stockBadge}>
-                        <Ionicons name="alert-circle" size={12} color={colors.textPrimary} />
+                        <Ionicons name="cart-outline" size={12} color={colors.primaryDark} />
                         <Text style={styles.stockBadgeTexto}>{etiquetaStock(alerta.estado, alerta.stockMinimo)}</Text>
                       </View>
                     </Pressable>
@@ -978,7 +1019,7 @@ export function HomeScreen() {
 
             <SectionCard title="Actividad reciente">
               {actividadLoading ? (
-                <ActivityIndicator color={colors.primary} />
+                <EsqueletoLista filas={3} />
               ) : actividad.length === 0 ? (
                 <EmptyState
                   icon="time-outline"
@@ -1314,15 +1355,6 @@ const crearEstilos = () =>
     ...typography.caption,
     color: colors.textSecondary,
   },
-  // RF2/RF3: mismo criterio de color que el badge de ProductosScreen (ver
-  // colors.stockStatus en src/theme/colors.ts) para que la alerta se lea
-  // igual en las dos pantallas.
-  vencimientoBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.stockStatus.critical,
-  },
   // Alerta de stock mínimo: mismo estilo que el badge de ProductosScreen.
   stockBadge: {
     flexDirection: 'row',
@@ -1332,12 +1364,12 @@ const crearEstilos = () =>
     paddingVertical: 2,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.stockStatus.low,
-    backgroundColor: colors.warningLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   stockBadgeTexto: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.primaryDark,
     fontSize: 11,
   },
   verTodosButton: {
@@ -1350,14 +1382,6 @@ const crearEstilos = () =>
   verTodosTexto: {
     ...typography.caption,
     color: colors.primary,
-  },
-  vencimientoBadgeVencido: {
-    backgroundColor: colors.stockStatus.expired,
-  },
-  vencimientoBadgeTexto: {
-    ...typography.caption,
-    color: colors.white,
-    fontSize: 11,
   },
   solicitudDot: {
     position: 'absolute',

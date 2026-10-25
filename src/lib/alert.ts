@@ -26,6 +26,13 @@ export interface Aviso {
   // Ícono de Ionicons opcional (las notificaciones lo usan); si no viene,
   // el host elige uno según el tipo.
   icono?: string;
+  // Botón opcional dentro del cartelito (por ejemplo "Deshacer").
+  accion?: AccionDeAviso;
+}
+
+export interface AccionDeAviso {
+  etiqueta: string;
+  alTocar: () => void;
 }
 
 export interface Confirmacion {
@@ -75,6 +82,16 @@ export function avisar(titulo: string, mensaje: string, tipo: TipoAviso = tipoDe
   Alert.alert(titulo, mensaje);
 }
 
+// Cartelito de éxito con un botón (por ejemplo "Deshacer" después de
+// borrar). Sin host (tests) se muestra como un aviso común, sin el botón.
+export function avisarConAccion(titulo: string, mensaje: string, accion: AccionDeAviso): void {
+  if (host) {
+    host.mostrarAviso({ titulo, mensaje, tipo: 'exito', accion });
+    return;
+  }
+  avisar(titulo, mensaje, 'exito');
+}
+
 // Confirmación sí/no. Devuelve una Promise (en vez de recibir un callback
 // como Alert.alert) para poder hacer `await` en el caller, igual que con
 // las llamadas a Supabase que suelen ir justo antes/después.
@@ -109,7 +126,9 @@ export function agregarAviso(actuales: AvisoEnPantalla[], nuevo: AvisoEnPantalla
 
 // Cuánto tiempo queda visible un cartelito: los errores un poco más, para
 // que se alcancen a leer.
-export function duracionAviso(tipo: TipoAviso): number {
+// Con un botón ("Deshacer") queda más tiempo, para alcanzar a tocarlo.
+export function duracionAviso(tipo: TipoAviso, conAccion = false): number {
+  if (conAccion) return 7000;
   return tipo === 'error' ? 5000 : 3500;
 }
 

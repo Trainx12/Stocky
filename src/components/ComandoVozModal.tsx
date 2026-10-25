@@ -2,21 +2,25 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
+import { CalendarioPicker } from './CalendarioPicker';
+import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { SEGUNDOS_MAXIMOS, useGrabadorDeVoz } from '../lib/grabacion';
 import { listarCatalogoAprobado } from '../services/catalogo';
-import { interpretarComandoDeVoz } from '../services/externalApis';
+import { interpretarComandoDeVoz, interpretarComandoEscrito, LARGO_MAXIMO_COMANDO_ESCRITO } from '../services/externalApis';
+import type { ComandoDeVozInterpretado } from '../services/externalApis';
 import type { AudioGrabado } from '../services/externalApis';
-import { formatearFechaCorta, formatearFechaInput, nombreConMarca } from '../services/productos';
+import { avisoProductoVencido, fechaDesdeInput, fechaParaMostrar, formatearFechaCorta, nombreConMarca } from '../services/productos';
 import { UNIDADES_DISPONIBLES } from '../services/escaneo';
 import {
   accionAplicable,
   aplicarAccionDeVoz,
   armarAccionesDeVoz,
+  avisoCalidadAudio,
   elegirProducto,
   fechaDeHoy,
   inventarioParaVoz,
 } from '../services/voz';
-import type { AccionVoz, TipoAccionVoz } from '../services/voz';
+import type { AccionVoz, AvisoCalidadAudio, TipoAccionVoz } from '../services/voz';
 import type { Producto } from '../types/database';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -71,43 +75,65 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
   const styles = useEstilos(crearEstilos);
   const [paso, setPaso] = useState<Paso>('grabar');
   const [transcripcion, setTranscripcion] = useState('');
+  // Cartel si había mucho ruido o la voz costó entenderse (avisoCalidadAudio).
+  const [avisoAudio, setAvisoAudio] = useState<AvisoCalidadAudio | null>(null);
   const [acciones, setAcciones] = useState<AccionVoz[]>([]);
   const [aplicando, setAplicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const procesarAudio = useCallback(
-    async (audio: AudioGrabado) => {
+  // "Escribir de corrido" en vez de hablar (como el agregado rápido de
+  // Todoist): misma interpretación, mismo paso de revisión.
+  const [escribiendo, setEscribiendo] = useState(false);
+  const [textoEscrito, setTextoEscrito] = useState('');
+
+  // Audio o texto -> acciones para revisar. `interpretar` es la llamada a
+  // la IA que corresponde a cada caso.
+  const procesar = useCallback(
+    async (interpretar: () => Promise<ComandoDeVozInterpretado>) => {
       setPaso('procesando');
       try {
-        const [comando, catalogo] = await Promise.all([
-          interpretarComandoDeVoz(audio, inventarioParaVoz(productos), fechaDeHoy()),
-          listarCatalogoAprobado(),
-        ]);
+        const [comando, catalogo] = await Promise.all([interpretar(), listarCatalogoAprobado()]);
         const armadas = armarAccionesDeVoz(comando, productos, catalogo);
         setTranscripcion(comando.transcripcion);
+        setAvisoAudio(avisoCalidadAudio(comando.calidad));
         setAcciones(armadas);
         setPaso(armadas.length === 0 ? 'vacio' : 'revisar');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'No pudimos entender el audio.');
+        setError(err instanceof Error ? err.message : 'No pudimos entenderlo.');
         setPaso('grabar');
       }
     },
     [productos],
   );
 
+  const procesarAudio = useCallback(
+    (audio: AudioGrabado) => procesar(() => interpretarComandoDeVoz(audio, inventarioParaVoz(productos), fechaDeHoy())),
+    [procesar, productos],
+  );
+
+  function handleEntenderTexto() {
+    const texto = textoEscrito.trim();
+    if (!texto) return;
+    setError(null);
+    procesar(() => interpretarComandoEscrito(texto, inventarioParaVoz(productos), fechaDeHoy()));
+  }
+
   const alFallar = useCallback((mensaje: string) => {
     setError(mensaje);
     setPaso('grabar');
   }, []);
 
-  const { grabando, segundos, iniciar, detener, cancelar } = useGrabadorDeVoz(procesarAudio, alFallar);
+  const { grabando, segundos, nivel, vozBaja, iniciar, detener, cancelar } = useGrabadorDeVoz(procesarAudio, alFallar);
 
   useEffect(() => {
     if (!visible) return;
     setPaso('grabar');
     setTranscripcion('');
+    setAvisoAudio(null);
     setAcciones([]);
     setAplicando(false);
+    setEscribiendo(false);
+    setTextoEscrito('');
     setError(null);
   }, [visible]);
 
@@ -138,10 +164,15 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
     setError(null);
     setAcciones([]);
     setTranscripcion('');
+    setAvisoAudio(null);
     setPaso('grabar');
   }
 
   const aplicables = acciones.filter(accionAplicable);
+  // Un producto vencido no se carga (aviso de salud en su tarjeta): hasta
+  // corregir la fecha o descartarlo, no se aplica nada.
+  const hayVencidos = aplicables.some((a) => a.tipo !== 'baja' && !!avisoDeVencidoDe(a));
+  const rellenoInferior = useRellenoInferior();
 
   async function handleConfirmar() {
     setAplicando(true);
@@ -179,8 +210,9 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCerrar}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={grabando ? undefined : handleCerrar}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           <View style={styles.handle} />
           <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={styles.title}>Cargar por voz</Text>
@@ -202,6 +234,12 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
                   >
                     <Ionicons name={grabando ? 'stop' : 'mic'} size={40} color={colors.white} />
                   </Pressable>
+                  {/* Medidor: se mueve con la voz, así se sabe que el
+                      micrófono escucha (y si se habla muy bajo). */}
+                  {grabando && nivel !== null && <MedidorDeVolumen nivel={nivel} />}
+                  {vozBaja && (
+                    <Text style={styles.vozBaja}>Te escuchamos bajito: hablá un poco más fuerte o más cerca del micrófono.</Text>
+                  )}
                   <Text style={[styles.contador, grabando && styles.contadorGrabando]}>
                     {grabando
                       ? `Grabando ${formatearSegundos(segundos)} / ${formatearSegundos(SEGUNDOS_MAXIMOS)}`
@@ -210,6 +248,35 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
                 </View>
 
                 {error && <Text style={styles.error}>{error}</Text>}
+
+                {!grabando && !escribiendo && (
+                  <Pressable
+                    onPress={() => setEscribiendo(true)}
+                    style={styles.escribirEnlace}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="create-outline" size={18} color={colors.primary} />
+                    <Text style={styles.escribirEnlaceTexto}>¿Preferís escribirlo?</Text>
+                  </Pressable>
+                )}
+
+                {!grabando && escribiendo && (
+                  <View style={styles.bloque}>
+                    <TextInput
+                      style={[styles.input, styles.inputGrande, styles.inputEscrito]}
+                      value={textoEscrito}
+                      onChangeText={setTextoEscrito}
+                      placeholder="Ej: 2 leches que vencen el 15/11 y 1 kg de papa"
+                      placeholderTextColor={colors.textSecondary}
+                      multiline
+                      maxLength={LARGO_MAXIMO_COMANDO_ESCRITO}
+                      autoFocus
+                      accessibilityLabel="Escribí qué querés agregar, sacar o cambiar"
+                    />
+                    <Button label="Entender" onPress={handleEntenderTexto} disabled={!textoEscrito.trim()} />
+                    <Button label="Mejor lo digo en voz alta" variant="outline" onPress={() => setEscribiendo(false)} />
+                  </View>
+                )}
 
                 {!grabando && (
                   <View style={styles.ejemplos}>
@@ -234,7 +301,8 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
             {paso === 'vacio' && (
               <View style={styles.bloque}>
                 <Ionicons name="mic-off-outline" size={28} color={colors.textSecondary} style={styles.iconoCentro} />
-                {transcripcion ? <Text style={styles.transcripcion}>Escuchamos: “{transcripcion}”</Text> : null}
+                {transcripcion ? <Text style={styles.transcripcion}>{escribiendo ? 'Escribiste' : 'Escuchamos'}: “{transcripcion}”</Text> : null}
+                {avisoAudio?.tipo === 'ruido' && <CartelAudio aviso={avisoAudio} />}
                 <Text style={styles.texto}>
                   No entendimos ningún producto para agregar, sacar o cambiar. Probá de nuevo hablando cerca del micrófono,
                   o cargalo a mano.
@@ -246,7 +314,8 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
 
             {paso === 'revisar' && (
               <View style={styles.bloque}>
-                {transcripcion ? <Text style={styles.transcripcion}>Escuchamos: “{transcripcion}”</Text> : null}
+                {transcripcion ? <Text style={styles.transcripcion}>{escribiendo ? 'Escribiste' : 'Escuchamos'}: “{transcripcion}”</Text> : null}
+                {avisoAudio && <CartelAudio aviso={avisoAudio} />}
                 <Text style={styles.texto}>Revisá los cambios antes de aplicarlos. Podés corregirlos o descartarlos.</Text>
 
                 {acciones.map((accion) => (
@@ -266,7 +335,7 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
                   label={aplicables.length === 1 ? 'Aplicar 1 cambio' : `Aplicar ${aplicables.length} cambios`}
                   onPress={handleConfirmar}
                   loading={aplicando}
-                  disabled={aplicables.length === 0}
+                  disabled={aplicables.length === 0 || hayVencidos}
                 />
                 <Button label="Grabar de nuevo" variant="outline" onPress={handleGrabarDeNuevo} disabled={aplicando} />
               </View>
@@ -274,8 +343,54 @@ export function ComandoVozModal({ visible, onClose, onSuccess, hogarId, producto
           </ScrollView>
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
     </Modal>
   );
+}
+
+// Barritas que suben con el volumen de la voz (como un ecualizador). Cada
+// barra tiene un "umbral": se prende si el nivel lo pasa.
+const UMBRALES_MEDIDOR = [0.08, 0.2, 0.32, 0.44, 0.56, 0.68, 0.8];
+
+function MedidorDeVolumen({ nivel }: { nivel: number }) {
+  const styles = useEstilos(crearEstilos);
+  return (
+    <View style={styles.medidor} accessibilityLabel="Nivel de volumen del micrófono" accessibilityRole="progressbar">
+      {UMBRALES_MEDIDOR.map((umbral, i) => (
+        <View
+          key={umbral}
+          style={[
+            styles.medidorBarra,
+            { height: 8 + i * 4 },
+            nivel >= umbral && styles.medidorBarraPrendida,
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+// Cartel sobre cómo se escuchó el audio (ver avisoCalidadAudio): ámbar con
+// un ícono de volumen si había ruido, y uno más suave si la voz costó
+// entenderse.
+function CartelAudio({ aviso }: { aviso: AvisoCalidadAudio }) {
+  const styles = useEstilos(crearEstilos);
+  const ruido = aviso.tipo === 'ruido';
+  return (
+    <View style={[styles.cartelAudio, ruido && styles.cartelAudioRuido]} accessibilityRole="alert">
+      <Ionicons name={ruido ? 'volume-high' : 'chatbubble-ellipses-outline'} size={20} color={colors.textPrimary} />
+      <View style={styles.flex}>
+        <Text style={styles.cartelAudioTitulo}>{aviso.titulo}</Text>
+        <Text style={styles.cartelAudioTexto}>{aviso.texto}</Text>
+      </View>
+    </View>
+  );
+}
+
+// Aviso de salud si la fecha de la acción ya pasó (dejar la que ya tenía el
+// producto se permite, ver avisoProductoVencido).
+function avisoDeVencidoDe(accion: AccionVoz): string | null {
+  return avisoProductoVencido(accion.fecha, accion.producto?.fecha_vencimiento ?? null);
 }
 
 interface TarjetaAccionProps {
@@ -292,6 +407,8 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
   const estilo = estiloTipo()[accion.tipo];
   const titulo = accion.producto ? nombreConMarca(accion.producto) : accion.nombre;
   const sinProducto = accion.tipo !== 'alta' && !accion.producto;
+  const [calendarioVisible, setCalendarioVisible] = useState(false);
+  const avisoVencido = avisoDeVencidoDe(accion);
 
   return (
     <View style={[styles.tarjeta, sinProducto && styles.tarjetaInactiva]}>
@@ -384,6 +501,9 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
             <TextInput
               style={[styles.input, styles.inputCantidad]}
               keyboardType="decimal-pad"
+              // Al tocarlo se selecciona el número: lo que se escribe lo reemplaza
+              // (antes, con un "1", tocar 5 dejaba "15").
+              selectTextOnFocus
               value={accion.cantidad}
               onChangeText={(cantidad) => onCambiar({ cantidad })}
               editable={!deshabilitada}
@@ -410,29 +530,60 @@ function TarjetaAccion({ accion, deshabilitada, onCambiar, onElegir, onDescartar
               ))}
             </View>
           )}
-          <View style={styles.fila}>
-            <TextInput
-              style={[styles.input, styles.flex]}
-              value={accion.marca}
-              onChangeText={(marca) => onCambiar({ marca })}
-              editable={!deshabilitada}
-              maxLength={40}
-              placeholder="Marca (opcional)"
-              placeholderTextColor={colors.textSecondary}
-              accessibilityLabel={`Marca de ${titulo}`}
+          {/* Marca y vencimiento en filas propias, con su título: en un
+              celular angosto, juntos en una fila quedaban apretados. */}
+          <Text style={styles.etiquetaCampo}>Marca (opcional)</Text>
+          <TextInput
+            style={[styles.input, styles.inputGrande]}
+            value={accion.marca}
+            onChangeText={(marca) => onCambiar({ marca })}
+            editable={!deshabilitada}
+            maxLength={40}
+            placeholder="Ej: La Serenísima"
+            placeholderTextColor={colors.textSecondary}
+            accessibilityLabel={`Marca de ${titulo}`}
+          />
+          <Text style={styles.etiquetaCampo}>Vencimiento (opcional)</Text>
+          {/* Campo a todo el ancho y el calendario abajo: en un celular
+              angosto el campo de texto tiene un ancho mínimo propio y, en la
+              misma fila, empujaba el botón fuera de la pantalla (igual que
+              en el formulario de producto, incidentes-sprint10.md #14 y #32). */}
+          <TextInput
+            style={[styles.input, styles.inputGrande]}
+            value={fechaParaMostrar(accion.fecha)}
+            onChangeText={(texto) => onCambiar({ fecha: fechaDesdeInput(texto) })}
+            editable={!deshabilitada}
+            keyboardType="number-pad"
+            maxLength={10}
+            placeholder="DD/MM/AAAA"
+            placeholderTextColor={colors.textSecondary}
+            accessibilityLabel={`Fecha de vencimiento de ${titulo}`}
+          />
+          <Pressable
+            onPress={() => setCalendarioVisible((v) => !v)}
+            disabled={deshabilitada}
+            style={[styles.botonCalendario, calendarioVisible && styles.botonCalendarioActivo]}
+            accessibilityRole="button"
+            accessibilityLabel={`Elegir la fecha de vencimiento de ${titulo} con el calendario`}
+          >
+            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+            <Text style={styles.botonCalendarioTexto}>{calendarioVisible ? 'Cerrar calendario' : 'Elegir en el calendario'}</Text>
+          </Pressable>
+          {calendarioVisible && (
+            <CalendarioPicker
+              valor={accion.fecha || null}
+              onSeleccionar={(fecha) => {
+                onCambiar({ fecha });
+                setCalendarioVisible(false);
+              }}
             />
-            <TextInput
-              style={[styles.input, styles.inputFecha]}
-              value={accion.fecha}
-              onChangeText={(texto) => onCambiar({ fecha: formatearFechaInput(texto) })}
-              editable={!deshabilitada}
-              keyboardType="number-pad"
-              maxLength={10}
-              placeholder="Vence AAAA-MM-DD"
-              placeholderTextColor={colors.textSecondary}
-              accessibilityLabel={`Fecha de vencimiento de ${titulo}`}
-            />
-          </View>
+          )}
+          {avisoVencido && (
+            <View style={styles.avisoVencido}>
+              <Ionicons name="warning" size={18} color={colors.danger} />
+              <Text style={styles.avisoVencidoTexto}>{avisoVencido}</Text>
+            </View>
+          )}
         </>
       )}
     </View>
@@ -526,7 +677,7 @@ const crearEstilos = () =>
     fontStyle: 'italic',
   },
   tarjeta: {
-    gap: spacing.xs,
+    gap: spacing.sm,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -581,8 +732,100 @@ const crearEstilos = () =>
     minWidth: 64,
     textAlign: 'center',
   },
-  inputFecha: {
-    width: 130,
+  // Marca y fecha: letra y alto normales (con la letra chica de la
+  // cantidad quedaban difíciles de tocar).
+  inputGrande: {
+    ...typography.body,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  botonCalendario: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  botonCalendarioActivo: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  botonCalendarioTexto: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  medidor: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    height: 34,
+  },
+  medidorBarra: {
+    width: 8,
+    borderRadius: 4,
+    backgroundColor: colors.border,
+  },
+  medidorBarraPrendida: {
+    backgroundColor: colors.primary,
+  },
+  vozBaja: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  escribirEnlace: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  escribirEnlaceTexto: {
+    ...typography.bodyMedium,
+    color: colors.primary,
+  },
+  inputEscrito: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  cartelAudio: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  cartelAudioRuido: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warningLight,
+  },
+  cartelAudioTitulo: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  cartelAudioTexto: {
+    ...typography.caption,
+    color: colors.textPrimary,
+  },
+  avisoVencido: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerLight,
+  },
+  avisoVencidoTexto: {
+    ...typography.caption,
+    color: colors.danger,
+    flex: 1,
   },
   opciones: {
     gap: spacing.xs,

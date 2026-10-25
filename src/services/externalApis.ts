@@ -112,9 +112,18 @@ export interface AccionDeVozInterpretada {
 }
 
 // Qué dijo el usuario y qué acciones de ABM se entendieron.
+// Cómo se escuchó el audio según Gemini. Ruido de fondo y habla poco clara
+// van separados: hablar bajo o con acento no es "ruido".
+export interface CalidadDeAudio {
+  ruido_de_fondo: 'ninguno' | 'poco' | 'mucho';
+  habla_poco_clara: boolean;
+}
+
 export interface ComandoDeVozInterpretado {
   transcripcion: string;
   acciones: AccionDeVozInterpretada[];
+  /** null si la función no la mandó (versión anterior) o vino rara. */
+  calidad?: CalidadDeAudio | null;
 }
 
 /**
@@ -137,7 +146,36 @@ export async function interpretarComandoDeVoz(
   return {
     transcripcion: data?.transcripcion ?? '',
     acciones: Array.isArray(data?.acciones) ? data.acciones : [],
+    calidad: leerCalidadDeAudio(data?.calidad_audio),
   };
+}
+
+// Lo mismo que interpretarComandoDeVoz pero ESCRITO de corrido ("2 leches
+// vencen 15/11, 1 kg de papa"), para quien no puede o no quiere hablar en voz
+// alta. Misma función (voz-a-texto) y mismas reglas; no trae calidad de audio.
+export const LARGO_MAXIMO_COMANDO_ESCRITO = 500;
+
+export async function interpretarComandoEscrito(
+  texto: string,
+  productos: ProductoParaVoz[],
+  hoy: string
+): Promise<ComandoDeVozInterpretado> {
+  const { data, error } = await supabase.functions.invoke('voz-a-texto', {
+    body: { texto: texto.trim(), modo: 'comando', productos, hoy },
+  });
+
+  if (error) return lanzarErrorDeFuncion(error);
+  return {
+    transcripcion: data?.transcripcion ?? texto.trim(),
+    acciones: Array.isArray(data?.acciones) ? data.acciones : [],
+    calidad: null,
+  };
+}
+
+function leerCalidadDeAudio(valor: unknown): CalidadDeAudio | null {
+  const c = valor as Partial<CalidadDeAudio> | null | undefined;
+  if (!c || !['ninguno', 'poco', 'mucho'].includes(c.ruido_de_fondo as string)) return null;
+  return { ruido_de_fondo: c.ruido_de_fondo as CalidadDeAudio['ruido_de_fondo'], habla_poco_clara: c.habla_poco_clara === true };
 }
 
 // Resultado de dictar una fecha de vencimiento.

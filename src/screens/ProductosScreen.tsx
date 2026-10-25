@@ -2,6 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BadgeVencimiento } from '../components/BadgeVencimiento';
+import { Button } from '../components/Button';
+import { EsqueletoLista } from '../components/Esqueleto';
+import { FilaDeslizable } from '../components/FilaDeslizable';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { ProductoFormModal } from '../components/ProductoFormModal';
 import { EscanearTicketModal } from '../components/EscanearTicketModal';
@@ -18,15 +22,21 @@ import {
   filtrarProductos,
   formatearFechaCorta,
   eliminarProductosAgotados,
+  eliminarProductosVencidos,
   listarProductos,
   nombreConMarca,
   productosAgotadosLimpiables,
+  productosProximosAVencer,
+  productosVencidos,
+  restaurarProductos,
   productosConVencimiento,
   stockMinimoDelGrupo,
 } from '../services/productos';
 import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
-import { avisar, confirmar } from '../lib/alert';
+import { avisar, avisarConAccion, confirmar } from '../lib/alert';
+import { vibrarToque } from '../lib/vibrar';
+import { celebrar } from '../lib/celebrar';
 import { supabase } from '../lib/supabase';
 import { afectaBorrado, agruparLlamadas, nombreDeCanal } from '../lib/tiempoReal';
 import { useAuth } from '../context/AuthContext';
@@ -179,7 +189,14 @@ export function ProductosScreen({ route, navigation }: Props) {
   }, [productos]);
 
   // Cuántos hay de cada alerta, para el texto de los chips.
-  const cantidadPorVencer = useMemo(() => productosConVencimiento(productos).length, [productos]);
+  // El número del filtro "Por vencer" cuenta solo lo urgente (amarillo y
+  // rojo del semáforo). Antes contaba todo lo que tenía fecha, aunque
+  // venciera en un año, y parecía que había muchas cosas por vencer. La lista
+  // del filtro sigue mostrando todo lo que tiene fecha, lo urgente primero.
+  const cantidadPorVencer = useMemo(
+    () => productosProximosAVencer(productos, undefined, diasAviso).length,
+    [productos, diasAviso],
+  );
 
   // Lo que se ve en la lista: las filas del mismo producto (distinta marca o
   // vencimiento) juntas bajo un solo nombre. Con "Por vencer", se agrupan
@@ -191,6 +208,24 @@ export function ProductosScreen({ route, navigation }: Props) {
     const todos = agruparProductos(productosFiltrados);
     return filtroAlerta === 'stockBajo' ? todos.filter((g) => stockPorProducto.has(g.clave)) : todos;
   }, [productosFiltrados, filtroAlerta, stockPorProducto]);
+
+  // Después de borrar, un cartelito con "Deshacer" (unos segundos) que
+  // vuelve a cargar exactamente lo que se borró.
+  function ofrecerDeshacer(borrados: Producto[], mensaje: string) {
+    if (borrados.length === 0) return;
+    avisarConAccion('Listo', mensaje, {
+      etiqueta: 'Deshacer',
+      alTocar: async () => {
+        try {
+          await restaurarProductos(borrados);
+          await cargar();
+          avisar('Listo', borrados.length === 1 ? 'Se recuperó el producto.' : `Se recuperaron ${borrados.length} productos.`, 'exito');
+        } catch (err) {
+          avisar('Error', err instanceof Error ? err.message : 'No se pudo deshacer.');
+        }
+      },
+    });
+  }
 
   // Agotados sin stock mínimo: se pueden limpiar de una (los que tienen
   // mínimo se dejan, ese 0 es la señal de "hay que reponer").
@@ -207,10 +242,38 @@ export function ProductosScreen({ route, navigation }: Props) {
     if (!confirmado) return;
 
     try {
-      await eliminarProductosAgotados(hogarId);
+      const borrados = await eliminarProductosAgotados(hogarId);
       await cargar();
+      ofrecerDeshacer(borrados, borrados.length === 1 ? 'Se eliminó 1 producto agotado.' : `Se eliminaron ${borrados.length} productos agotados.`);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudieron limpiar los agotados.');
+    }
+  }
+
+  // Vencidos: con el filtro "Por vencer" se pueden borrar todos de una.
+  const vencidos = useMemo(() => productosVencidos(productos), [productos]);
+  const [borrandoVencidos, setBorrandoVencidos] = useState(false);
+
+  async function handleEliminarVencidos() {
+    const confirmado = await confirmar(
+      'Eliminar vencidos',
+      vencidos.length === 1
+        ? '¿Eliminar del hogar 1 producto vencido? No se puede deshacer.'
+        : `¿Eliminar del hogar los ${vencidos.length} productos vencidos? No se puede deshacer.`,
+      'Eliminar',
+    );
+    if (!confirmado) return;
+
+    setBorrandoVencidos(true);
+    try {
+      const borrados = await eliminarProductosVencidos(hogarId);
+      await cargar();
+      if (borrados.length > 0) celebrar('¡Sin vencidos!');
+      ofrecerDeshacer(borrados, borrados.length === 1 ? 'Se eliminó 1 producto vencido.' : `Se eliminaron ${borrados.length} productos vencidos.`);
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudieron eliminar los vencidos.');
+    } finally {
+      setBorrandoVencidos(false);
     }
   }
 
@@ -236,6 +299,7 @@ export function ProductosScreen({ route, navigation }: Props) {
   // HogarMiembrosModal -- se siente inmediato sin esperar el roundtrip.
   async function handleAjustarCantidad(producto: Producto, delta: number) {
     if (ajustandoIds.has(producto.id)) return;
+    vibrarToque();
     setAjustandoIds((actuales) => new Set(actuales).add(producto.id));
 
     const cantidadAnterior = producto.cantidad;
@@ -269,6 +333,7 @@ export function ProductosScreen({ route, navigation }: Props) {
     try {
       await eliminarProducto(producto.id);
       await cargar();
+      ofrecerDeshacer([producto], `Se eliminó "${nombreConMarca(producto)}".`);
     } catch (err) {
       avisar('Error', err instanceof Error ? err.message : 'No se pudo eliminar el producto.');
     }
@@ -285,26 +350,21 @@ export function ProductosScreen({ route, navigation }: Props) {
   // propósito -- ver estadoVencimiento).
   function renderBadgeVencimiento(producto: Producto) {
     const etiqueta = etiquetaVencimiento(producto, undefined, diasAviso);
-    if (!etiqueta) return null;
-    return (
-      <View style={[styles.vencimientoBadge, estadoVencimiento(producto, undefined, diasAviso) === 'vencido' && styles.vencimientoBadgeVencido]}>
-        <Text style={styles.vencimientoBadgeTexto} numberOfLines={1}>
-          {etiqueta}
-        </Text>
-      </View>
-    );
+    const estado = estadoVencimiento(producto, undefined, diasAviso);
+    if (!etiqueta || !estado) return null;
+    return <BadgeVencimiento estado={estado} etiqueta={etiqueta} style={styles.vencimientoBadge} />;
   }
 
   // Alerta de stock mínimo: va en el encabezado del producto (no en cada
-  // lote) porque se calcula sobre el total. Ámbar (stockStatus.low), distinto
-  // del coral del vencimiento, para que no se confundan.
+  // lote) porque se calcula sobre el total. Violeta con un changuito,
+  // distinto del semáforo de vencimiento, para que no se confundan.
   function renderBadgeStock(clave: string) {
     const stock = stockPorProducto.get(clave);
     const etiqueta = stock ? etiquetaStock(stock.estado, stock.minimo) : null;
     if (!etiqueta) return null;
     return (
       <View style={styles.stockBadge}>
-        <Ionicons name="alert-circle" size={12} color={colors.textPrimary} />
+        <Ionicons name="cart-outline" size={12} color={colors.primaryDark} />
         <Text style={styles.stockBadgeTexto} numberOfLines={1}>
           {etiqueta}
         </Text>
@@ -452,6 +512,23 @@ export function ProductosScreen({ route, navigation }: Props) {
         </ScrollView>
       )}
 
+      {filtroAlerta === 'porVencer' && vencidos.length > 0 && (
+        <Pressable
+          onPress={handleEliminarVencidos}
+          disabled={borrandoVencidos}
+          style={styles.eliminarVencidosButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Eliminar del hogar los ${vencidos.length} productos vencidos`}
+        >
+          {borrandoVencidos ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Ionicons name="trash-outline" size={16} color={colors.white} />
+          )}
+          <Text style={styles.eliminarVencidosTexto}>Eliminar vencidos ({vencidos.length})</Text>
+        </Pressable>
+      )}
+
       {agotados.length > 0 && (
         <Pressable onPress={handleLimpiarAgotados} style={styles.limpiarButton} accessibilityRole="button">
           <Ionicons name="trash-bin-outline" size={16} color={colors.textSecondary} />
@@ -460,7 +537,9 @@ export function ProductosScreen({ route, navigation }: Props) {
       )}
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loader} />
+        <View style={styles.loader}>
+          <EsqueletoLista filas={5} conFoto />
+        </View>
       ) : grupos.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="basket-outline" size={32} color={colors.textSecondary} />
@@ -473,6 +552,22 @@ export function ProductosScreen({ route, navigation }: Props) {
                   ? 'Ningún producto está por debajo de su stock mínimo.'
                   : 'Ningún producto coincide con la búsqueda.'}
           </Text>
+          {/* Hogar vacío: las tres formas de empezar, ahí mismo. */}
+          {productos.length === 0 && (
+            <View style={styles.vacioAcciones}>
+              <Button label="Agregar producto" onPress={handleAgregar} />
+              <View style={styles.vacioFila}>
+                <Pressable onPress={() => setTicketVisible(true)} style={styles.vacioBoton} accessibilityRole="button">
+                  <Ionicons name="receipt-outline" size={20} color={colors.primary} />
+                  <Text style={styles.vacioBotonTexto}>Escanear ticket</Text>
+                </Pressable>
+                <Pressable onPress={() => setVozVisible(true)} style={styles.vacioBoton} accessibilityRole="button">
+                  <Ionicons name="mic-outline" size={20} color={colors.primary} />
+                  <Text style={styles.vacioBotonTexto}>Cargar por voz</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
       ) : (
         <ScrollView style={styles.lista} showsVerticalScrollIndicator={false}>
@@ -502,18 +597,26 @@ export function ProductosScreen({ route, navigation }: Props) {
                   {renderBadgeStock(grupo.clave)}
                 </View>
               </View>
+              {/* Cada lote se puede deslizar: a la izquierda "Usé 1", a la
+                  derecha "Eliminar" (con confirmación, ver handleEliminar). */}
               {grupo.lotes.map((lote, indice) => (
-                <View key={lote.id} style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
-                  <View style={styles.productoInfo}>
-                    <Text style={styles.loteMarca} numberOfLines={1}>
-                      {lote.marca ?? 'Sin marca'}
-                    </Text>
-                    <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
-                    {renderBadgeVencimiento(lote)}
+                <FilaDeslizable
+                  key={lote.id}
+                  onUsarUno={lote.cantidad > 0 ? () => handleAjustarCantidad(lote, -1) : undefined}
+                  onEliminar={() => handleEliminar(lote)}
+                >
+                  <View style={[styles.loteRow, indice > 0 && styles.loteSeparado]}>
+                    <View style={styles.productoInfo}>
+                      <Text style={styles.loteMarca} numberOfLines={1}>
+                        {lote.marca ?? 'Sin marca'}
+                      </Text>
+                      <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
+                      {renderBadgeVencimiento(lote)}
+                    </View>
+                    {renderStepper(lote)}
+                    {renderAcciones(lote)}
                   </View>
-                  {renderStepper(lote)}
-                  {renderAcciones(lote)}
-                </View>
+                </FilaDeslizable>
               ))}
             </View>
           ))}
@@ -542,7 +645,7 @@ export function ProductosScreen({ route, navigation }: Props) {
         onClose={() => setVozVisible(false)}
         onSuccess={async (cantidad) => {
           setVozVisible(false);
-          avisar('Listo', cantidad === 1 ? 'Se aplicó 1 cambio.' : `Se aplicaron ${cantidad} cambios.`);
+          celebrar(cantidad === 1 ? '¡1 cambio listo!' : `¡${cantidad} cambios listos!`);
           await cargar();
         }}
       />
@@ -553,7 +656,7 @@ export function ProductosScreen({ route, navigation }: Props) {
         onClose={() => setTicketVisible(false)}
         onSuccess={async (cantidad) => {
           setTicketVisible(false);
-          avisar('Productos agregados', cantidad === 1 ? 'Se agregó 1 producto del ticket.' : `Se agregaron ${cantidad} productos del ticket.`);
+          celebrar(cantidad === 1 ? '¡1 producto cargado!' : `¡${cantidad} productos cargados!`);
           await cargar();
         }}
       />
@@ -598,6 +701,21 @@ const crearEstilos = () =>
     ...typography.caption,
     color: colors.textSecondary,
   },
+  // Rojo, como el semáforo de "vencido".
+  eliminarVencidosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.danger,
+  },
+  eliminarVencidosTexto: {
+    ...typography.caption,
+    color: colors.white,
+  },
   escanearButton: {
     padding: spacing.xs,
   },
@@ -637,7 +755,7 @@ const crearEstilos = () =>
     color: colors.white,
   },
   loader: {
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
   emptyState: {
     alignItems: 'center',
@@ -648,6 +766,30 @@ const crearEstilos = () =>
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  vacioAcciones: {
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  vacioFila: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  vacioBoton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  vacioBotonTexto: {
+    ...typography.caption,
+    color: colors.primary,
   },
   lista: {
     flex: 1,
@@ -671,25 +813,10 @@ const crearEstilos = () =>
   stepperButton: {
     padding: 2,
   },
-  // RF2/RF3: badge de "próximo a vencer"/"vencido". Usa colors.stockStatus
-  // (ver src/theme/colors.ts) en vez de un color a mano, para no duplicar
-  // los umbrales de color que ya definió el sistema de diseño.
+  // RF2/RF3: badge de vencimiento en colores de semáforo (BadgeVencimiento).
   vencimientoBadge: {
     alignSelf: 'flex-start',
     marginTop: 2,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.stockStatus.critical,
-  },
-  vencimientoBadgeVencido: {
-    backgroundColor: colors.stockStatus.expired,
-  },
-  vencimientoBadgeTexto: {
-    ...typography.caption,
-    color: colors.white,
-    fontSize: 10,
-    lineHeight: 14,
   },
   // Cada producto es una tarjeta con el borde violeta de la app: arriba una
   // franja violeta clara con el producto y su total, abajo sus lotes.
@@ -723,8 +850,8 @@ const crearEstilos = () =>
     alignItems: 'flex-end',
     gap: 2,
   },
-  // Alerta de stock bajo: fondo ámbar claro con borde ámbar y texto oscuro
-  // (blanco sobre ámbar no se lee bien).
+  // Alerta de stock bajo: violeta claro con borde violeta y un changuito,
+  // para no confundirla con el amarillo de "por vencer" del semáforo.
   stockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -733,12 +860,12 @@ const crearEstilos = () =>
     paddingVertical: 1,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.stockStatus.low,
-    backgroundColor: colors.warningLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   stockBadgeTexto: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.primaryDark,
     fontSize: 10,
     lineHeight: 14,
   },
@@ -750,12 +877,14 @@ const crearEstilos = () =>
     backgroundColor: colors.stockStatus.critical,
     borderColor: colors.stockStatus.critical,
   },
+  // Stock bajo en violeta (con un changuito), separado del semáforo de
+  // vencimientos: antes era ámbar y se confundía con "por vencer".
   chipStockBajo: {
-    backgroundColor: colors.stockStatus.low,
-    borderColor: colors.stockStatus.low,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipTextoStockBajo: {
-    color: colors.textPrimary,
+    color: colors.white,
   },
   grupoTotal: {
     ...typography.bodyMedium,

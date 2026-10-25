@@ -114,9 +114,9 @@ function Cartelito({ aviso, onCerrar }: { aviso: AvisoEnPantalla; onCerrar: () =
 
   useEffect(() => {
     Animated.spring(animacion, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
-    const timer = setTimeout(salir, duracionAviso(aviso.tipo));
+    const timer = setTimeout(salir, duracionAviso(aviso.tipo, !!aviso.accion));
     return () => clearTimeout(timer);
-  }, [animacion, salir, aviso.tipo]);
+  }, [animacion, salir, aviso.tipo, aviso.accion]);
 
   return (
     <Animated.View
@@ -143,7 +143,21 @@ function Cartelito({ aviso, onCerrar }: { aviso: AvisoEnPantalla; onCerrar: () =
             </Text>
           )}
         </View>
-        <Ionicons name="close" size={16} color={colors.textSecondary} />
+        {aviso.accion ? (
+          <Pressable
+            onPress={() => {
+              aviso.accion?.alTocar();
+              salir();
+            }}
+            hitSlop={8}
+            style={styles.accion}
+            accessibilityRole="button"
+          >
+            <Text style={styles.accionTexto}>{aviso.accion.etiqueta}</Text>
+          </Pressable>
+        ) : (
+          <Ionicons name="close" size={16} color={colors.textSecondary} />
+        )}
       </Pressable>
     </Animated.View>
   );
@@ -190,6 +204,16 @@ const crearEstilos = () =>
   textos: {
     flex: 1,
     gap: 2,
+  },
+  accion: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryLight,
+  },
+  accionTexto: {
+    ...typography.bodyMedium,
+    color: colors.primaryDark,
   },
   titulo: {
     ...typography.bodyMedium,

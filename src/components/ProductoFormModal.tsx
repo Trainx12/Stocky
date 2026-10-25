@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from './Button';
 import { CalendarioPicker } from './CalendarioPicker';
 import { CatalogoSelectorModal } from './CatalogoSelectorModal';
+import { imagenDeCatalogo } from '../lib/catalogoImagenes';
+import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { avisar } from '../lib/alert';
 import { obtenerFotoBase64 } from '../lib/fotos';
 import { useGrabadorDeVoz } from '../lib/grabacion';
@@ -12,10 +14,12 @@ import { reconocerFechaPorVoz, reconocerVencimientoDeFoto } from '../services/ex
 import type { AudioGrabado } from '../services/externalApis';
 import { fechaDeHoy } from '../services/voz';
 import {
+  avisoProductoVencido,
   crearProducto,
   DIAS_AVISO_POR_DEFECTO,
   editarProducto,
-  formatearFechaInput,
+  fechaDesdeInput,
+  fechaParaMostrar,
   parsearDiasAviso,
   parsearNumero,
 } from '../services/productos';
@@ -51,6 +55,7 @@ interface ProductoFormModalProps {
 export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, producto }: ProductoFormModalProps) {
   const styles = useEstilos(crearEstilos);
   const editando = producto != null;
+  const rellenoInferior = useRellenoInferior();
 
   // En modo "crear": el producto del catálogo elegido (null = todavía no
   // eligió ninguno, el submit queda deshabilitado). En modo "editar" no se
@@ -67,7 +72,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   const [marca, setMarca] = useState('');
   const [cantidad, setCantidad] = useState('0');
   const [stockMinimo, setStockMinimo] = useState('0');
-  // RF2/RF3: fecha de vencimiento cargada a mano (texto libre 'AAAA-MM-DD',
+  // RF2/RF3: fecha de vencimiento ('AAAA-MM-DD' completa; mientras se tipea,
+  // el texto a medias en DD/MM/AAAA, ver fechaDesdeInput;
   // vacío = sin fecha) y si avisar cuando esté próximo a vencer. Default
   // `true` para el toggle, igual que el default de la columna en la base.
   const [fechaVencimiento, setFechaVencimiento] = useState('');
@@ -80,6 +86,8 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
   // Si el CalendarioPicker está desplegado debajo del campo de fecha (ver
   // botón de calendario).
   const [calendarioVisible, setCalendarioVisible] = useState(false);
+  // "Más opciones" desplegado (stock mínimo y avisos de vencimiento).
+  const [masOpciones, setMasOpciones] = useState(false);
   // Leyendo la fecha de una foto del envase (Gemini, ver vencimiento-foto).
   const [leyendoFecha, setLeyendoFecha] = useState(false);
   // Entendiendo una fecha dictada por voz (Gemini, ver voz-a-texto).
@@ -101,13 +109,20 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     } else {
       setCatalogoSeleccionado(null);
       setMarca('');
-      setCantidad('0');
+      // Arranca en 1: si nadie la cambiaba, el producto se cargaba "agotado".
+      setCantidad('1');
       setStockMinimo('0');
       setFechaVencimiento('');
       setAlertaVencimientoHabilitada(true);
       setDiasAviso('');
     }
     setCalendarioVisible(false);
+    // Al editar, se abre si el producto tiene algo de esto distinto de lo
+    // común, para que se vea.
+    setMasOpciones(
+      !!producto &&
+        (producto.stock_minimo > 0 || !producto.alerta_vencimiento_habilitada || producto.dias_aviso_vencimiento != null),
+    );
     setSelectorVisible(false);
     setError(null);
   }, [visible, producto]);
@@ -118,16 +133,11 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     onClose();
   }
 
-  // Cantidad/stock mínimo arrancan en "0" (ver useEffect de arriba). Sin
-  // esto, tocar el campo y escribir un número lo deja pegado adelante del
-  // cero ("05" en vez de "5") porque el input no estaba vacío al empezar a
-  // tipear. Al perder el foco, si quedó vacío (lo borró todo y no escribió
-  // nada) se restaura a "0" -- mismo valor que ya asumía parsearNumero()
-  // para texto vacío, pero mostrado explícito en vez de un input en blanco.
-  function handleFocusNumerico(valor: string, setValor: (v: string) => void) {
-    if (valor === '0') setValor('');
-  }
-
+  // Cantidad y stock mínimo seleccionan su número al tocarlos
+  // (selectTextOnFocus): lo que se escribe lo reemplaza en vez de quedar
+  // pegado ("15" al tocar 5 sobre un "1"). Al perder el foco, si quedó vacío
+  // (lo borró todo y no escribió nada) se restaura a "0" -- mismo valor que
+  // ya asumía parsearNumero() para texto vacío, pero mostrado explícito.
   function handleBlurNumerico(valor: string, setValor: (v: string) => void) {
     if (valor.trim() === '') setValor('0');
   }
@@ -231,7 +241,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
             marca,
             diasAvisoVencimiento: parsearDiasAviso(diasAviso),
           };
-      const resultado = editando ? await editarProducto(producto!.id, datos) : await crearProducto(hogarId, datos);
+      const resultado = editando ? await editarProducto(producto!.id, datos, producto!.fecha_vencimiento) : await crearProducto(hogarId, datos);
       onSuccess(resultado);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
@@ -240,12 +250,16 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
     }
   }
 
-  const puedeSubmitear = editando || catalogoSeleccionado !== null;
+  // Aviso de salud apenas se escribe una fecha que ya pasó (al guardar
+  // igual lo frena crearProducto/editarProducto).
+  const avisoVencido = avisoProductoVencido(fechaVencimiento, producto?.fecha_vencimiento ?? null);
+  const puedeSubmitear = (editando || catalogoSeleccionado !== null) && !avisoVencido;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={handleClose}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           <View style={styles.handle} />
           <ScrollView contentContainerStyle={styles.scrollContenido} keyboardShouldPersistTaps="handled">
             <Text style={styles.title}>{editando ? 'Editar producto' : 'Agregar producto'}</Text>
@@ -256,9 +270,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               // crearse, editar acá cambiaría de qué es el producto sin
               // pasar por el catálogo -- justo lo que este cambio evita.
               <View style={styles.productoElegido}>
-                <View style={styles.productoElegidoFoto}>
-                  <Ionicons name="basket-outline" size={22} color={colors.primary} />
-                </View>
+                <FotoProducto nombre={producto!.nombre} />
                 <View style={styles.productoElegidoTextos}>
                   <Text style={styles.productoElegidoNombre}>{producto!.nombre}</Text>
                   <Text style={styles.productoElegidoDetalle}>
@@ -274,9 +286,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 accessibilityRole="button"
                 accessibilityLabel={catalogoSeleccionado ? `Cambiar producto, elegido ${catalogoSeleccionado.nombre}` : 'Elegir un producto'}
               >
-                <View style={styles.productoElegidoFoto}>
-                  <Ionicons name="basket-outline" size={22} color={colors.primary} />
-                </View>
+                <FotoProducto nombre={catalogoSeleccionado?.nombre} imagenUrl={catalogoSeleccionado?.imagen_url} />
                 {catalogoSeleccionado ? (
                   <View style={styles.productoElegidoTextos}>
                     <Text style={styles.productoElegidoNombre}>{catalogoSeleccionado.nombre}</Text>
@@ -308,22 +318,12 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 <TextInput
                   style={styles.input}
                   keyboardType="decimal-pad"
+                  // Al tocarlo se selecciona el número: lo que se escribe lo reemplaza
+                  // (antes, con un "1", tocar 5 dejaba "15").
+                  selectTextOnFocus
                   value={cantidad}
                   onChangeText={setCantidad}
-                  onFocus={() => handleFocusNumerico(cantidad, setCantidad)}
                   onBlur={() => handleBlurNumerico(cantidad, setCantidad)}
-                  editable={!loading}
-                />
-              </View>
-              <View style={styles.mitad}>
-                <Text style={styles.label}>Stock mínimo</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="decimal-pad"
-                  value={stockMinimo}
-                  onChangeText={setStockMinimo}
-                  onFocus={() => handleFocusNumerico(stockMinimo, setStockMinimo)}
-                  onBlur={() => handleBlurNumerico(stockMinimo, setStockMinimo)}
                   editable={!loading}
                 />
               </View>
@@ -336,16 +336,22 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 botones fuera de la pantalla (incidentes-sprint10.md #14). */}
             <TextInput
               style={styles.input}
-              placeholder="AAAA-MM-DD"
+              placeholder="DD/MM/AAAA"
               placeholderTextColor={colors.textSecondary}
-              value={fechaVencimiento}
+              value={fechaParaMostrar(fechaVencimiento)}
               // Formatea a medida que se tipea: el usuario solo escribe
-              // dígitos, los guiones (AAAA-MM-DD) se insertan solos.
-              onChangeText={(texto) => setFechaVencimiento(formatearFechaInput(texto))}
+              // dígitos, las barras (DD/MM/AAAA) se ponen solas.
+              onChangeText={(texto) => setFechaVencimiento(fechaDesdeInput(texto))}
               keyboardType="number-pad"
               maxLength={10}
               editable={!loading}
             />
+            {avisoVencido && (
+              <View style={styles.avisoVencido}>
+                <Ionicons name="warning" size={18} color={colors.danger} />
+                <Text style={styles.avisoVencidoTexto}>{avisoVencido}</Text>
+              </View>
+            )}
             <View style={styles.filaFecha}>
               <Pressable
                 onPress={() => setCalendarioVisible((visible) => !visible)}
@@ -400,6 +406,39 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               <CalendarioPicker valor={fechaVencimiento || null} onSeleccionar={handleSeleccionarFecha} />
             )}
 
+            {/* Más opciones: lo que casi nunca se toca (stock mínimo y avisos
+                de vencimiento), plegado para que agregar un producto sea
+                elegirlo, poner cantidad y fecha, y listo. */}
+            <Pressable
+              onPress={() => setMasOpciones((v) => !v)}
+              style={styles.masOpciones}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: masOpciones }}
+            >
+              <Text style={styles.masOpcionesTexto}>Más opciones</Text>
+              <Ionicons name={masOpciones ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
+            </Pressable>
+            {!masOpciones && (
+              <Text style={styles.diasAvisoAyuda}>
+                {`Stock mínimo: ${stockMinimo || '0'} · Aviso de vencimiento: ${alertaVencimientoHabilitada ? 'sí' : 'no'}`}
+              </Text>
+            )}
+            {masOpciones && (
+              <>
+              <View>
+                <Text style={styles.label}>Stock mínimo</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="decimal-pad"
+                  // Al tocarlo se selecciona el número: lo que se escribe lo reemplaza
+                  // (antes, con un "1", tocar 5 dejaba "15").
+                  selectTextOnFocus
+                  value={stockMinimo}
+                  onChangeText={setStockMinimo}
+                  onBlur={() => handleBlurNumerico(stockMinimo, setStockMinimo)}
+                  editable={!loading}
+                />
+              </View>
             <View style={styles.switchRow}>
               <Text style={styles.label}>Avisarme cuando esté por vencer</Text>
               <Switch
@@ -418,6 +457,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
                 <TextInput
                   style={[styles.input, styles.diasAvisoInput]}
                   keyboardType="number-pad"
+                  selectTextOnFocus
                   placeholder={String(diasAvisoGeneral)}
                   placeholderTextColor={colors.textSecondary}
                   value={diasAviso}
@@ -436,6 +476,9 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
               </Text>
             )}
 
+              </>
+            )}
+
             {error && <Text style={styles.error}>{error}</Text>}
 
             <Button
@@ -448,6 +491,7 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
           </ScrollView>
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
 
       <CatalogoSelectorModal
         visible={selectorVisible}
@@ -458,6 +502,22 @@ export function ProductoFormModal({ visible, onClose, onSuccess, hogarId, produc
         }}
       />
     </Modal>
+  );
+}
+
+// Foto del producto elegido (la misma del catálogo): confirma de un vistazo
+// que se eligió bien. Sin foto (o sin elegir todavía), la canasta.
+function FotoProducto({ nombre, imagenUrl = null }: { nombre?: string; imagenUrl?: string | null }) {
+  const styles = useEstilos(crearEstilos);
+  const imagen = nombre ? imagenDeCatalogo({ nombre, imagen_url: imagenUrl }) : null;
+  return (
+    <View style={[styles.productoElegidoFoto, !!imagen && styles.productoElegidoFotoConImagen]}>
+      {imagen ? (
+        <Image source={imagen} style={styles.productoElegidoImagen} resizeMode="contain" />
+      ) : (
+        <Ionicons name="basket-outline" size={22} color={colors.primary} />
+      )}
+    </View>
   );
 }
 
@@ -476,6 +536,17 @@ const crearEstilos = () =>
     width: 64,
     textAlign: 'center',
   },
+  masOpciones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+  },
+  masOpcionesTexto: {
+    ...typography.bodyMedium,
+    color: colors.primary,
+  },
   diasAvisoAyuda: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -483,6 +554,19 @@ const crearEstilos = () =>
   grabandoTexto: {
     ...typography.caption,
     color: colors.danger,
+  },
+  avisoVencido: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerLight,
+  },
+  avisoVencidoTexto: {
+    ...typography.caption,
+    color: colors.danger,
+    flex: 1,
   },
   backdrop: {
     flex: 1,
@@ -538,12 +622,20 @@ const crearEstilos = () =>
     marginBottom: spacing.md,
   },
   productoElegidoFoto: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.md,
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  productoElegidoFotoConImagen: {
+    backgroundColor: colors.white,
+  },
+  productoElegidoImagen: {
+    width: '100%',
+    height: '100%',
   },
   productoElegidoTextos: {
     flex: 1,
