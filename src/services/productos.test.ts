@@ -42,6 +42,8 @@ import {
   agruparProductos,
   ajustarCantidadProducto,
   buscarDuplicado,
+  esFrutaOVerdura,
+  textoFechaCarga,
   categoriasEnUso,
   ajustarDiasAviso,
   crearProducto,
@@ -779,6 +781,17 @@ describe('unir duplicados al crear', () => {
     expect(mockInsert).toHaveBeenCalled();
   });
 
+  it('frutas y verduras: cada carga es una fila nueva, no se suma', async () => {
+    const manzana = producto({ id: 'p-manzana', catalogo_id: 'cat-1', nombre: 'Manzana', unidad: 'l', cantidad: 2, categoria: 'Verduras y frutas' });
+    mockOrder.mockResolvedValue({ data: [manzana], error: null });
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, nombre: 'Manzana', categoria: 'Verduras y frutas', cantidad: 3 });
+
+    expect(rpc).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
   it('con cantidad 0 no busca duplicados', async () => {
     mockSingle.mockResolvedValue({ data: {}, error: null });
 
@@ -1145,5 +1158,30 @@ describe('restaurarProductos (Deshacer)', () => {
     from.mockClear();
     await restaurarProductos([]);
     expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe('fecha de carga de frutas y verduras', () => {
+  it('reconoce la categoría sin importar mayúsculas ni tildes', () => {
+    expect(esFrutaOVerdura('Verduras y frutas')).toBe(true);
+    expect(esFrutaOVerdura('verduras Y FRUTAS')).toBe(true);
+    expect(esFrutaOVerdura('Lácteos')).toBe(false);
+    expect(esFrutaOVerdura(null)).toBe(false);
+  });
+
+  it('arma "Cargado el <día> DD/MM/AAAA" en hora local', () => {
+    // 3/11/2026 al mediodía local es martes.
+    const createdAt = new Date(2026, 10, 3, 12, 0).toISOString();
+    expect(textoFechaCarga(createdAt)).toBe('Cargado el martes 03/11/2026');
+  });
+
+  it('devuelve vacío si la fecha es inválida', () => {
+    expect(textoFechaCarga('no-es-fecha')).toBe('');
+  });
+
+  it('a igual producto, ordena los lotes por fecha de carga', () => {
+    const nueva = producto({ id: 'b', nombre: 'Banana', created_at: '2026-11-03T10:00:00Z' });
+    const vieja = producto({ id: 'a', nombre: 'Banana', created_at: '2026-11-01T10:00:00Z' });
+    expect(ordenarLotes([nueva, vieja]).map((p) => p.id)).toEqual(['a', 'b']);
   });
 });

@@ -176,6 +176,25 @@ export function nombreConMarca(producto: Pick<Producto, 'nombre' | 'marca'>): st
   return producto.marca ? `${producto.nombre} · ${producto.marca}` : producto.nombre;
 }
 
+// Categoría del catálogo para frutas y verduras (ver migraciones del
+// catálogo). Se compara sin mayúsculas ni tildes por si se cargó a mano.
+export const CATEGORIA_FRUTAS_Y_VERDURAS = 'Verduras y frutas';
+
+export function esFrutaOVerdura(categoria: string | null | undefined): boolean {
+  return normalizarTexto(categoria) === normalizarTexto(CATEGORIA_FRUTAS_Y_VERDURAS);
+}
+
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+// "Cargado el lunes 03/11/2026": día y fecha (en hora local) en que se cargó
+// el lote. Se arma a mano en vez de con Intl para no depender del soporte de
+// idiomas del motor de JS en el celular.
+export function textoFechaCarga(createdAt: string): string {
+  const fecha = new Date(createdAt);
+  if (Number.isNaN(fecha.getTime())) return '';
+  return `Cargado el ${DIAS_SEMANA[fecha.getDay()]} ${formatearFechaCorta(formatearFechaISO(fecha))}`;
+}
+
 // Busca entre los productos de un hogar uno que sea "el mismo" que el que se
 // está por crear: misma identidad (producto del catálogo, o mismo nombre si
 // no viene de catálogo), misma unidad, misma marca y mismo vencimiento. Si
@@ -239,7 +258,10 @@ export async function crearProducto(hogarId: string, datos: DatosProducto): Prom
   const vencido = avisoProductoVencido(fechaVencimiento);
   if (vencido) throw new Error(vencido);
 
-  if (cantidad > 0) {
+  // Frutas y verduras nunca se suman a una fila existente: cada carga queda
+  // como un lote propio con su fecha de carga, porque lo que importa es
+  // cuánto hace que se compraron (no tienen vencimiento impreso).
+  if (cantidad > 0 && !esFrutaOVerdura(categoria)) {
     const duplicado = buscarDuplicado(await listarProductos(hogarId), {
       nombre,
       catalogoId: datos.catalogoId,
@@ -455,7 +477,10 @@ function compararLotes(a: Producto, b: Producto): number {
     return a.fecha_vencimiento.localeCompare(b.fecha_vencimiento);
   }
   if (!a.marca !== !b.marca) return a.marca ? -1 : 1;
-  return (a.marca ?? '').localeCompare(b.marca ?? '');
+  const porMarca = (a.marca ?? '').localeCompare(b.marca ?? '');
+  if (porMarca !== 0) return porMarca;
+  // Mismo todo (ej. varias cargas de manzanas): la cargada antes primero.
+  return (a.created_at ?? '').localeCompare(b.created_at ?? '');
 }
 
 // Agrupa por nombre (sin distinguir mayúsculas/tildes) y unidad: "3 kg de

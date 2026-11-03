@@ -15,6 +15,7 @@ import {
   ajustarCantidadProducto,
   categoriasEnUso,
   eliminarProducto,
+  esFrutaOVerdura,
   estadoStockDeGrupo,
   estadoVencimiento,
   etiquetaStock,
@@ -31,6 +32,7 @@ import {
   restaurarProductos,
   productosConVencimiento,
   stockMinimoDelGrupo,
+  textoFechaCarga,
 } from '../services/productos';
 import type { EstadoStock } from '../services/productos';
 import type { Producto } from '../types/database';
@@ -610,6 +612,13 @@ export function ProductosScreen({ route, navigation }: Props) {
                       <Text style={styles.loteMarca} numberOfLines={1}>
                         {lote.marca ?? 'Sin marca'}
                       </Text>
+                      {/* Frutas y verduras: cada carga es un lote aparte y se
+                          ve cuándo se cargó (ver crearProducto). */}
+                      {esFrutaOVerdura(lote.categoria) && !!lote.created_at && (
+                        <Text style={styles.loteFechaCarga} numberOfLines={1}>
+                          {textoFechaCarga(lote.created_at)}
+                        </Text>
+                      )}
                       <Text style={styles.productoDetalle}>{detalleLote(lote)}</Text>
                       {renderBadgeVencimiento(lote)}
                     </View>
@@ -906,6 +915,12 @@ const crearEstilos = () =>
   loteMarca: {
     ...typography.caption,
     color: colors.textPrimary,
+  },
+  loteFechaCarga: {
+    ...typography.caption,
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
   },
   productoAcciones: {
     flexDirection: 'row',
