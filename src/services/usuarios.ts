@@ -28,6 +28,7 @@ export interface UsuarioAdmin {
   // En cuántos hogares es miembro aprobado (para dar contexto antes de
   // deshabilitar a alguien).
   cantidadHogares: number;
+  avatarUrl: string | null;
 }
 
 // Todos los usuarios de la plataforma. Si quien llama no es admin, la RPC
@@ -43,6 +44,7 @@ export async function listarUsuarios(): Promise<UsuarioAdmin[]> {
     habilitado: u.habilitado,
     createdAt: u.created_at,
     cantidadHogares: u.cantidad_hogares,
+    avatarUrl: u.avatar_url ?? null,
   }));
 }
 
@@ -69,7 +71,8 @@ export async function cambiarRol(usuarioId: string, rol: RolUsuario): Promise<Us
  * Cuenta propia (pantalla Cuenta, Sprint 10): lo que cualquier usuario
  * puede cambiar de sí mismo. Desde el Sprint 9 la única columna de
  * `usuarios` que el cliente puede editar es `nombre` (más
- * `dias_aviso_vencimiento`, ver services/notificaciones.ts).
+ * `dias_aviso_vencimiento`, ver services/notificaciones.ts, y `avatar_url`,
+ * ver services/avatar.ts).
  */
 
 export const LARGO_MAXIMO_NOMBRE = 60;

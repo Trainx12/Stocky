@@ -14,6 +14,7 @@ jest.mock('../lib/supabase', () => ({ supabase: {} }));
 import type { Producto, ProductoCatalogo } from '../types/database';
 import { crearProducto, editarProducto, eliminarProducto } from './productos';
 import {
+  avisoCalidadAudio,
   accionAplicable,
   aplicarAccionDeVoz,
   armarAccionesDeVoz,
@@ -292,7 +293,7 @@ describe('aplicarAccionDeVoz', () => {
       cantidad: 5,
       stockMinimo: 1,
       alertaVencimientoHabilitada: false,
-    }));
+    }), leche.fecha_vencimiento);
   });
 });
 
@@ -315,5 +316,25 @@ describe('utilidades', () => {
     expect(inventarioParaVoz([producto('p1', 'Leche')])).toEqual([
       { id: 'p1', nombre: 'Leche', marca: null, cantidad: 2, unidad: 'unidad', fecha_vencimiento: null },
     ]);
+  });
+});
+
+describe('avisoCalidadAudio', () => {
+  it('sin datos o con audio bueno no muestra nada', () => {
+    expect(avisoCalidadAudio(null)).toBeNull();
+    expect(avisoCalidadAudio({ ruido_de_fondo: 'ninguno', habla_poco_clara: false })).toBeNull();
+    expect(avisoCalidadAudio({ ruido_de_fondo: 'poco', habla_poco_clara: false })).toBeNull();
+  });
+
+  it('mucho ruido de fondo: cartel de ruido', () => {
+    expect(avisoCalidadAudio({ ruido_de_fondo: 'mucho', habla_poco_clara: false })?.tipo).toBe('ruido');
+    expect(avisoCalidadAudio({ ruido_de_fondo: 'mucho', habla_poco_clara: true })?.tipo).toBe('ruido');
+  });
+
+  it('si la voz costó entenderse pero no había ruido, no lo culpa al ruido', () => {
+    const aviso = avisoCalidadAudio({ ruido_de_fondo: 'ninguno', habla_poco_clara: true });
+    expect(aviso?.tipo).toBe('habla');
+    expect(aviso?.titulo).not.toMatch(/ruido/i);
+    expect(aviso?.texto).not.toMatch(/ruido/i);
   });
 });

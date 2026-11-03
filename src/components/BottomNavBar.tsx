@@ -20,6 +20,17 @@ const ICONS: Record<TabKey, { outline: keyof typeof Ionicons.glyphMap; filled: k
   profile: { outline: 'person-outline', filled: 'person' },
 };
 
+// Nombre de cada botón: se muestra debajo del ícono (el escudo y la lupa no
+// se entendían solos) y es lo que anuncia el lector de pantalla (antes decía
+// "home", "search"... en inglés).
+const NOMBRES: Record<TabKey, string> = {
+  home: 'Inicio',
+  search: 'Buscar',
+  notifications: 'Avisos',
+  admin: 'Admin',
+  profile: 'Cuenta',
+};
+
 interface BottomNavBarProps {
   /** Tab actualmente activo; por ahora solo existe la pantalla Home, así que arranca fijo en 'home'. */
   active?: TabKey;
@@ -78,8 +89,9 @@ export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLee
             onPressOut={() => setPressedTab(null)}
             style={styles.tab}
             // Accesibilidad: que un lector de pantalla anuncie qué botón es.
-            accessibilityRole="button"
-            accessibilityLabel={globito ? `${tab}, ${notificacionesSinLeer} sin leer` : tab}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
+            accessibilityLabel={globito ? `${NOMBRES[tab]}, ${notificacionesSinLeer} sin leer` : NOMBRES[tab]}
           >
             {/* Círculo claro de fondo cuando el tab está activo o siendo presionado, como en el mockup */}
             <View
@@ -94,6 +106,9 @@ export function BottomNavBar({ active = 'home', onTabPress, notificacionesSinLee
                 </View>
               )}
             </View>
+            <Text style={[styles.nombre, isActive && styles.nombreActivo]} numberOfLines={1}>
+              {NOMBRES[tab]}
+            </Text>
           </Pressable>
         );
       })}
@@ -117,12 +132,24 @@ const crearEstilos = () =>
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Píldora detrás del ícono (más baja que el círculo de antes, para que
+  // con el nombre abajo la barra no crezca de más).
   iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 56,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  nombre: {
+    ...typography.caption,
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: 2,
+    color: colors.textSecondary,
+  },
+  nombreActivo: {
+    color: colors.primary,
   },
   iconWrapperHighlighted: {
     backgroundColor: colors.primaryLight,
@@ -130,8 +157,8 @@ const crearEstilos = () =>
   // Numerito de notificaciones sin leer, arriba a la derecha de la campanita.
   globito: {
     position: 'absolute',
-    top: 4,
-    right: 2,
+    top: -4,
+    right: 6,
     minWidth: 18,
     height: 18,
     borderRadius: 9,

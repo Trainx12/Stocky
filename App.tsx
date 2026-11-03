@@ -15,6 +15,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { TemaProvider, useTema } from './src/context/TemaContext';
 import { NotificacionesProvider } from './src/context/NotificacionesContext';
 import { AvisosHost } from './src/components/AvisosHost';
+import { CelebracionHost } from './src/components/CelebracionHost';
 import { RedDeSeguridad } from './src/components/RedDeSeguridad';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
@@ -59,6 +60,7 @@ export default function App() {
             <RedDeSeguridad>
               <RootNavigator />
             </RedDeSeguridad>
+            <CelebracionHost />
             <AvisosHost />
             <BarraDeEstado />
           </NotificacionesProvider>

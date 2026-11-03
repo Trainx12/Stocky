@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
 import { cambiarACuenta, olvidarCuenta, olvidarTodas, siguienteCuenta, listarCuentas } from './cuentas';
+import { borrarMisFotosDePerfil } from './avatar';
 
 // Cierra cualquier sesión de auth-session pendiente al recargar la app en desarrollo.
 WebBrowser.maybeCompleteAuthSession();
@@ -159,7 +160,8 @@ export async function cerrarTodasLasSesiones() {
 /**
  * Borra la cuenta del usuario logueado para siempre (RPC eliminar_mi_cuenta:
  * sale de sus hogares pasando el rol de dueño a otro miembro, borra los
- * hogares que quedan vacíos y el usuario de Auth). Después cierra la sesión
+ * hogares que quedan vacíos y el usuario de Auth), con su foto de perfil
+ * (services/avatar.ts). Después cierra la sesión
  * en este celular, la olvida de "Tus cuentas" y, si había otra cuenta
  * guardada, pasa a esa (igual que signOut).
  */
@@ -168,6 +170,11 @@ export async function eliminarMiCuenta() {
   await correrTareasPrevias();
   const { data } = await supabase.auth.getSession();
   const userId = data.session?.user.id;
+
+  // La foto de perfil se borra antes que la cuenta (después ya no habría
+  // permiso sobre la carpeta, y Supabase no deja borrarla desde SQL). Si
+  // falla, no se sigue: no queda una foto pública de una cuenta borrada.
+  if (userId) await borrarMisFotosDePerfil(userId);
 
   const { error } = await supabase.rpc('eliminar_mi_cuenta');
   if (error) throw error;

@@ -136,6 +136,19 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       '¿Una idea o algo que falló? Tocá "Contanos qué mejorar": lo lee el equipo de Stocky.',
     ],
   },
+  {
+    id: 'atajos',
+    titulo: 'Atajos para ir más rápido',
+    icono: 'flash-outline',
+    resumen: 'Gestos y formas rápidas de cargar que ahorran toques.',
+    pasos: [
+      'En la lista de productos, deslizá un producto hacia la izquierda para restar 1 ("Usé 1").',
+      'Deslizalo hacia la derecha para eliminarlo: te preguntamos antes, para evitar toques sin querer. Después tenés unos segundos para tocar "Deshacer".',
+      'En "Cargar por voz", si no podés hablar en voz alta, tocá "¿Preferís escribirlo?" y escribí todo de corrido: "2 leches que vencen el 15/11 y 1 kg de papa".',
+      'Al elegir un producto del catálogo, tocá la lupita de la foto (o mantené apretado el producto) para verla en grande.',
+    ],
+    consejo: '¿Querés practicar sin miedo? Arriba de esta pantalla tocá "Probar con un hogar de ejemplo".',
+  },
 ];
 
 // Filtra los temas por una búsqueda (sin distinguir mayúsculas ni tildes),

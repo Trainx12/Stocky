@@ -16,7 +16,7 @@
  */
 
 // Versión vigente. Se guarda en usuarios.terminos_version al aceptar.
-export const VERSION_TERMINOS = '2026-10-13';
+export const VERSION_TERMINOS = '2026-10-15';
 
 // Fecha legible de la última actualización (se muestra arriba del texto).
 export const FECHA_TERMINOS = '13 de octubre de 2026';
@@ -44,10 +44,10 @@ export const SECCIONES_TERMINOS: SeccionLegal[] = [
   {
     titulo: '3. Qué información usamos',
     parrafos: [
-      'Datos de tu cuenta: tu nombre y tu correo electrónico, que nos comparte Google al iniciar sesión.',
+      'Datos de tu cuenta: tu nombre y tu correo electrónico, que nos comparte Google al iniciar sesión, y la foto de perfil que elijas subir (es opcional y la podés cambiar o quitar cuando quieras desde Cuenta).',
       'Datos que cargás en la app: los hogares que creás o a los que te unís, sus miembros, los productos de cada hogar (nombre, marca, cantidad, stock mínimo, fecha de vencimiento) y la actividad sobre ellos (quién agregó, modificó o eliminó cada producto).',
       'Comentarios: lo que nos escribís en "Contanos qué mejorar", junto con el tipo de teléfono (Android, iPhone o web) y la versión de la app. Los leen los administradores de Stocky para mejorar la app.',
-      'Fotos y audios: las fotos de tickets y de fechas de vencimiento, y los audios que grabás para cargar productos por voz, se envían a servicios de reconocimiento de texto y de voz (ver punto 6) solo para interpretarlos en ese momento; Stocky no los guarda. Las fotos que adjuntás al sugerir un producto para el catálogo sí se guardan (ver punto 5).',
+      'Fotos y audios: las fotos de tickets y de fechas de vencimiento, y los audios que grabás para cargar productos por voz, se envían a servicios de reconocimiento de texto y de voz (ver punto 6) solo para interpretarlos en ese momento; Stocky no los guarda. Las fotos que adjuntás al sugerir un producto para el catálogo sí se guardan (ver punto 5), igual que tu foto de perfil, si subís una.',
       'Preferencias y notificaciones: tus preferencias de aviso (por ejemplo, con cuántos días de anticipación avisarte de un vencimiento), las notificaciones que te enviamos y, si las activás, un identificador de tu teléfono para mandarte notificaciones.',
     ],
   },
@@ -66,6 +66,7 @@ export const SECCIONES_TERMINOS: SeccionLegal[] = [
       'Si un producto no está en el catálogo, podés sugerirlo, con una foto opcional. Las sugerencias las revisan los administradores de Stocky, que deciden si se aprueban (y pasan a estar disponibles para todos los usuarios) o se rechazan. Pueden corregir el nombre, la categoría o la unidad antes de aprobarlas.',
       'Al enviar una sugerencia o una foto, nos otorgás una licencia gratuita, no exclusiva, por tiempo indefinido y válida en cualquier país para usarla, copiarla, modificarla (por ejemplo, recortarla o achicarla) y mostrarla dentro de Stocky, en su catálogo de productos y en versiones o productos futuros de Stocky. Seguís siendo titular de lo que aportás.',
       'Solo podés enviar fotos que hayas sacado vos o que tengas derecho a compartir, sin personas reconocibles ni datos personales. No envíes contenido ofensivo, ilegal o que infrinja derechos de otros.',
+      'Tu foto de perfil es tuya: Stocky solo la usa para mostrarla dentro de la app (no entra en la licencia de arriba) y la borra cuando la quitás o borrás tu cuenta. Tiene que ser una foto tuya o una imagen que tengas derecho a usar, sin contenido ofensivo, y no puede mostrar a otras personas sin su permiso.',
     ],
   },
   {
@@ -82,7 +83,7 @@ export const SECCIONES_TERMINOS: SeccionLegal[] = [
   {
     titulo: '7. Hogares compartidos',
     parrafos: [
-      'Todo lo que cargás en un hogar lo ven sus demás miembros: los productos, sus cantidades y vencimientos, la actividad (con tu nombre) y la lista de miembros. Tu nombre y tu correo los ve el dueño del hogar al que pedís unirte o que te invita.',
+      'Todo lo que cargás en un hogar lo ven sus demás miembros: los productos, sus cantidades y vencimientos, la actividad (con tu nombre) y la lista de miembros. Tu nombre, tu correo y tu foto de perfil (si subiste una) los ve el dueño del hogar al que pedís unirte o que te invita. Los administradores de Stocky también ven tu nombre, tu correo y tu foto en la lista de usuarios. La foto se guarda con un enlace público: quien tenga ese enlace puede verla.',
       'Si salís de un hogar o te sacan, dejás de ver su información; los productos que cargaste quedan en el hogar.',
     ],
   },
@@ -90,7 +91,7 @@ export const SECCIONES_TERMINOS: SeccionLegal[] = [
     titulo: '8. Tus derechos sobre tus datos',
     parrafos: [
       'De acuerdo con la Ley 25.326 de Protección de Datos Personales, podés pedir acceso a tus datos, que los corrijamos o que los eliminemos, contactando al equipo de Stocky.',
-      'Podés borrar tu cuenta cuando quieras desde Cuenta → "Borrar mi cuenta". Se borran tu perfil, tus notificaciones y tu lugar en cada hogar. Si eras dueño de un hogar con más personas, pasa a ser dueño el miembro más antiguo; los hogares donde estabas solo se borran con todos sus productos. Los productos y la actividad que cargaste en hogares compartidos quedan en esos hogares sin tu nombre, y tus comentarios quedan sin autor.',
+      'Podés borrar tu cuenta cuando quieras desde Cuenta → "Borrar mi cuenta". Se borran tu perfil, tu foto de perfil, tus notificaciones y tu lugar en cada hogar. Si eras dueño de un hogar con más personas, pasa a ser dueño el miembro más antiguo; los hogares donde estabas solo se borran con todos sus productos. Los productos y la actividad que cargaste en hogares compartidos quedan en esos hogares sin tu nombre, y tus comentarios quedan sin autor.',
       'La Agencia de Acceso a la Información Pública, órgano de control de la Ley 25.326, tiene la atribución de atender las denuncias y reclamos que se interpongan con relación al incumplimiento de las normas sobre protección de datos personales.',
     ],
   },

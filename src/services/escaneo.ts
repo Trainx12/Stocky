@@ -222,7 +222,7 @@ export function errorDeCandidato(candidato: CandidatoTicket): string | null {
     return 'La cantidad tiene que ser un número mayor a 0.';
   }
   if (candidato.fechaVencimiento && !fechaDetectadaValida(candidato.fechaVencimiento)) {
-    return 'La fecha de vencimiento no es válida (AAAA-MM-DD).';
+    return 'La fecha de vencimiento no está completa o no existe (DD/MM/AAAA).';
   }
   return null;
 }

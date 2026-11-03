@@ -33,9 +33,17 @@ jest.mock('../lib/supabase', () => ({
 
 import { supabase } from '../lib/supabase';
 import {
+  aFechaISO,
+  restaurarProductos,
+  avisoProductoVencido,
+  fechaDesdeInput,
+  fechaParaMostrar,
+  productosVencidos,
   agruparProductos,
   ajustarCantidadProducto,
   buscarDuplicado,
+  esFrutaOVerdura,
+  textoFechaCarga,
   categoriasEnUso,
   ajustarDiasAviso,
   crearProducto,
@@ -206,15 +214,15 @@ describe('crearProducto', () => {
   });
 
   it('rechaza una fecha de vencimiento con formato inválido sin llamar a Supabase', async () => {
-    await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '31/12/2026' })).rejects.toThrow(
-      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+    await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '31/12/20' })).rejects.toThrow(
+      'La fecha de vencimiento no está completa o no existe (DD/MM/AAAA)',
     );
     expect(from).not.toHaveBeenCalled();
   });
 
   it('rechaza una fecha de vencimiento inexistente (ej: 30 de febrero) sin llamar a Supabase', async () => {
     await expect(crearProducto('hogar-1', { ...datosValidos, fechaVencimiento: '2026-02-30' })).rejects.toThrow(
-      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+      'La fecha de vencimiento no está completa o no existe (DD/MM/AAAA)',
     );
     expect(from).not.toHaveBeenCalled();
   });
@@ -294,8 +302,8 @@ describe('editarProducto', () => {
   });
 
   it('rechaza una fecha de vencimiento inválida sin llamar a Supabase', async () => {
-    await expect(editarProducto('p1', { ...datosValidos, fechaVencimiento: '31/12/2026' })).rejects.toThrow(
-      'La fecha de vencimiento no es válida (formato AAAA-MM-DD)',
+    await expect(editarProducto('p1', { ...datosValidos, fechaVencimiento: '31/12/20' })).rejects.toThrow(
+      'La fecha de vencimiento no está completa o no existe (DD/MM/AAAA)',
     );
     expect(from).not.toHaveBeenCalled();
   });
@@ -773,6 +781,17 @@ describe('unir duplicados al crear', () => {
     expect(mockInsert).toHaveBeenCalled();
   });
 
+  it('frutas y verduras: cada carga es una fila nueva, no se suma', async () => {
+    const manzana = producto({ id: 'p-manzana', catalogo_id: 'cat-1', nombre: 'Manzana', unidad: 'l', cantidad: 2, categoria: 'Verduras y frutas' });
+    mockOrder.mockResolvedValue({ data: [manzana], error: null });
+    mockSingle.mockResolvedValue({ data: {}, error: null });
+
+    await crearProducto('hogar-1', { ...datosValidos, nombre: 'Manzana', categoria: 'Verduras y frutas', cantidad: 3 });
+
+    expect(rpc).not.toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
   it('con cantidad 0 no busca duplicados', async () => {
     mockSingle.mockResolvedValue({ data: {}, error: null });
 
@@ -830,7 +849,7 @@ describe('productosAgotadosLimpiables', () => {
 });
 
 describe('eliminarProductosAgotados', () => {
-  it('borra por hogar con cantidad 0 y stock mínimo 0 y devuelve cuántos borró', async () => {
+  it('borra por hogar con cantidad 0 y stock mínimo 0 y devuelve los que borró', async () => {
     const mockSelectIds = jest.fn().mockResolvedValue({ data: [{ id: 'a' }, { id: 'b' }], error: null });
     const eqStock = jest.fn(() => ({ select: mockSelectIds }));
     const eqCantidad = jest.fn(() => ({ eq: eqStock }));
@@ -841,7 +860,8 @@ describe('eliminarProductosAgotados', () => {
     expect(mockDeleteEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
     expect(eqCantidad).toHaveBeenCalledWith('cantidad', 0);
     expect(eqStock).toHaveBeenCalledWith('stock_minimo', 0);
-    expect(borrados).toBe(2);
+    // Devuelve las filas borradas, para poder deshacerlo.
+    expect(borrados.map((p) => p.id)).toEqual(['a', 'b']);
   });
 });
 
@@ -1039,5 +1059,129 @@ describe('ajustarDiasAviso', () => {
   it('no baja de 1 ni sube de 60', () => {
     expect(ajustarDiasAviso(1, -1)).toBe(1);
     expect(ajustarDiasAviso(60, 1)).toBe(60);
+  });
+});
+
+describe('avisoProductoVencido', () => {
+  const HOY_AVISO = new Date(2026, 9, 22, 15, 0);
+
+  it('frena una fecha que ya pasó, con un aviso de salud', () => {
+    const aviso = avisoProductoVencido('2026-10-21', null, HOY_AVISO);
+    expect(aviso).toContain('venció el 21/10/2026');
+    expect(aviso).toContain('Por tu salud');
+  });
+
+  it('deja cargar lo que vence hoy o más adelante, y sin fecha', () => {
+    expect(avisoProductoVencido('2026-10-22', null, HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido('2027-01-01', null, HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido('', null, HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido(null, null, HOY_AVISO)).toBeNull();
+  });
+
+  it('editar un producto que ya estaba vencido sin tocar la fecha se permite', () => {
+    expect(avisoProductoVencido('2026-10-01', '2026-10-01', HOY_AVISO)).toBeNull();
+    expect(avisoProductoVencido('2026-09-30', '2026-10-01', HOY_AVISO)).not.toBeNull();
+  });
+});
+
+describe('crearProducto con fecha vencida', () => {
+  it('no llega a la base', async () => {
+    from.mockClear();
+    await expect(crearProducto('h1', { ...datosValidos, fechaVencimiento: '2020-01-01' })).rejects.toThrow('Por tu salud');
+    expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe('etiquetaVencimiento (semáforo: también lo que está bien)', () => {
+  const HOY_SEMAFORO = new Date(2026, 9, 22, 10, 0);
+  const conFecha = (fecha: string) =>
+    ({ fecha_vencimiento: fecha, alerta_vencimiento_habilitada: true, dias_aviso_vencimiento: null }) as const;
+
+  it('si falta más que los días de aviso, igual dice cuánto falta (badge verde)', () => {
+    expect(estadoVencimiento(conFecha('2026-11-11'), HOY_SEMAFORO)).toBe('ok');
+    expect(etiquetaVencimiento(conFecha('2026-11-11'), HOY_SEMAFORO)).toBe('Vence en 20 días');
+  });
+
+  it('si falta mucho, muestra la fecha', () => {
+    expect(etiquetaVencimiento(conFecha('2027-03-10'), HOY_SEMAFORO)).toBe('Vence el 10/03/2027');
+  });
+});
+
+describe('productosVencidos', () => {
+  it('solo lo que venció antes de hoy, tenga o no la alerta prendida', () => {
+    const hoy = new Date(2026, 9, 22, 18, 0);
+    const lista = [
+      { id: 'a', fecha_vencimiento: '2026-10-21', alerta_vencimiento_habilitada: false },
+      { id: 'b', fecha_vencimiento: '2026-10-22', alerta_vencimiento_habilitada: true },
+      { id: 'c', fecha_vencimiento: null, alerta_vencimiento_habilitada: true },
+      { id: 'd', fecha_vencimiento: '2025-01-01', alerta_vencimiento_habilitada: true },
+    ] as unknown as Producto[];
+    expect(productosVencidos(lista, hoy).map((p) => p.id)).toEqual(['a', 'd']);
+  });
+});
+
+describe('fechas en formato argentino (DD/MM/AAAA)', () => {
+  it('pone las barras solas mientras se tipea y guarda AAAA-MM-DD al completarla', () => {
+    expect(fechaDesdeInput('2')).toBe('2');
+    expect(fechaDesdeInput('2110')).toBe('21/10');
+    expect(fechaDesdeInput('21/10/20')).toBe('21/10/20');
+    expect(fechaDesdeInput('21102026')).toBe('2026-10-21');
+    expect(fechaDesdeInput('21/10/2026')).toBe('2026-10-21');
+  });
+
+  it('una fecha que no existe queda escrita (no se convierte)', () => {
+    expect(fechaDesdeInput('30022026')).toBe('30/02/2026');
+  });
+
+  it('muestra en DD/MM/AAAA lo guardado', () => {
+    expect(fechaParaMostrar('2026-10-21')).toBe('21/10/2026');
+    expect(fechaParaMostrar('21/10')).toBe('21/10');
+    expect(fechaParaMostrar(null)).toBe('');
+  });
+
+  it('acepta las dos formas al guardar', () => {
+    expect(aFechaISO('21/10/2026')).toBe('2026-10-21');
+    expect(aFechaISO('2026-10-21')).toBe('2026-10-21');
+  });
+});
+
+describe('restaurarProductos (Deshacer)', () => {
+  it('vuelve a insertar las filas borradas tal cual (mismo id)', async () => {
+    (mockInsert as jest.Mock).mockReturnValueOnce(Promise.resolve({ error: null }));
+    const borrados = [{ id: 'p1', hogar_id: 'h1', nombre: 'Leche', cantidad: 2 }] as unknown as Producto[];
+    await restaurarProductos(borrados);
+    expect(from).toHaveBeenCalledWith('productos');
+    expect(mockInsert).toHaveBeenCalledWith(borrados);
+  });
+
+  it('sin nada para restaurar no llama a la base', async () => {
+    from.mockClear();
+    await restaurarProductos([]);
+    expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe('fecha de carga de frutas y verduras', () => {
+  it('reconoce la categoría sin importar mayúsculas ni tildes', () => {
+    expect(esFrutaOVerdura('Verduras y frutas')).toBe(true);
+    expect(esFrutaOVerdura('verduras Y FRUTAS')).toBe(true);
+    expect(esFrutaOVerdura('Lácteos')).toBe(false);
+    expect(esFrutaOVerdura(null)).toBe(false);
+  });
+
+  it('arma "Cargado el <día> DD/MM/AAAA" en hora local', () => {
+    // 3/11/2026 al mediodía local es martes.
+    const createdAt = new Date(2026, 10, 3, 12, 0).toISOString();
+    expect(textoFechaCarga(createdAt)).toBe('Cargado el martes 03/11/2026');
+  });
+
+  it('devuelve vacío si la fecha es inválida', () => {
+    expect(textoFechaCarga('no-es-fecha')).toBe('');
+  });
+
+  it('a igual producto, ordena los lotes por fecha de carga', () => {
+    const nueva = producto({ id: 'b', nombre: 'Banana', created_at: '2026-11-03T10:00:00Z' });
+    const vieja = producto({ id: 'a', nombre: 'Banana', created_at: '2026-11-01T10:00:00Z' });
+    expect(ordenarLotes([nueva, vieja]).map((p) => p.id)).toEqual(['a', 'b']);
   });
 });

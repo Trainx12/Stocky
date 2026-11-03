@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,10 +13,15 @@ import { useTema } from '../context/TemaContext';
 import type { ModoTema } from '../context/TemaContext';
 import { cerrarTodasLasSesiones, eliminarMiCuenta, signInWithGoogle, signOut } from '../services/auth';
 import { ComentarioModal } from '../components/ComentarioModal';
+import { Avatar } from '../components/Avatar';
+import { FotoAmpliadaModal } from '../components/FotoAmpliadaModal';
 import { esCuentaProtegida } from '../services/admin';
 import { cambiarACuenta, listarCuentas } from '../services/cuentas';
 import type { ResumenCuenta } from '../services/cuentas';
 import { actualizarMiNombre, inicialDe, LARGO_MAXIMO_NOMBRE } from '../services/usuarios';
+import { ANCHO_AVATAR, cambiarMiAvatar, quitarMiAvatar } from '../services/avatar';
+import { obtenerFotoBase64 } from '../lib/fotos';
+import type { OrigenFoto } from '../lib/fotos';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
 import { useEstilos } from '../theme/useEstilos';
@@ -34,7 +39,8 @@ const MODOS: { valor: ModoTema; etiqueta: string; icono: keyof typeof Ionicons.g
 /**
  * Cuenta y configuración (botón de la persona en la barra de abajo,
  * Sprint 10). Reúne todo lo de la cuenta en un solo lugar:
- *   - Perfil: nombre (editable), email y rol.
+ *   - Perfil: foto (galería, cámara o archivo en la web), nombre
+ *     (editable), email y rol.
  *   - Cuentas: varias cuentas en el mismo celular, como Instagram; tocar
  *     otra cambia a ella sin volver a pasar por Google (services/cuentas.ts).
  *   - Apariencia: modo claro / oscuro / el del sistema (TemaContext).
@@ -56,6 +62,8 @@ export function CuentaScreen({ navigation }: Props) {
   const [guardandoNombre, setGuardandoNombre] = useState(false);
   const [comentarioVisible, setComentarioVisible] = useState(false);
   const [borrando, setBorrando] = useState(false);
+  const [cargandoFoto, setCargandoFoto] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(false);
 
   const userIdActual = session?.user.id;
   const email = usuario?.email ?? session?.user.email ?? '';
@@ -119,6 +127,39 @@ export function CuentaScreen({ navigation }: Props) {
     }
   }
 
+  // Foto de perfil: se elige, se achica (lib/fotos.ts) y se sube enseguida
+  // (services/avatar.ts). La vieja se borra sola.
+  async function handleElegirFoto(origen: OrigenFoto) {
+    if (!usuario) return;
+    setCargandoFoto(true);
+    try {
+      const foto = await obtenerFotoBase64(origen, ANCHO_AVATAR);
+      if (!foto) return;
+      await cambiarMiAvatar(usuario, foto);
+      await refreshUsuario();
+      avisar('Foto actualizada', 'Así te van a ver en tus hogares.', 'exito');
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo cambiar la foto.');
+    } finally {
+      setCargandoFoto(false);
+    }
+  }
+
+  async function handleQuitarFoto() {
+    if (!usuario) return;
+    const confirmado = await confirmar('Quitar foto', 'Vas a volver a mostrarte con la inicial de tu nombre.', 'Quitar foto');
+    if (!confirmado) return;
+    setCargandoFoto(true);
+    try {
+      await quitarMiAvatar(usuario);
+      await refreshUsuario();
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo quitar la foto.');
+    } finally {
+      setCargandoFoto(false);
+    }
+  }
+
   async function handleCerrarSesion() {
     const otras = cuentas.filter((c) => c.userId !== userIdActual).length;
     const confirmado = await confirmar(
@@ -155,7 +196,7 @@ export function CuentaScreen({ navigation }: Props) {
   async function handleBorrarCuenta() {
     const primera = await confirmar(
       'Borrar mi cuenta',
-      'Se borran tu perfil, tus notificaciones y tu lugar en cada hogar. Si sos dueño de un hogar con más personas, ' +
+      'Se borran tu perfil, tu foto, tus notificaciones y tu lugar en cada hogar. Si sos dueño de un hogar con más personas, ' +
         'pasa a ser dueño el miembro más antiguo; los hogares donde estás solo se borran con todos sus productos.',
       'Continuar',
     );
@@ -181,7 +222,7 @@ export function CuentaScreen({ navigation }: Props) {
     if (tab === 'home') navigation.navigate('Home');
     else if (tab === 'notifications') navigation.navigate('Notificaciones');
     else if (tab === 'admin') navigation.navigate('Admin');
-    else if (tab === 'search') navigation.navigate('Home');
+    else if (tab === 'search') navigation.navigate('Home', { abrirBuscador: true });
   }
 
   const otrasCuentas = cuentas.filter((c) => c.userId !== userIdActual);
@@ -195,9 +236,15 @@ export function CuentaScreen({ navigation }: Props) {
         {/* Perfil */}
         <View style={styles.tarjeta}>
           <View style={styles.perfil}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarTexto}>{inicialDe(usuario?.nombre ?? null, email)}</Text>
-            </View>
+            {/* Tocar la foto la muestra en grande (si hay una). */}
+            <Pressable
+              onPress={() => setFotoAmpliada(true)}
+              disabled={!usuario?.avatar_url}
+              accessibilityRole={usuario?.avatar_url ? 'button' : 'image'}
+              accessibilityLabel={usuario?.avatar_url ? 'Ver tu foto en grande' : 'Tu foto de perfil'}
+            >
+              <Avatar url={usuario?.avatar_url} nombre={usuario?.nombre} email={email} tamano={72} variante="fuerte" />
+            </Pressable>
             <View style={styles.perfilTextos}>
               {editandoNombre ? (
                 <TextInput
@@ -254,6 +301,43 @@ export function CuentaScreen({ navigation }: Props) {
               >
                 <Ionicons name="pencil-outline" size={20} color={colors.textSecondary} />
               </Pressable>
+            )}
+          </View>
+          <View style={styles.fotoAcciones}>
+            {cargandoFoto ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => handleElegirFoto('galeria')}
+                  disabled={!usuario}
+                  style={styles.fotoBoton}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name={Platform.OS === 'web' ? 'cloud-upload-outline' : 'images-outline'} size={16} color={colors.primary} />
+                  <Text style={styles.fotoBotonTexto}>
+                    {Platform.OS === 'web' ? 'Subir foto' : usuario?.avatar_url ? 'Cambiar foto' : 'Elegir foto'}
+                  </Text>
+                </Pressable>
+                {/* En la web "Subir foto" ya deja usar la cámara del celular. */}
+                {Platform.OS !== 'web' && (
+                  <Pressable
+                    onPress={() => handleElegirFoto('camara')}
+                    disabled={!usuario}
+                    style={styles.fotoBoton}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="camera-outline" size={16} color={colors.primary} />
+                    <Text style={styles.fotoBotonTexto}>Sacar foto</Text>
+                  </Pressable>
+                )}
+                {!!usuario?.avatar_url && (
+                  <Pressable onPress={handleQuitarFoto} style={styles.fotoBoton} accessibilityRole="button">
+                    <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                    <Text style={[styles.fotoBotonTexto, styles.textoPeligro]}>Quitar foto</Text>
+                  </Pressable>
+                )}
+              </>
             )}
           </View>
         </View>
@@ -416,6 +500,12 @@ export function CuentaScreen({ navigation }: Props) {
         <ComentarioModal visible={comentarioVisible} onClose={() => setComentarioVisible(false)} usuarioId={usuario.id} />
       )}
 
+      <FotoAmpliadaModal
+        imagen={fotoAmpliada && usuario?.avatar_url ? { uri: usuario.avatar_url } : null}
+        titulo={usuario?.nombre ?? email}
+        onClose={() => setFotoAmpliada(false)}
+      />
+
       <BottomNavBar active="profile" onTabPress={handleTabPress} notificacionesSinLeer={noLeidas} />
     </ScreenContainer>
   );
@@ -492,17 +582,26 @@ const crearEstilos = () =>
       gap: spacing.md,
       paddingVertical: spacing.sm,
     },
-    avatar: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: colors.primary,
+    fotoAcciones: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
-      justifyContent: 'center',
+      gap: spacing.sm,
+      paddingBottom: spacing.sm,
     },
-    avatarTexto: {
-      ...typography.h2,
-      color: colors.white,
+    fotoBoton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+    },
+    fotoBotonTexto: {
+      ...typography.caption,
+      color: colors.primary,
     },
     perfilTextos: {
       flex: 1,

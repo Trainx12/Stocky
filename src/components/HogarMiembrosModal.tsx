@@ -22,6 +22,7 @@ import {
   responderSolicitud,
 } from '../services/hogares';
 import type { MiembroHogar, SolicitudPendiente } from '../services/hogares';
+import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, fontSize, radius, spacing, typography } from '../theme';
@@ -219,9 +220,12 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
                   {solicitudes.map((solicitud) => (
                     <View key={solicitud.usuarioId} style={styles.rowContainer}>
                       <View style={styles.row}>
-                        <Text style={styles.rowNombre} numberOfLines={1}>
-                          {solicitud.nombre ?? solicitud.email}
-                        </Text>
+                        <View style={styles.rowTextos}>
+                          <Avatar url={solicitud.avatarUrl} nombre={solicitud.nombre} email={solicitud.email} tamano={32} />
+                          <Text style={styles.rowNombre} numberOfLines={1}>
+                            {solicitud.nombre ?? solicitud.email}
+                          </Text>
+                        </View>
                         <View style={styles.solicitudAcciones}>
                           <Pressable
                             onPress={() => handleResponderSolicitud(solicitud, true)}
@@ -254,6 +258,7 @@ export function HogarMiembrosModal({ visible, onClose, hogarId, hogarNombre, usu
                     <View key={miembro.usuarioId} style={styles.rowContainer}>
                       <View style={styles.row}>
                         <View style={styles.rowTextos}>
+                          <Avatar url={miembro.avatarUrl} nombre={miembro.nombre} email={miembro.email} tamano={32} />
                           <Text style={styles.rowNombre} numberOfLines={1}>
                             {miembro.nombre ?? miembro.email}
                           </Text>

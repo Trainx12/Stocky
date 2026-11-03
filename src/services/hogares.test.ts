@@ -270,7 +270,7 @@ describe('listarMiembrosDeHogar', () => {
           rol: 'dueno',
           puede_editar: false,
           estado: 'aprobado',
-          usuarios: { nombre: 'Julieta', email: 'julieta@test.com' },
+          usuarios: { nombre: 'Julieta', email: 'julieta@test.com', avatar_url: 'https://x/avatares/u-1/1.jpg' },
         },
         {
           usuario_id: 'u-2',
@@ -295,8 +295,8 @@ describe('listarMiembrosDeHogar', () => {
     expect(from).toHaveBeenCalledWith('hogar_miembros');
     expect(mockEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
     expect(resultado).toEqual([
-      { usuarioId: 'u-1', rol: 'dueno', puedeEditar: false, nombre: 'Julieta', email: 'julieta@test.com' },
-      { usuarioId: 'u-2', rol: 'invitado', puedeEditar: true, nombre: null, email: 'nuevo@test.com' },
+      { usuarioId: 'u-1', rol: 'dueno', puedeEditar: false, nombre: 'Julieta', email: 'julieta@test.com', avatarUrl: 'https://x/avatares/u-1/1.jpg' },
+      { usuarioId: 'u-2', rol: 'invitado', puedeEditar: true, nombre: null, email: 'nuevo@test.com', avatarUrl: null },
     ]);
   });
 
@@ -317,7 +317,7 @@ describe('listarMiembrosDeHogar', () => {
 
     const resultado = await listarMiembrosDeHogar('hogar-1');
 
-    expect(resultado).toEqual([{ usuarioId: 'u-1', rol: 'dueno', puedeEditar: false, nombre: 'Julieta', email: 'julieta@test.com' }]);
+    expect(resultado).toEqual([{ usuarioId: 'u-1', rol: 'dueno', puedeEditar: false, nombre: 'Julieta', email: 'julieta@test.com', avatarUrl: null }]);
   });
 
   it('propaga el error si falla la consulta', async () => {
@@ -354,7 +354,7 @@ describe('listarSolicitudesPendientes', () => {
 
     expect(from).toHaveBeenCalledWith('hogar_miembros');
     expect(mockEq).toHaveBeenCalledWith('hogar_id', 'hogar-1');
-    expect(resultado).toEqual([{ usuarioId: 'u-2', nombre: null, email: 'nuevo@test.com' }]);
+    expect(resultado).toEqual([{ usuarioId: 'u-2', nombre: null, email: 'nuevo@test.com', avatarUrl: null }]);
   });
 
   it('no incluye una invitación pendiente que el propio dueño mandó por mail (origen "invitacion")', async () => {

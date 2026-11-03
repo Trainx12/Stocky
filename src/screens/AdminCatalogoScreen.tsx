@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/Button';
+import { EvitarTeclado, useRellenoInferior } from '../components/HojaConTeclado';
 import { FotoAmpliadaModal } from '../components/FotoAmpliadaModal';
 import {
   agregarAlCatalogo,
@@ -218,6 +219,7 @@ export function FormularioCatalogo({
 }) {
   const styles = useEstilos(crearEstilos);
   const producto = edicion?.producto ?? null;
+  const rellenoInferior = useRellenoInferior(0);
   const [datos, setDatos] = useState<DatosCatalogo>({ nombre: '', categoria: '', unidad: 'unidad' });
   const [guardando, setGuardando] = useState(false);
   // Foto: `fotoNueva` = elegida y todavía sin guardar (base64); `quitarFoto`
@@ -275,8 +277,9 @@ export function FormularioCatalogo({
 
   return (
     <Modal visible={edicion !== null} transparent animationType="slide" onRequestClose={onClose}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           {/* Deslizable: con la foto, el formulario no entra en pantallas bajas. */}
           <ScrollView contentContainerStyle={styles.sheetContenido} keyboardShouldPersistTaps="handled">
           <Text style={styles.sheetTitulo}>
@@ -382,6 +385,7 @@ export function FormularioCatalogo({
           </ScrollView>
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
     </Modal>
   );
 }

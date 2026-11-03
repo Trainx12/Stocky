@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Constants from 'expo-constants';
 import { Button } from './Button';
+import { EvitarTeclado, useRellenoInferior } from './HojaConTeclado';
 import { enviarComentario, ETIQUETA_TIPO_COMENTARIO, LARGO_MAXIMO_COMENTARIO, validarComentario } from '../services/comentarios';
 import type { TipoComentario } from '../types/database';
 import { avisar } from '../lib/alert';
@@ -24,6 +25,7 @@ const TIPOS: TipoComentario[] = ['idea', 'problema', 'otro'];
  */
 export function ComentarioModal({ visible, onClose, usuarioId }: ComentarioModalProps) {
   const styles = useEstilos(crearEstilos);
+  const rellenoInferior = useRellenoInferior(spacing.lg);
   const [tipo, setTipo] = useState<TipoComentario>('idea');
   const [mensaje, setMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -57,8 +59,9 @@ export function ComentarioModal({ visible, onClose, usuarioId }: ComentarioModal
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <EvitarTeclado>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet}>
+        <Pressable style={[styles.sheet, { paddingBottom: rellenoInferior }]}>
           <View style={styles.handle} />
           <Text style={styles.title}>Contanos qué mejorar</Text>
           <Text style={styles.texto}>Una idea, algo que falló o lo que quieras. Lo lee el equipo de Stocky.</Text>
@@ -96,6 +99,7 @@ export function ComentarioModal({ visible, onClose, usuarioId }: ComentarioModal
           <Button label="Cancelar" variant="outline" onPress={onClose} disabled={enviando} />
         </Pressable>
       </Pressable>
+      </EvitarTeclado>
     </Modal>
   );
 }

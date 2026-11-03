@@ -851,3 +851,93 @@ error y se cae la pantalla.
 sufijo único a cada suscripción. Se usa en los 6 canales de la app (inicio,
 productos, notificaciones y perfil). El nombre no filtra nada (los filtros van
 en `.on`), así que llegan los mismos avisos que antes.
+
+## 29. Carga de productos en el celular: teclado, barra de Android y vencidos
+
+**Reportado por QA (2026-10-22, Android):**
+1. En "Cargar por voz" la marca y la fecha estaban en una sola fila, muy
+   apretadas, y la fecha no tenía botón de calendario.
+2. Los botones de abajo de las hojas (por ejemplo "Grabar de nuevo") quedaban
+   debajo de la barra de navegación del celular (◀ ● ■).
+3. Al escribir (cantidad, marca, fecha), el teclado tapaba el campo.
+4. Se podía cargar un producto ya vencido sin ningún aviso.
+5. "Por vencer" y "Vencido" eran del mismo rojo: parecía que todo estaba vencido.
+
+**Causa de 2 y 3:** Android dibuja la app de borde a borde (también debajo de
+la barra de navegación y del teclado) y las hojas no lo tenían en cuenta.
+
+**Solución:**
+- `HojaConTeclado.tsx`: `EvitarTeclado` (sube la hoja lo que mide el teclado)
+  y `useRellenoInferior` (suma el alto de la barra de navegación al relleno
+  de abajo). Se usa en cargar por voz, agregar/editar producto, escanear
+  ticket, catálogo, comentarios y Admin → Catálogo.
+- Cargar por voz: marca y vencimiento en filas propias con título, letra
+  normal y botón "Calendario".
+- `avisoProductoVencido` (services/productos.ts, con tests): una fecha que ya
+  pasó no se puede cargar, con un aviso de salud. Vale para la carga a mano,
+  por voz y por ticket (lo frenan crearProducto/editarProducto, y los
+  formularios lo muestran apenas se escribe la fecha y desactivan el botón).
+  Editar un producto que ya estaba vencido sin cambiarle la fecha (por
+  ejemplo, para bajarle la cantidad) se sigue pudiendo.
+- `BadgeVencimiento`: semáforo verde (falta), amarillo (por vencer) y rojo
+  (vencido), con un ícono distinto en cada caso. En la lista de productos
+  ahora también se ve el verde ("Vence en 20 días", o la fecha si falta más
+  de dos meses).
+
+## 30. Cargar por voz con mucho ruido de fondo
+
+**Pedido (2026-10-25):** si al cargar por voz hay mucho ruido, avisarle a la
+persona que la interpretación puede fallar y que lea con atención antes de
+confirmar, sin confundir "ruido" con alguien que habla poco claro.
+
+**Cómo se detecta:** lo dice Gemini, que es quien escucha el audio. La función
+`voz-a-texto` (modo comando) devuelve además `calidad_audio`:
+`ruido_de_fondo` ("ninguno" / "poco" / "mucho": sonidos que no son la voz de
+quien habla) y `habla_poco_clara` (la voz cuesta entenderse: baja, rápida,
+lejos del micrófono, mal pronunciada). El prompt las separa a propósito: una
+persona que habla mal en un lugar silencioso es `ruido_de_fondo: "ninguno"`.
+Se descartó medir el volumen con el micrófono: cada celular mide distinto y
+una voz fuerte o cercana se confundiría con ruido.
+
+**En la app:** `avisoCalidadAudio` (services/voz.ts, con tests) arma el cartel
+de la pantalla de revisión: "Había mucho ruido de fondo" (ámbar) solo con
+`ruido_de_fondo: "mucho"`, y "Algunas partes no se entendieron bien" (sin
+mencionar el ruido) si solo la voz fue poco clara. Si la función no manda el
+dato (versión anterior), no se muestra nada.
+
+**Para desplegar:** la app nueva funciona igual con la función vieja (sin
+cartel). Desplegar primero `voz-a-texto` y después publicar la app.
+
+## 31. Catálogo en el celular: tocar un producto abría la foto en vez de elegirlo
+
+**Síntoma (QA, 2026-10-25, Android):** al agregar un producto, tocar un
+producto del catálogo mostraba su foto en grande en vez de elegirlo.
+
+**Causa:** con la vista grande de fotos (FotoAmpliadaModal), la foto pasó a
+ser un botón propio dentro del cuadrito del producto. En el celular la foto
+ocupa casi todo el cuadrito, así que casi siempre se tocaba la foto.
+
+**Solución:** todo el cuadrito (foto incluida) elige el producto. La foto en
+grande se abre con una lupita violeta en la esquina de la foto, o
+manteniendo apretado el producto.
+
+**Lección:** en un elemento que se toca para elegir, no poner otro botón que
+ocupe casi toda su superficie; la acción secundaria va en un botón chico y
+aparte.
+
+## 32. Cargar por voz: el botón del calendario quedaba fuera de la pantalla
+
+**Síntoma (QA, 2026-10-25, Android):** en la revisión de "Cargar por voz" el
+campo de vencimiento ocupaba todo el ancho y el botón "Calendario" quedaba
+cortado a la derecha, fuera de la pantalla.
+
+**Causa:** la misma que en el #14. El campo de texto y el botón estaban en
+la misma fila, y en un celular angosto el campo tiene un ancho mínimo propio
+que empuja al botón hacia afuera. Se repitió al agregar el calendario a esta
+pantalla (#29) sin acordarse del #14.
+
+**Solución:** el campo va a todo el ancho y el botón "Elegir en el
+calendario" abajo, también a todo el ancho.
+
+**Lección:** en un celular, nunca poner un campo de texto que se estira y un
+botón en la misma fila; el botón va abajo.
