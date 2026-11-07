@@ -10,11 +10,12 @@
 // en una fila real de `productos` -- la IA nunca escribe directo en el
 // inventario, mismo criterio que ocr-ticket/vencimiento-foto.
 //
-// Esta función es independiente de ocr-ticket/vencimiento-foto a propósito
-// (no las reusa ni las modifica): esos dos stubs son parte de los 10 sprints
-// planificados del proyecto (RF4), mientras que esta integración es temporal
-// y pensada para borrarse sin tocar ese trabajo. Para eliminarla del todo,
-// ver docs/integracion-arduino-temporal.md.
+// Esta función es independiente de ocr-ticket/vencimiento-foto (no las
+// modifica): esta integración es temporal y pensada para borrarse sin tocar
+// ese trabajo. Solo reusa el helper compartido _shared/gemini.ts (modelos
+// Flash actuales con respaldo), que NO hay que borrar al eliminarla porque lo
+// usan las otras funciones. Para eliminarla del todo, ver
+// docs/integracion-arduino-temporal.md.
 //
 // La llama tanto el servidor Node del Arduino (sin sesión de usuario, manda
 // la anon key a mano como Bearer) como la app (con la sesión del usuario que
@@ -25,6 +26,7 @@
 // pasar el insert según quién llamó.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.0';
 import { corsHeaders } from '../_shared/cors.ts';
+import { consultarGemini } from '../_shared/gemini.ts';
 
 interface CandidatoGemini {
   nombre: string;
@@ -60,56 +62,37 @@ de inventar uno. "marca" y "categoria" van en null si no podés leerlos.
 "unidad" es una de: unidad, kg, g, l, ml, paquete (default "unidad" si no se
 puede determinar). Respondé en español.`;
 
+// Usa el mismo helper que vencimiento-foto/voz-a-texto: modelos Flash
+// actuales con respaldo (gemini-2.5-flash ya no responde).
 async function clasificarConGemini(imagenBase64: string, apiKey: string): Promise<ClasificacionGemini> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-  const respuesta = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ inline_data: { mime_type: 'image/jpeg', data: imagenBase64 } }, { text: PROMPT }],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
+  const esquema = {
+    type: 'OBJECT',
+    properties: {
+      tipo: { type: 'STRING', enum: ['ticket', 'producto'] },
+      productos: {
+        type: 'ARRAY',
+        items: {
           type: 'OBJECT',
           properties: {
-            tipo: { type: 'STRING', enum: ['ticket', 'producto'] },
-            productos: {
-              type: 'ARRAY',
-              items: {
-                type: 'OBJECT',
-                properties: {
-                  nombre: { type: 'STRING' },
-                  marca: { type: 'STRING', nullable: true },
-                  categoria: { type: 'STRING', nullable: true },
-                  unidad: { type: 'STRING', nullable: true },
-                  cantidad: { type: 'NUMBER' },
-                  confianza: { type: 'STRING', enum: ['alta', 'media', 'baja'] },
-                },
-                required: ['nombre'],
-              },
-            },
+            nombre: { type: 'STRING' },
+            marca: { type: 'STRING', nullable: true },
+            categoria: { type: 'STRING', nullable: true },
+            unidad: { type: 'STRING', nullable: true },
+            cantidad: { type: 'NUMBER' },
+            confianza: { type: 'STRING', enum: ['alta', 'media', 'baja'] },
           },
-          required: ['tipo', 'productos'],
+          required: ['nombre'],
         },
       },
-    }),
-  });
-
-  if (!respuesta.ok) {
-    const detalle = await respuesta.text();
-    throw new Error(`Gemini respondió ${respuesta.status}: ${detalle}`);
-  }
-
-  const data = await respuesta.json();
-  const texto = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!texto) throw new Error('Gemini no devolvió contenido.');
-
-  return JSON.parse(texto) as ClasificacionGemini;
+    },
+    required: ['tipo', 'productos'],
+  };
+  return await consultarGemini<ClasificacionGemini>(
+    [{ inline_data: { mime_type: 'image/jpeg', data: imagenBase64 } }, { text: PROMPT }],
+    esquema,
+    apiKey,
+    'arduino-reconocer-foto'
+  );
 }
 
 const UNIDADES_VALIDAS = new Set(['unidad', 'kg', 'g', 'l', 'ml', 'paquete']);
@@ -146,6 +129,7 @@ Deno.serve(async (req: Request) => {
   try {
     clasificacion = await clasificarConGemini(imagen, apiKey);
   } catch (error) {
+    console.error('[arduino-reconocer-foto] Gemini fallo:', error instanceof Error ? error.message : error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Error de Gemini' }), {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
