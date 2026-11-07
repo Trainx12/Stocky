@@ -23,6 +23,7 @@ import { AdminRegistroScreen } from '../screens/AdminRegistroScreen';
 import { TerminosPrevioScreen, TerminosVerScreen, TerminosVista } from '../screens/TerminosScreen';
 import { aceptarTerminos, necesitaAceptarTerminos, registrarAceptacionPendiente } from '../services/terminos';
 import { navegacion } from './navegacion';
+import { ArduinoCandidatosScreen } from '../screens/ArduinoCandidatosScreen';
 import { colors } from '../theme';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
 
@@ -72,6 +73,11 @@ function AppNavigator() {
       <AppStack.Screen name="AdminCatalogo" component={AdminCatalogoScreen} />
       <AppStack.Screen name="AdminComentarios" component={AdminComentariosScreen} />
       <AppStack.Screen name="AdminRegistro" component={AdminRegistroScreen} />
+      {/* INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+          El gateo real es INTEGRACION_ARDUINO_ACTIVA: si está en false,
+          HomeScreen no ofrece ningún acceso a esta pantalla (igual
+          criterio que AdminSugerencias arriba). */}
+      <AppStack.Screen name="ArduinoCandidatos" component={ArduinoCandidatosScreen} />
     </AppStack.Navigator>
   );
 }

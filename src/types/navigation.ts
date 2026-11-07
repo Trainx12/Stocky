@@ -67,6 +67,11 @@ export type AppStackParamList = {
   AdminComentarios: undefined;
   // Admin: registro de acciones de los administradores.
   AdminRegistro: undefined;
+  // INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+  // Bandeja de candidatos detectados por el dispositivo ESP32-CAM, pendientes
+  // de confirmar para un hogar puntual (mismo motivo de ir por parámetro de
+  // navegación que "Productos").
+  ArduinoCandidatos: { hogarId: string; hogarNombre: string };
 };
 
 // Filtros de alerta de ProductosScreen: solo los lotes próximos a vencer

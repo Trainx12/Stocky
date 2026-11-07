@@ -173,6 +173,31 @@ export interface ProductoCatalogo {
 }
 
 /**
+ * INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+ * Espejo de la tabla public.candidatos_arduino (migración
+ * 20261106120000_integracion_arduino_temporal.sql). Para eliminar esta
+ * integración del todo, este tipo (y su entrada en Database.Tables más
+ * abajo) se borran junto con todo lo demás listado en ese doc.
+ */
+export type TipoCandidatoArduino = 'ticket' | 'producto';
+export type ConfianzaCandidatoArduino = 'alta' | 'media' | 'baja';
+export type EstadoCandidatoArduino = 'pendiente' | 'confirmado' | 'descartado';
+
+export interface CandidatoArduino {
+  id: string;
+  hogar_id: string;
+  tipo: TipoCandidatoArduino;
+  nombre: string;
+  marca: string | null;
+  categoria: string | null;
+  unidad: UnidadProducto;
+  cantidad: number;
+  confianza: ConfianzaCandidatoArduino | null;
+  estado: EstadoCandidatoArduino;
+  created_at: string;
+}
+
+/**
  * Truco de tipos: supabase-js chequea `Row`/`Returns` contra
  * `Record<string, unknown>` para saber si el schema es válido, y una
  * `interface` con nombre (a diferencia de un tipo "objeto literal") no
@@ -315,6 +340,13 @@ export interface Database {
         Row: AsRecord<ProductoCatalogo>;
         Insert: Partial<ProductoCatalogo> & Pick<ProductoCatalogo, 'nombre' | 'categoria'>;
         Update: Partial<ProductoCatalogo>;
+        Relationships: [];
+      };
+      // INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+      candidatos_arduino: {
+        Row: AsRecord<CandidatoArduino>;
+        Insert: Partial<CandidatoArduino> & Pick<CandidatoArduino, 'hogar_id' | 'tipo' | 'nombre'>;
+        Update: Partial<CandidatoArduino>;
         Relationships: [];
       };
     };
