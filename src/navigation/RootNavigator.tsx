@@ -9,6 +9,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProductosScreen } from '../screens/ProductosScreen';
 import { AdminSugerenciasScreen } from '../screens/AdminSugerenciasScreen';
+import { ArduinoCandidatosScreen } from '../screens/ArduinoCandidatosScreen';
 import { colors } from '../theme';
 import type { AppStackParamList, AuthStackParamList } from '../types/navigation';
 
@@ -38,6 +39,11 @@ function AppNavigator() {
           sugerencia pendiente ajena) + que HomeScreen ni siquiera ofrece
           el botón para entrar acá si el usuario no es admin. */}
       <AppStack.Screen name="AdminSugerencias" component={AdminSugerenciasScreen} />
+      {/* INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+          El gateo real es INTEGRACION_ARDUINO_ACTIVA: si está en false,
+          HomeScreen no ofrece ningún acceso a esta pantalla (igual
+          criterio que AdminSugerencias arriba). */}
+      <AppStack.Screen name="ArduinoCandidatos" component={ArduinoCandidatosScreen} />
     </AppStack.Navigator>
   );
 }

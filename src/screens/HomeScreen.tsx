@@ -30,6 +30,10 @@ import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+// INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+import * as ImagePicker from 'expo-image-picker';
+import { INTEGRACION_ARDUINO_ACTIVA } from '../config/integracionArduinoTemporal';
+import { reconocerFotoDesdeApp } from '../services/integracionArduinoTemporal';
 
 /**
  * Pantalla principal (dashboard) que ve cualquier usuario logueado al
@@ -61,6 +65,12 @@ export function HomeScreen() {
   // vivían atrás de un long-press sobre "Perfil" en la nav bar).
   const [crearVisible, setCrearVisible] = useState(false);
   const [unirseVisible, setUnirseVisible] = useState(false);
+
+  // INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+  // true mientras se sube la foto sacada desde "Sacar foto de producto" y
+  // Gemini la clasifica (ver handleSacarFotoProducto), para deshabilitar el
+  // botón y no disparar dos subidas con un doble toque.
+  const [sacandoFoto, setSacandoFoto] = useState(false);
 
   // Hogares de los que el usuario ya es miembro (puede ser más de uno).
   // Se muestran en "Tus hogares activos"; se recarga después de
@@ -404,6 +414,61 @@ export function HomeScreen() {
     navigation.navigate('Productos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre, abrirAgregar });
   }
 
+  // INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+  // Mismo criterio que handleIrAProductos: va directo al hogar elegido en
+  // "Cambiar hogar".
+  function handleIrACandidatosArduino() {
+    if (!hogarSeleccionado) {
+      avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder revisar candidatos.');
+      return;
+    }
+    navigation.navigate('ArduinoCandidatos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre });
+  }
+
+  // INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+  // "Sacar foto de producto": variante del flujo del Arduino pero disparada
+  // desde la cámara del propio celular/navegador. Abre la cámara nativa
+  // (expo-image-picker), manda la foto a la MISMA Edge Function
+  // arduino-reconocer-foto (ver reconocerFotoDesdeApp) y, si se guardó al
+  // menos un candidato, navega directo a "Candidatos del Arduino" para que
+  // el usuario lo acepte o descarte ahí mismo -- no hay alta automática,
+  // mismo criterio que el resto de esta integración.
+  async function handleSacarFotoProducto() {
+    if (!hogarSeleccionado) {
+      avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder reconocer un producto.');
+      return;
+    }
+
+    const permiso = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permiso.granted) {
+      avisar('Falta permiso de cámara', 'Stocky necesita acceso a la cámara para reconocer el producto.');
+      return;
+    }
+
+    const resultado = await ImagePicker.launchCameraAsync({
+      base64: true,
+      quality: 0.5,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    });
+    if (resultado.canceled) return;
+
+    const foto = resultado.assets[0];
+    if (!foto.base64) {
+      avisar('Error', 'No se pudo leer la foto tomada.');
+      return;
+    }
+
+    setSacandoFoto(true);
+    try {
+      await reconocerFotoDesdeApp(foto.base64, hogarSeleccionado.id);
+      navigation.navigate('ArduinoCandidatos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre });
+    } catch (err) {
+      avisar('Error', err instanceof Error ? err.message : 'No se pudo analizar la foto.');
+    } finally {
+      setSacandoFoto(false);
+    }
+  }
+
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
   // pantalla como `usuario` del AuthContext (por si `hogar_id` pasó de null
   // a un valor, que es lo que usa el resto de la app como "hogar activo").
@@ -741,6 +806,21 @@ export function HomeScreen() {
                     onPress={() => navigation.navigate('AdminSugerencias')}
                   />
                 )}
+                {/* INTEGRACIÓN ARDUINO (temporal) — ver
+                    docs/integracion-arduino-temporal.md. Únicos puntos de
+                    entrada desde la app; gateados por INTEGRACION_ARDUINO_ACTIVA
+                    para poder ocultarlos sin tocar el resto de esta pantalla. */}
+                {INTEGRACION_ARDUINO_ACTIVA && (
+                  <QuickAccessButton
+                    icon="camera-outline"
+                    label="Sacar foto de producto"
+                    onPress={handleSacarFotoProducto}
+                    loading={sacandoFoto}
+                  />
+                )}
+                {INTEGRACION_ARDUINO_ACTIVA && (
+                  <QuickAccessButton icon="list-outline" label="Candidatos del Arduino" onPress={handleIrACandidatosArduino} />
+                )}
               </View>
             </SectionCard>
           </>
@@ -862,14 +942,18 @@ interface QuickAccessButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  // Reemplaza el ícono por un spinner mientras dura una acción en vuelo
+  // (hoy solo la usa "Sacar foto" -- ver handleSacarFotoProducto -- mientras
+  // se sube la foto y Gemini la clasifica).
+  loading?: boolean;
 }
 
 // Botón cuadrado de acceso rápido (ícono arriba, label abajo). Por ahora
 // todos disparan un placeholder hasta que existan sus pantallas.
-function QuickAccessButton({ icon, label, onPress }: QuickAccessButtonProps) {
+function QuickAccessButton({ icon, label, onPress, loading }: QuickAccessButtonProps) {
   return (
-    <Pressable style={styles.quickAccessButton} onPress={onPress}>
-      <Ionicons name={icon} size={26} color={colors.primary} />
+    <Pressable style={styles.quickAccessButton} onPress={onPress} disabled={loading}>
+      {loading ? <ActivityIndicator color={colors.primary} /> : <Ionicons name={icon} size={26} color={colors.primary} />}
       <Text style={styles.quickAccessLabel}>{label}</Text>
     </Pressable>
   );

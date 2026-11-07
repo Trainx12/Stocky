@@ -26,7 +26,13 @@
     "plugins": [
       "expo-status-bar",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Stocky necesita la cámara para reconocer productos a partir de una foto (integración temporal, ver docs/integracion-arduino-temporal.md)."
+        }
+      ]
     ],
     "extra": {
       "eas": {

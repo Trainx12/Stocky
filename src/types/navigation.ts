@@ -24,4 +24,9 @@ export type AppStackParamList = {
   // pendientes de aprobar/rechazar (ver services/catalogo.ts). Sin
   // parámetros -- lista todo lo pendiente, no es por hogar.
   AdminSugerencias: undefined;
+  // INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+  // Bandeja de candidatos detectados por el dispositivo ESP32-CAM, pendientes
+  // de confirmar para un hogar puntual (mismo motivo de ir por parámetro de
+  // navegación que "Productos").
+  ArduinoCandidatos: { hogarId: string; hogarNombre: string };
 };
