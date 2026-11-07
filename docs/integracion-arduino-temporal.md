@@ -48,6 +48,17 @@ detectó Gemini, y tocar "Cargar al hogar" (ahí sí se llama a `crearProducto`)
 o "Descartar". Mismo criterio que `ocr-ticket`/`vencimiento-foto` del resto
 de la app.
 
+### "Sacar foto de producto" (sin el dispositivo Arduino)
+
+Mismo flujo, pero sin el hardware: un segundo acceso rápido en Home,
+"Sacar foto de producto", abre la cámara del celular/navegador
+(`expo-image-picker`) y manda la foto a la **misma** Edge Function
+`arduino-reconocer-foto`, autenticado con la sesión del usuario (en vez de
+la anon key a mano que usa el servidor Node). Al terminar navega directo a
+"Candidatos del Arduino" para confirmar/descartar ahí mismo. Es parte de
+esta integración temporal (mismo flag, mismo criterio de eliminación), no
+una función aparte.
+
 ## Archivos que agrega o toca
 
 ### Repo Stocky (este repo)
@@ -65,8 +76,13 @@ de la app.
 - `src/screens/ArduinoCandidatosScreen.tsx` — pantalla de confirmación.
 - `src/types/navigation.ts` — ruta `ArduinoCandidatos` (**modificado**).
 - `src/navigation/RootNavigator.tsx` — registra esa pantalla (**modificado**).
-- `src/screens/HomeScreen.tsx` — acceso rápido "Candidatos del Arduino",
-  gateado por `INTEGRACION_ARDUINO_ACTIVA` (**modificado**).
+- `src/screens/HomeScreen.tsx` — accesos rápidos "Sacar foto de producto" y
+  "Candidatos del Arduino", gateados por `INTEGRACION_ARDUINO_ACTIVA`
+  (**modificado**).
+- `app.json` — plugin `expo-image-picker` con el mensaje de permiso de
+  cámara (**modificado**).
+- `package.json`/`package-lock.json` — dependencia `expo-image-picker`
+  (**modificado**).
 
 ### Repo esp32_gemini (servidor Node del Arduino)
 - `proyecto/servidor-node/server.js` — rama nueva en `/boton` que, con
@@ -128,9 +144,13 @@ Cuando ya no haga falta ni como opción desactivada:
 6. En `src/navigation/RootNavigator.tsx`: borrar el import y el
    `<AppStack.Screen name="ArduinoCandidatos" .../>`.
 7. En `src/screens/HomeScreen.tsx`: borrar el import de
-   `INTEGRACION_ARDUINO_ACTIVA`, el botón "Candidatos del Arduino" y
-   `handleIrACandidatosArduino`.
-8. Borrar este archivo (`docs/integracion-arduino-temporal.md`).
+   `INTEGRACION_ARDUINO_ACTIVA` y de `expo-image-picker`, los botones "Sacar
+   foto de producto"/"Candidatos del Arduino", `handleIrACandidatosArduino`,
+   `handleSacarFotoProducto`, el estado `sacandoFoto` y el prop `loading` de
+   `QuickAccessButton` si no lo usa nadie más.
+8. Desinstalar `expo-image-picker` (`npm uninstall expo-image-picker`) y
+   quitar su entrada de `app.json` (`plugins`), si no se usa en otro lado.
+9. Borrar este archivo (`docs/integracion-arduino-temporal.md`).
 
 **En esp32_gemini**:
 1. En `server.js`: borrar el bloque `ARDUINO_INTEGRACION_ACTIVA` (la

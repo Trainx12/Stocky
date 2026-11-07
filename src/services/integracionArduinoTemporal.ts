@@ -14,6 +14,21 @@ import type { CandidatoArduino, Producto, UnidadProducto } from '../types/databa
  * reconocerProductosDeTicket en services/externalApis.ts.
  */
 
+// Variante "desde la app" del mismo flujo que usa el Arduino: el usuario saca
+// la foto con la cámara del celular (ver handleSacarFotoProducto en
+// HomeScreen) y se la manda a la MISMA Edge Function arduino-reconocer-foto,
+// autenticado con su propia sesión (a diferencia del servidor Node, que no
+// tiene sesión de usuario y por eso manda la anon key a mano). La función
+// clasifica ticket/producto igual que siempre y deja los candidatos
+// 'pendiente' en candidatos_arduino -- después se confirman en
+// ArduinoCandidatosScreen, el mismo paso manual que con el Arduino.
+export async function reconocerFotoDesdeApp(imagenBase64: string, hogarId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('arduino-reconocer-foto', {
+    body: { imagen: imagenBase64, hogarId },
+  });
+  if (error) throw error;
+}
+
 export async function listarCandidatosArduinoPendientes(hogarId: string): Promise<CandidatoArduino[]> {
   const { data, error } = await supabase
     .from('candidatos_arduino')
