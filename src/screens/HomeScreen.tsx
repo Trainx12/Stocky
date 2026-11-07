@@ -30,6 +30,8 @@ import type { Hogar, Producto } from '../types/database';
 import { supabase } from '../lib/supabase';
 import { avisar, confirmar } from '../lib/alert';
 import { colors, radius, spacing, typography } from '../theme';
+// INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+import { INTEGRACION_ARDUINO_ACTIVA } from '../config/integracionArduinoTemporal';
 
 /**
  * Pantalla principal (dashboard) que ve cualquier usuario logueado al
@@ -404,6 +406,17 @@ export function HomeScreen() {
     navigation.navigate('Productos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre, abrirAgregar });
   }
 
+  // INTEGRACIÓN ARDUINO (temporal) — ver docs/integracion-arduino-temporal.md.
+  // Mismo criterio que handleIrAProductos: va directo al hogar elegido en
+  // "Cambiar hogar".
+  function handleIrACandidatosArduino() {
+    if (!hogarSeleccionado) {
+      avisar('Todavía no tenés un hogar', 'Creá o unite a un hogar primero para poder revisar candidatos.');
+      return;
+    }
+    navigation.navigate('ArduinoCandidatos', { hogarId: hogarSeleccionado.id, hogarNombre: hogarSeleccionado.nombre });
+  }
+
   // Después de crear un hogar: refresca tanto la lista de hogares de esta
   // pantalla como `usuario` del AuthContext (por si `hogar_id` pasó de null
   // a un valor, que es lo que usa el resto de la app como "hogar activo").
@@ -740,6 +753,13 @@ export function HomeScreen() {
                     label="Sugerencias de productos"
                     onPress={() => navigation.navigate('AdminSugerencias')}
                   />
+                )}
+                {/* INTEGRACIÓN ARDUINO (temporal) — ver
+                    docs/integracion-arduino-temporal.md. Único punto de
+                    entrada desde la app; gateado por INTEGRACION_ARDUINO_ACTIVA
+                    para poder ocultarlo sin tocar el resto de esta pantalla. */}
+                {INTEGRACION_ARDUINO_ACTIVA && (
+                  <QuickAccessButton icon="camera-outline" label="Candidatos del Arduino" onPress={handleIrACandidatosArduino} />
                 )}
               </View>
             </SectionCard>
