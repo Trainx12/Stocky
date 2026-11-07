@@ -16,12 +16,13 @@
 // y pensada para borrarse sin tocar ese trabajo. Para eliminarla del todo,
 // ver docs/integracion-arduino-temporal.md.
 //
-// No necesita verificar sesión de usuario (`verify_jwt = false` en
-// supabase/config.toml): la llama un dispositivo físico sin login, igual que
-// el resto de las Edge Functions de este proyecto reciben la anon key. La
-// escritura en la base se hace con la SERVICE_ROLE_KEY (siempre disponible
-// como secret automático en toda Edge Function) para poder insertar sin
-// depender de que haya un usuario logueado detrás.
+// La llama tanto el servidor Node del Arduino (sin sesión de usuario, manda
+// la anon key a mano como Bearer) como la app (con la sesión del usuario que
+// sacó la foto) -- mismo esquema de autenticación (verify_jwt) que
+// ocr-ticket/vencimiento-foto, ambas válidas como JWT. La escritura en la
+// base se hace con la SERVICE_ROLE_KEY (siempre disponible como secret
+// automático en toda Edge Function) para no depender de que la RLS deje
+// pasar el insert según quién llamó.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.0';
 import { corsHeaders } from '../_shared/cors.ts';
 
